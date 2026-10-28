@@ -4,15 +4,17 @@ Fem AI-agenter per produkt som tillsammans gör och publicerar reklamvideor, sty
 
 | Agent | Vad den gör |
 |---|---|
-| Researchagent | Söker på webben var tredje dag efter hur andra företag gör sina annonser och annonsvideor, och skriver en rapport till promptagenten. |
-| Promptagent | Skriver en videoprompt och texter för varje kanal en gång per dag, beställer videon från Higgsfield (med produktbilden som referens) och lägger den på kontrollsidan. |
+| Researchagent | Söker på webben efter hur andra företag gör sina annonser och annonsvideor och skriver en rapport till promptagenten. Körs när du beställer videor (högst var tredje dag) eller när du trycker Kör research. |
+| Promptagent | Gör de videor du beställer, en i taget: skriver videoprompt och texter för varje kanal, beställer videon från Higgsfield (med produktbilden som referens) och lägger den på kontrollsidan. |
 | Instagram | Publicerar godkända videor som Reels (max en per dag) och skriver svar på kommentarer och DM. |
 | Facebook | Publicerar godkända videor på sidan (max en per dag) och skriver svar på kommentarer och Messenger. |
 | TikTok | Publicerar godkända videor (max en per dag). TikTok har inget API för kommentarssvar. |
 
 Ingenting publiceras innan du har tryckt **Godkänn** på kontrollsidan. Kanaler som inte är kopplade än hamnar under **Lägg upp själv**, där du laddar ner videon och kopierar texten. Svar på kommentarer och DM är utkast som du skickar, tills du slår på autosvar. Klagomål och oklara frågor lämnas alltid åt dig.
 
-Agenterna kör bara när du har tryckt **Start** och stannar när du trycker **Stopp**.
+**Inga pengar spenderas utan att du har bett om det.** Videor och research görs bara när du trycker **Beställ videor** och väljer 1, 3 eller 10 videor. Sidan visar ungefärlig kostnad och frågar en gång till innan beställningen läggs. Högst 10 videor kan ligga i kön, och om något går fel töms kön så att inga fler försök kostar pengar.
+
+Kanalagenterna (Instagram, Facebook, TikTok) startas och stoppas med **Starta**/**Stoppa**. De publicerar bara videor du har godkänt. När Instagram- eller Facebook-agenten är på läser den kommentarer och DM var tionde minut och skriver svarsutkast med Claude, vilket kostar några öre per meddelande.
 
 ## Kostnad per månad (uppskattning)
 
@@ -22,7 +24,7 @@ Agenterna kör bara när du har tryckt **Start** och stannar när du trycker **S
 | Claude API | 100–200 kr |
 | Higgsfield, en video om 10 s per dag (Wan 3.0) | ca 2 kr per video, 60–100 kr |
 
-Taket `MAX_VIDEOS_PER_MONTH` (standard 35) stoppar promptagenten om något skulle gå fel.
+Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (standard 35) är ett extra skydd.
 
 ## Sätta upp på Railway
 
@@ -30,7 +32,7 @@ Taket `MAX_VIDEOS_PER_MONTH` (standard 35) stoppar promptagenten om något skull
 2. Lägg till en **Volume** på tjänsten och montera den på `/data`.
 3. **Settings → Networking → Generate Domain**. Adressen blir din kontrollsida.
 4. Lägg in variablerna nedan under **Variables**. Railway startar om automatiskt.
-5. Öppna adressen, logga in med lösenordet (användarnamnet spelar ingen roll) och tryck **Starta alla**.
+5. Öppna adressen, logga in med lösenordet (användarnamnet spelar ingen roll) och beställ en första video.
 
 ### Variabler
 
@@ -48,7 +50,8 @@ Taket `MAX_VIDEOS_PER_MONTH` (standard 35) stoppar promptagenten om något skull
 | `HIGGSFIELD_MODEL` | nej | Standard `alibaba/wan-3.0/reference-to-video`. |
 | `VIDEO_SECONDS`, `VIDEO_RESOLUTION` | nej | Standard `10` och `720p`. |
 | `MAX_VIDEOS_PER_MONTH` | nej | Standard `35`. |
-| `RESEARCH_EVERY_DAYS` | nej | Standard `3`. |
+| `RESEARCH_EVERY_DAYS` | nej | Hur gammal researchen får vara innan en beställning kör ny. Standard `3`. |
+| `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK` | nej | Kostnaderna som visas på knapparna. Standard `3` och `2`. |
 | `INBOX_EVERY_MINUTES` | nej | Hur ofta kommentarer och DM hämtas. Standard `10`. |
 
 ### Instagram och Facebook

@@ -52,11 +52,17 @@
 <main>
   <div class="row" style="margin-top:16px">
     <select id="product"></select>
-    <button id="startAll">Starta alla</button>
-    <button id="stopAll" class="ghost">Stoppa alla</button>
   </div>
 
+  <h2>Beställ videor</h2>
+  <div class="card" id="order"></div>
+
   <h2>Agenter</h2>
+  <div class="row" style="margin-top:0;margin-bottom:12px">
+    <button id="startAll">Starta kanalerna</button>
+    <button id="stopAll" class="ghost">Stoppa kanalerna</button>
+  </div>
+  <p class="muted">Kanalagenterna lägger bara upp videor du har godkänt. Research och videor körs bara när du beställer.</p>
   <div class="grid" id="agents"></div>
 
   <h2>Väntar på ditt godkännande</h2>
@@ -82,8 +88,8 @@
 
 <script>
 const AGENTS = {
-  research: ["Researchagent", "Studerar andras annonser var tredje dag"],
-  prompt: ["Promptagent", "Gör en video per dag med Higgsfield"],
+  research: ["Researchagent", "Studerar andras annonser när du beställer videor (högst var tredje dag)"],
+  prompt: ["Promptagent", "Gör de videor du beställer, en i taget"],
   instagram: ["Instagram", "Lägger upp Reels och svarar"],
   facebook: ["Facebook", "Lägger upp video och svarar"],
   tiktok: ["TikTok", "Lägger upp video"],
@@ -129,17 +135,35 @@ function render() {
   $("product").innerHTML = state.products.map((p) => `<option value="${p.id}" ${p.id === productId ? "selected" : ""}>${esc(p.name)}</option>`).join("");
   const product = state.products.find((p) => p.id === productId);
 
-  $("agents").innerHTML = Object.keys(AGENTS).map((k) => product.agents.find((a) => a.kind === k)).filter(Boolean).map((a) => `
+  const generatingNow = state.videos.some((v) => v.product_id === productId && v.status === "generating");
+  const ordered = product.queued > 0 || generatingNow;
+  const orderCost = (n) => n * state.cost.video + (product.researchDue ? state.cost.research : 0);
+  $("order").innerHTML = `
+    <div class="muted">Agenterna gör inga videor förrän du beställer. En video kostar ungefär ${state.cost.video} kr${product.researchDue ? `, plus ungefär ${state.cost.research} kr för ny research` : ""}.</div>
+    <div class="row">
+      ${[1, 3, 10].map((n) => `<button class="ghost" onclick="order(${n})">${n} ${n === 1 ? "video" : "videor"} · ca ${orderCost(n)} kr</button>`).join("")}
+    </div>
+    ${ordered ? `<div class="row"><strong>${product.queued} i kön${generatingNow ? ", 1 skapas nu" : ""}</strong>
+      ${product.queued > 0 ? `<button class="danger" onclick="cancelOrder()">Avbryt kön</button>` : ""}</div>` : ""}`;
+
+  const busyAgent = { research: false, prompt: ordered };
+  $("agents").innerHTML = Object.keys(AGENTS).map((k) => product.agents.find((a) => a.kind === k)).filter(Boolean).map((a) => {
+    const channel = a.kind in CHANNEL_NAMES;
+    const on = channel ? a.running : busyAgent[a.kind];
+    return `
     <div class="card">
-      <h3><span class="dot ${a.running ? "on" : ""}"></span>${AGENTS[a.kind][0]}</h3>
+      <h3><span class="dot ${on ? "on" : ""}"></span>${AGENTS[a.kind][0]}</h3>
       <div class="muted">${AGENTS[a.kind][1]}</div>
       <div class="muted">Senast klar: ${time(a.last_run_at)}</div>
       ${a.last_error ? `<div class="err">${esc(a.last_error)}</div>` : ""}
       <div class="row">
-        <button class="${a.running ? "ghost" : ""}" onclick="toggleAgent('${a.kind}', ${a.running ? 0 : 1})">${a.running ? "Stoppa" : "Starta"}</button>
-        <button class="ghost" onclick="runAgent('${a.kind}')">Kör nu</button>
+        ${channel ? `
+          <button class="${a.running ? "ghost" : ""}" onclick="toggleAgent('${a.kind}', ${a.running ? 0 : 1})">${a.running ? "Stoppa" : "Starta"}</button>
+          <button class="ghost" onclick="runAgent('${a.kind}')">Kör nu</button>` : ""}
+        ${a.kind === "research" ? `<button class="ghost" onclick="runResearch()">Kör research · ca ${state.cost.research} kr</button>` : ""}
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 
   const videos = state.videos.filter((v) => v.product_id === productId);
   const pending = videos.filter((v) => v.status === "pending");
@@ -207,6 +231,17 @@ function render() {
 }
 
 async function toggleAgent(kind, running) { await api("POST", `/api/agents/${productId}/${kind}`, { running }); refresh(); }
+async function order(n) {
+  const product = state.products.find((p) => p.id === productId);
+  const cost = n * state.cost.video + (product.researchDue ? state.cost.research : 0);
+  if (!confirm(`Göra ${n} ${n === 1 ? "video" : "videor"} för ungefär ${cost} kr? Pengarna dras från dina API-konton.`)) return;
+  await api("POST", `/api/products/${productId}/order`, { count: n }); refresh();
+}
+async function cancelOrder() { await api("POST", `/api/products/${productId}/order/cancel`); refresh(); }
+async function runResearch() {
+  if (!confirm(`Köra research nu för ungefär ${state.cost.research} kr?`)) return;
+  runAgent("research");
+}
 async function runAgent(kind) { await api("POST", `/api/agents/${productId}/${kind}/run`); setTimeout(refresh, 1500); }
 async function approve(id) {
   const captions = Object.fromEntries(Object.keys(CHANNEL_NAMES).map((ch) => [ch, document.querySelector(`[data-key="cap-${id}-${ch}"]`).value]));

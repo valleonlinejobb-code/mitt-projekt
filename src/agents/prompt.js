@@ -2,9 +2,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { db, now, log, stockholmDate, MEDIA_DIR } from "../db.js";
+import { db, now, log, stockholmDate, getSetting, setSetting, MEDIA_DIR } from "../db.js";
 import { askClaude } from "../claude.js";
-import { startVideo, checkVideo } from "../higgsfield.js";
+import { startVideo, checkVideo, higgsfieldConfigured } from "../higgsfield.js";
 import { latestResearch } from "./research.js";
 
 const MAX_PER_MONTH = Number(process.env.MAX_VIDEOS_PER_MONTH || 35);
@@ -29,11 +29,14 @@ const SCHEMA = {
   },
 };
 
+// Videor görs bara när du har beställt dem på kontrollsidan. Kön sparas per produkt.
+export const queuedVideos = (productId) => getSetting(`video_queue_${productId}`, 0);
+export const setQueuedVideos = (productId, count) => setSetting(`video_queue_${productId}`, Math.max(0, count));
+
+/** Nästa video i kön görs först när den förra är klar, så att högst en video skapas åt gången. */
 export function videoDue(product) {
-  const today = stockholmDate();
-  const videos = db.prepare("SELECT created_at, status FROM videos WHERE product_id = ? ORDER BY id DESC LIMIT 20").all(product.id);
-  if (videos.some((v) => v.status === "generating" || v.status === "pending")) return false; // väntar på dig
-  return !videos.some((v) => v.status !== "failed" && stockholmDate(v.created_at) === today);
+  if (queuedVideos(product.id) <= 0) return false;
+  return !db.prepare("SELECT 1 FROM videos WHERE product_id = ? AND status = 'generating'").get(product.id);
 }
 
 function videosThisMonth() {
@@ -43,19 +46,23 @@ function videosThisMonth() {
 }
 
 export async function createVideo(product) {
+  // Kolla nyckeln innan Claude anropas, så att inga pengar går åt i onödan.
+  if (!higgsfieldConfigured()) throw new Error("HF_API_KEY_ID och HF_API_KEY_SECRET saknas i Railway");
   if (videosThisMonth() >= MAX_PER_MONTH) {
-    log(product.id, "prompt", `Månadens tak på ${MAX_PER_MONTH} videor är nått, väntar till nästa månad.`);
+    setQueuedVideos(product.id, 0);
+    log(product.id, "prompt", `Månadens tak på ${MAX_PER_MONTH} videor är nått. Kön är tömd.`);
     return;
   }
+  setQueuedVideos(product.id, queuedVideos(product.id) - 1);
   const research = latestResearch(product.id);
   const earlier = db.prepare("SELECT idea, status FROM videos WHERE product_id = ? AND idea IS NOT NULL ORDER BY id DESC LIMIT 10").all(product.id);
 
-  log(product.id, "prompt", "Skriver dagens videoprompt…");
+  log(product.id, "prompt", "Skriver videoprompt…");
   const plan = await askClaude({
     schema: SCHEMA,
     effort: "medium",
     system:
-      "Du är promptagent för Agent UF. Du gör en kort, stående (9:16) reklamvideo på 10 sekunder per dag. " +
+      "Du är promptagent för Agent UF. Du gör en kort, stående (9:16) reklamvideo på 10 sekunder. " +
       "Produktbilden skickas med till videomodellen, så produkten ska se ut exakt som på bilden. " +
       "Videoprompten skrivs på engelska och beskriver scen, kamerarörelse, ljus och vad som händer sekund för sekund. " +
       "Ingen text i bild. Texterna till inläggen skrivs på svenska, är korta, har en tydlig uppmaning att köpa i butiken " +
@@ -97,7 +104,8 @@ export async function pollVideos() {
     if (result.status === "waiting") continue;
     if (result.status === "failed") {
       db.prepare("UPDATE videos SET status = 'failed', error = ? WHERE id = ?").run(result.error, video.id);
-      log(video.product_id, "prompt", `Video #${video.id} misslyckades: ${result.error}`);
+      log(video.product_id, "prompt", `Video #${video.id} misslyckades och kön är tömd: ${result.error}`);
+      setQueuedVideos(video.product_id, 0);
       continue;
     }
     const file = `${crypto.randomBytes(12).toString("hex")}.mp4`;

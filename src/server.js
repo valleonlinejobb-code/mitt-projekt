@@ -1,10 +1,19 @@
 // Webbservern: kontrollsidan, dess API och videofilerna som Instagram/Facebook hämtar.
 import express from "express";
 import crypto from "node:crypto";
-import { db, log, getSetting, setSetting, ensureAgents, AGENT_KINDS, CHANNELS, MEDIA_DIR } from "./db.js";
+import { db, log, getSetting, setSetting, ensureAgents, CHANNELS, MEDIA_DIR } from "./db.js";
 import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
 import { higgsfieldConfigured } from "./higgsfield.js";
+import { queuedVideos, setQueuedVideos } from "./agents/prompt.js";
+import { researchDue } from "./agents/research.js";
+
+// Ungefärliga kostnader som visas innan du beställer (kronor).
+const COST = {
+  video: Number(process.env.COST_PER_VIDEO_SEK || 3),
+  research: Number(process.env.COST_PER_RESEARCH_SEK || 2),
+};
+const MAX_ORDER = 10;
 
 const app = express();
 app.use(express.json());
@@ -33,6 +42,8 @@ app.get("/api/state", (_req, res) => {
   const products = all("SELECT * FROM products ORDER BY id").map((p) => ({
     ...p,
     agents: all("SELECT * FROM agents WHERE product_id = ?", p.id),
+    queued: queuedVideos(p.id),
+    researchDue: researchDue(p),
   }));
   res.json({
     products,
@@ -50,6 +61,8 @@ app.get("/api/state", (_req, res) => {
       publicUrl: Boolean(process.env.PUBLIC_URL),
       ...Object.fromEntries(CHANNELS.map((c) => [c, channelConfigured[c]()])),
     },
+    cost: COST,
+    maxOrder: MAX_ORDER,
     settings: {
       auto_reply_instagram: getSetting("auto_reply_instagram", false),
       auto_reply_facebook: getSetting("auto_reply_facebook", false),
@@ -59,10 +72,12 @@ app.get("/api/state", (_req, res) => {
 
 app.post("/api/agents/:productId/:kind", (req, res) => {
   const { productId, kind } = req.params;
-  if (!AGENT_KINDS.includes(kind) && kind !== "all") return res.status(400).json({ error: "Okänd agent" });
+  // Bara kanalagenterna startas och stoppas. Research och video körs när du beställer videor.
+  if (!CHANNELS.includes(kind) && kind !== "all") return res.status(400).json({ error: "Den agenten startas med Beställ videor" });
   const running = req.body.running ? 1 : 0;
-  if (kind === "all") db.prepare("UPDATE agents SET running = ? WHERE product_id = ?").run(running, productId);
-  else db.prepare("UPDATE agents SET running = ? WHERE product_id = ? AND kind = ?").run(running, productId, kind);
+  if (kind === "all") {
+    db.prepare(`UPDATE agents SET running = ? WHERE product_id = ? AND kind IN (${CHANNELS.map(() => "?").join(",")})`).run(running, productId, ...CHANNELS);
+  } else db.prepare("UPDATE agents SET running = ? WHERE product_id = ? AND kind = ?").run(running, productId, kind);
   log(Number(productId), kind, running ? "Startad" : "Stoppad");
   res.json({ ok: true });
 });
@@ -74,6 +89,24 @@ app.post("/api/agents/:productId/:kind/run", (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// Beställ videor: det enda sättet att få agenterna att göra videor (och spendera pengar på dem).
+app.post("/api/products/:id/order", (req, res) => {
+  const product = one("SELECT * FROM products WHERE id = ?", req.params.id);
+  if (!product) return res.status(404).json({ error: "Finns inte" });
+  const count = Number(req.body.count);
+  if (!Number.isInteger(count) || count < 1 || count > MAX_ORDER) return res.status(400).json({ error: `Välj 1–${MAX_ORDER} videor` });
+  if (queuedVideos(product.id) + count > MAX_ORDER) return res.status(400).json({ error: `Högst ${MAX_ORDER} videor i kön åt gången` });
+  setQueuedVideos(product.id, queuedVideos(product.id) + count);
+  log(product.id, "prompt", `Du beställde ${count} ${count === 1 ? "video" : "videor"}.`);
+  res.json({ ok: true });
+});
+
+app.post("/api/products/:id/order/cancel", (req, res) => {
+  setQueuedVideos(Number(req.params.id), 0);
+  log(Number(req.params.id), "prompt", "Beställningen avbröts.");
+  res.json({ ok: true });
 });
 
 app.post("/api/videos/:id/approve", (req, res) => {
