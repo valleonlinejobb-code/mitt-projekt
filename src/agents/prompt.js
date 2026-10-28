@@ -47,7 +47,7 @@ function videosThisMonth() {
 
 export async function createVideo(product) {
   // Kolla nyckeln innan Claude anropas, så att inga pengar går åt i onödan.
-  if (!higgsfieldConfigured()) throw new Error("HF_API_KEY_ID och HF_API_KEY_SECRET saknas i Railway");
+  if (!higgsfieldConfigured()) throw new Error("HF_API_KEY saknas i Railway");
   if (videosThisMonth() >= MAX_PER_MONTH) {
     setQueuedVideos(product.id, 0);
     log(product.id, "prompt", `Månadens tak på ${MAX_PER_MONTH} videor är nått. Kön är tömd.`);

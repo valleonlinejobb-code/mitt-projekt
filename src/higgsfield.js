@@ -2,14 +2,21 @@
 const API = process.env.HIGGSFIELD_API_URL || "https://api.higgsfield.ai";
 const MODEL = process.env.HIGGSFIELD_MODEL || "alibaba/wan-3.0/reference-to-video";
 
-function authHeader() {
+// Nyckeln kan anges som en enda sträng (HF_API_KEY, t.ex. "id:hemlighet") eller som två delar.
+function credentials() {
+  if (process.env.HF_API_KEY) return process.env.HF_API_KEY.trim();
   const id = process.env.HF_API_KEY_ID;
   const secret = process.env.HF_API_KEY_SECRET;
-  if (!id || !secret) throw new Error("HF_API_KEY_ID och HF_API_KEY_SECRET saknas i Railway");
-  return `Key ${id}:${secret}`;
+  return id && secret ? `${id}:${secret}` : null;
 }
 
-export const higgsfieldConfigured = () => Boolean(process.env.HF_API_KEY_ID && process.env.HF_API_KEY_SECRET);
+function authHeader() {
+  const key = credentials();
+  if (!key) throw new Error("HF_API_KEY saknas i Railway");
+  return `Key ${key}`;
+}
+
+export const higgsfieldConfigured = () => Boolean(credentials());
 
 /** Startar en video. Produktbilden skickas med så att videon visar den riktiga produkten. */
 export async function startVideo({ prompt, imageUrl, idempotencyKey }) {

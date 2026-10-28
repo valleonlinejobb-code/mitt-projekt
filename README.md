@@ -42,7 +42,7 @@ Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (stan
 | `DATA_DIR` | ja | `/data` (samma som volymen). |
 | `PUBLIC_URL` | ja | Din Railway-adress, t.ex. `https://agent-uf.up.railway.app`. Instagram och Facebook hämtar videorna därifrån. |
 | `ANTHROPIC_API_KEY` | ja | Från console.anthropic.com → API Keys. |
-| `HF_API_KEY_ID`, `HF_API_KEY_SECRET` | ja | Från Higgsfield API (open.higgsfield.ai) → API keys. Fyll på några dollar i krediter. |
+| `HF_API_KEY` | ja | Från Higgsfield API (open.higgsfield.ai) → Create API key. Klistra in hela nyckeln. (Alternativt `HF_API_KEY_ID` + `HF_API_KEY_SECRET` om du fick två delar.) Fyll på några dollar. |
 | `META_PAGE_ID`, `META_PAGE_TOKEN`, `META_IG_USER_ID` | för IG/FB | Se nedan. |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN` | för TikTok | Se nedan. |
 | `TIKTOK_PRIVACY` | nej | `SELF_ONLY` tills TikTok har granskat appen, sedan `PUBLIC_TO_EVERYONE`. |
