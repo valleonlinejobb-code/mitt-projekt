@@ -12,7 +12,7 @@ Fem AI-agenter per produkt som tillsammans gör och publicerar reklamvideor, sty
 
 Ingenting publiceras innan du har tryckt **Godkänn** på kontrollsidan. Kanaler som inte är kopplade än hamnar under **Lägg upp själv**, där du laddar ner videon och kopierar texten. Svar på kommentarer och DM är utkast som du skickar, tills du slår på autosvar. Klagomål och oklara frågor lämnas alltid åt dig.
 
-**Inga pengar spenderas utan att du har bett om det.** Videor och research görs bara när du trycker **Beställ videor** och väljer 1, 3 eller 10 videor. Sidan visar ungefärlig kostnad och frågar en gång till innan beställningen läggs. Högst 10 videor kan ligga i kön, och om något går fel töms kön så att inga fler försök kostar pengar.
+**Inga pengar spenderas utan att du har bett om det.** Videor och research görs bara när du trycker **Beställ videor** och väljer hur många videor (1–10). Sidan visar ungefärlig kostnad och frågar en gång till innan beställningen läggs. Högst 10 videor kan ligga i kön, och om något går fel töms kön så att inga fler försök kostar pengar.
 
 Kanalagenterna (Instagram, Facebook, TikTok) startas och stoppas med **Starta**/**Stoppa**. De publicerar bara videor du har godkänt. När Instagram- eller Facebook-agenten är på läser den kommentarer och DM var tionde minut och skriver svarsutkast med Claude, vilket kostar några öre per meddelande.
 
