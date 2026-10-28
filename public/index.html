@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent UF – Kontroll</title>
+<style>
+  :root { --bg:#fff; --fg:#111; --muted:#666; --line:#e5e5e5; --card:#fafafa; --ok:#0a7d32; --bad:#c62828; --warn:#b26a00; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b0b0b; --fg:#f2f2f2; --muted:#9a9a9a; --line:#262626; --card:#141414; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid var(--line); }
+  h1 { font-size:20px; margin:0; letter-spacing:-.01em; }
+  h2 { font-size:16px; margin:28px 0 10px; }
+  main { max-width:1100px; margin:0 auto; padding:0 16px 60px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { font-size:12px; padding:3px 8px; border:1px solid var(--line); border-radius:99px; color:var(--muted); }
+  .chip.on { color:var(--ok); border-color:var(--ok); }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; min-width:0; }
+  .card h3 { margin:0 0 4px; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); display:inline-block; }
+  .dot.on { background:var(--ok); }
+  .muted { color:var(--muted); font-size:13px; }
+  .err { color:var(--bad); font-size:13px; overflow-wrap:anywhere; }
+  button { font:inherit; font-size:14px; padding:7px 12px; border-radius:8px; border:1px solid var(--fg); background:var(--fg); color:var(--bg); cursor:pointer; }
+  button.ghost { background:transparent; color:var(--fg); border-color:var(--line); }
+  button.danger { background:transparent; color:var(--bad); border-color:var(--bad); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+  .video { display:grid; grid-template-columns:minmax(0, 220px) 1fr; gap:16px; }
+  @media (max-width:640px) { .video { grid-template-columns:1fr; } }
+  video { width:100%; max-height:420px; border-radius:8px; background:#000; }
+  textarea, input { width:100%; font:inherit; font-size:14px; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); }
+  textarea { min-height:70px; resize:vertical; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 2px; }
+  select { font:inherit; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td { padding:6px 4px; border-bottom:1px solid var(--line); vertical-align:top; overflow-wrap:anywhere; }
+  .empty { color:var(--muted); font-size:14px; padding:6px 0; }
+  details summary { cursor:pointer; font-weight:600; margin:28px 0 10px; }
+  pre { white-space:pre-wrap; font:13px/1.5 system-ui, sans-serif; margin:0; }
+  .badge { font-size:11px; padding:1px 6px; border-radius:4px; border:1px solid var(--line); margin-left:6px; }
+  .badge.bad { color:var(--bad); border-color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent UF – Kontroll</h1>
+  <div class="chips" id="connections"></div>
+</header>
+<main>
+  <div class="row" style="margin-top:16px">
+    <select id="product"></select>
+    <button id="startAll">Starta alla</button>
+    <button id="stopAll" class="ghost">Stoppa alla</button>
+  </div>
+
+  <h2>Agenter</h2>
+  <div class="grid" id="agents"></div>
+
+  <h2>Väntar på ditt godkännande</h2>
+  <div id="pending"></div>
+
+  <h2>Lägg upp själv</h2>
+  <p class="muted">Kanaler som inte är kopplade än hamnar här. Ladda ner videon, kopiera texten och tryck Klar.</p>
+  <div id="manual"></div>
+
+  <h2>Kommentarer och DM</h2>
+  <div class="row" style="margin-top:0">
+    <label style="margin:0"><input type="checkbox" id="auto_reply_instagram" style="width:auto"> Svara automatiskt på Instagram</label>
+    <label style="margin:0"><input type="checkbox" id="auto_reply_facebook" style="width:auto"> Svara automatiskt på Facebook</label>
+  </div>
+  <p class="muted">Av = agenten skriver utkast som du skickar. Klagomål och oklara frågor lämnas alltid åt dig.</p>
+  <div id="inbox"></div>
+
+  <details><summary>Alla videor</summary><table id="history"></table></details>
+  <details><summary>Senaste research</summary><div class="card"><pre id="research"></pre></div></details>
+  <details><summary>Produktinfo som agenterna använder</summary><form class="card" id="productForm"></form></details>
+  <details open><summary>Logg</summary><table id="log"></table></details>
+</main>
+
+<script>
+const AGENTS = {
+  research: ["Researchagent", "Studerar andras annonser var tredje dag"],
+  prompt: ["Promptagent", "Gör en video per dag med Higgsfield"],
+  instagram: ["Instagram", "Lägger upp Reels och svarar"],
+  facebook: ["Facebook", "Lägger upp video och svarar"],
+  tiktok: ["TikTok", "Lägger upp video"],
+};
+const CHANNEL_NAMES = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
+const LOG_NAMES = { "inbox-instagram": "Instagram (inkorg)", "inbox-facebook": "Facebook (inkorg)", videopoll: "Promptagent", all: "Alla agenter" };
+let state = null;
+let productId = 0;
+try { productId = Number(localStorage.getItem("productId") || 0); } catch {}
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const time = (iso) => iso ? new Date(iso).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" }) : "–";
+
+async function api(method, url, body) {
+  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { alert(data.error || "Något gick fel"); throw new Error(data.error); }
+  return data;
+}
+
+// Behåll det du skriver i textfälten när sidan uppdateras.
+function keepDrafts(render) {
+  const saved = {};
+  document.querySelectorAll("[data-key]").forEach((el) => { saved[el.dataset.key] = el.value; });
+  const focused = document.activeElement?.dataset?.key;
+  render();
+  document.querySelectorAll("[data-key]").forEach((el) => { if (el.dataset.key in saved) el.value = saved[el.dataset.key]; });
+  if (focused) document.querySelector(`[data-key="${focused}"]`)?.focus();
+}
+
+async function refresh() {
+  state = await api("GET", "/api/state");
+  if (!state.products.some((p) => p.id === productId)) productId = state.products[0]?.id;
+  keepDrafts(render);
+}
+
+function render() {
+  const c = state.connections;
+  $("connections").innerHTML = [["claude","Claude"],["higgsfield","Higgsfield"],["publicUrl","Publik adress"],["instagram","Instagram"],["facebook","Facebook"],["tiktok","TikTok"]]
+    .map(([k, n]) => `<span class="chip ${c[k] ? "on" : ""}">${c[k] ? "✓" : "–"} ${n}</span>`).join("");
+
+  $("product").innerHTML = state.products.map((p) => `<option value="${p.id}" ${p.id === productId ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  const product = state.products.find((p) => p.id === productId);
+
+  $("agents").innerHTML = Object.keys(AGENTS).map((k) => product.agents.find((a) => a.kind === k)).filter(Boolean).map((a) => `
+    <div class="card">
+      <h3><span class="dot ${a.running ? "on" : ""}"></span>${AGENTS[a.kind][0]}</h3>
+      <div class="muted">${AGENTS[a.kind][1]}</div>
+      <div class="muted">Senast klar: ${time(a.last_run_at)}</div>
+      ${a.last_error ? `<div class="err">${esc(a.last_error)}</div>` : ""}
+      <div class="row">
+        <button class="${a.running ? "ghost" : ""}" onclick="toggleAgent('${a.kind}', ${a.running ? 0 : 1})">${a.running ? "Stoppa" : "Starta"}</button>
+        <button class="ghost" onclick="runAgent('${a.kind}')">Kör nu</button>
+      </div>
+    </div>`).join("");
+
+  const videos = state.videos.filter((v) => v.product_id === productId);
+  const pending = videos.filter((v) => v.status === "pending");
+  const generating = videos.filter((v) => v.status === "generating");
+  $("pending").innerHTML = (generating.length ? `<p class="muted">${generating.length} video skapas just nu…</p>` : "") + (pending.map((v) => `
+    <div class="card video">
+      <video src="/media/${esc(v.local_file)}" controls playsinline preload="metadata"></video>
+      <div>
+        <strong>Video #${v.id}</strong> <span class="muted">${time(v.created_at)}</span>
+        <p style="margin:6px 0">${esc(v.idea)}</p>
+        ${Object.keys(CHANNEL_NAMES).map((ch) => `
+          <label>Text för ${CHANNEL_NAMES[ch]}</label>
+          <textarea data-key="cap-${v.id}-${ch}">${esc(v.captions?.[ch])}</textarea>`).join("")}
+        <div class="row">
+          <button onclick="approve(${v.id})">Godkänn och publicera</button>
+          <button class="danger" onclick="reject(${v.id})">Släng</button>
+        </div>
+        <details><summary class="muted" style="margin:10px 0 0;font-weight:400">Prompten till Higgsfield</summary><pre class="muted">${esc(v.prompt)}</pre></details>
+      </div>
+    </div>`).join("") || (generating.length ? "" : `<div class="empty">Inget att godkänna just nu.</div>`));
+
+  const manual = state.videos.flatMap((v) => v.posts.filter((p) => p.status === "manual" || p.status === "failed").map((p) => ({ v, p })));
+  $("manual").innerHTML = manual.map(({ v, p }) => `
+    <div class="card" style="margin-bottom:10px">
+      <strong>${CHANNEL_NAMES[p.channel]}</strong> · video #${v.id}
+      ${p.status === "failed" ? `<span class="badge bad">misslyckades</span><div class="err">${esc(p.error)}</div>` : ""}
+      <textarea readonly id="mcap-${p.id}">${esc(v.captions?.[p.channel])}</textarea>
+      <div class="row">
+        <a href="/media/${esc(v.local_file)}" download="agent-uf-video-${v.id}.mp4"><button class="ghost" type="button">Ladda ner video</button></a>
+        <button class="ghost" onclick="copyText('mcap-${p.id}')">Kopiera text</button>
+        ${p.status === "manual" ? `<button onclick="post('done', ${p.id})">Klar, jag har lagt upp den</button>` : `<button onclick="post('retry', ${p.id})">Försök igen</button>`}
+      </div>
+    </div>`).join("") || `<div class="empty">Inget att lägga upp manuellt.</div>`;
+
+  $("auto_reply_instagram").checked = state.settings.auto_reply_instagram;
+  $("auto_reply_facebook").checked = state.settings.auto_reply_facebook;
+  $("inbox").innerHTML = state.inbox.map((m) => `
+    <div class="card" style="margin-bottom:10px">
+      <strong>${CHANNEL_NAMES[m.channel]}</strong> · ${m.kind === "dm" ? "DM" : "kommentar"} från ${esc(m.author || "okänd")}
+      ${m.needs_human ? `<span class="badge bad">titta själv</span>` : ""}
+      ${m.status === "failed" ? `<div class="err">${esc(m.error)}</div>` : ""}
+      <p style="margin:6px 0">“${esc(m.text)}”</p>
+      <label>Svar</label>
+      <textarea data-key="reply-${m.id}">${esc(m.draft)}</textarea>
+      <div class="row">
+        <button onclick="sendReply(${m.id})">Skicka</button>
+        <button class="ghost" onclick="ignore(${m.id})">Ignorera</button>
+      </div>
+    </div>`).join("") || `<div class="empty">Inga nya kommentarer eller DM.</div>`;
+
+  const statusText = { generating: "skapas", pending: "väntar på dig", approved: "godkänd", rejected: "slängd", failed: "misslyckades" };
+  $("history").innerHTML = videos.map((v) => `
+    <tr><td>#${v.id}</td><td>${time(v.created_at)}</td><td>${statusText[v.status]}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</td>
+    <td>${esc(v.idea)}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}`).join("<br>")}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
+
+  $("research").textContent = state.research.find((r) => r.product_id === productId)?.notes || "Ingen research än. Starta researchagenten.";
+
+  if (!$("productForm").contains(document.activeElement)) {
+    $("productForm").innerHTML = [["name","Namn"],["price","Pris"],["description","Beskrivning"],["audience","Målgrupp"],["image_url","Produktbild (länk, används i videorna)"],["shop_url","Länk till butiken"]]
+      .map(([k, n]) => `<label>${n}</label>${k === "description" || k === "audience" ? `<textarea name="${k}">${esc(product[k])}</textarea>` : `<input name="${k}" value="${esc(product[k])}">`}`).join("")
+      + `<div class="row"><button>Spara</button></div>`;
+  }
+
+  $("log").innerHTML = state.log.map((l) => `<tr><td style="white-space:nowrap">${time(l.at)}</td><td>${esc(AGENTS[l.agent]?.[0] || LOG_NAMES[l.agent] || l.agent)}</td><td>${esc(l.message)}</td></tr>`).join("");
+}
+
+async function toggleAgent(kind, running) { await api("POST", `/api/agents/${productId}/${kind}`, { running }); refresh(); }
+async function runAgent(kind) { await api("POST", `/api/agents/${productId}/${kind}/run`); setTimeout(refresh, 1500); }
+async function approve(id) {
+  const captions = Object.fromEntries(Object.keys(CHANNEL_NAMES).map((ch) => [ch, document.querySelector(`[data-key="cap-${id}-${ch}"]`).value]));
+  await api("POST", `/api/videos/${id}/approve`, { captions }); refresh();
+}
+async function reject(id) { if (confirm("Släng videon?")) { await api("POST", `/api/videos/${id}/reject`); refresh(); } }
+async function post(action, id) { await api("POST", `/api/posts/${id}/${action}`); refresh(); }
+async function sendReply(id) { await api("POST", `/api/inbox/${id}/send`, { draft: document.querySelector(`[data-key="reply-${id}"]`).value }); refresh(); }
+async function ignore(id) { await api("POST", `/api/inbox/${id}/ignore`); refresh(); }
+function copyText(id) { navigator.clipboard.writeText($(id).value); }
+
+$("product").onchange = (e) => { productId = Number(e.target.value); try { localStorage.setItem("productId", productId); } catch {} keepDrafts(render); };
+$("startAll").onclick = () => toggleAgent("all", 1);
+$("stopAll").onclick = () => toggleAgent("all", 0);
+for (const key of ["auto_reply_instagram", "auto_reply_facebook"]) {
+  $(key).onchange = (e) => api("POST", "/api/settings", { [key]: e.target.checked });
+}
+$("productForm").onsubmit = async (e) => {
+  e.preventDefault();
+  await api("PUT", `/api/products/${productId}`, Object.fromEntries(new FormData(e.target)));
+  document.activeElement.blur(); refresh();
+};
+
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>
