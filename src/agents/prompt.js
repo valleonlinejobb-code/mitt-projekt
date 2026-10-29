@@ -7,6 +7,7 @@ import { askClaude } from "../claude.js";
 import { startVideo, checkVideo, higgsfieldConfigured } from "../higgsfield.js";
 import { latestResearch } from "./research.js";
 import * as progress from "../progress.js";
+import { workingProductImage } from "../shopify.js";
 
 const MAX_PER_MONTH = Number(process.env.MAX_VIDEOS_PER_MONTH || 35);
 
@@ -97,6 +98,8 @@ export async function createVideo(product) {
     progress.stopped(product.id, "prompt", `Månadens tak på ${MAX_PER_MONTH} videor är nått`);
     return;
   }
+  // Bilden kollas innan Claude anropas, så att inga pengar går åt om den inte går att hämta.
+  const imageUrl = await workingProductImage(product);
   setQueuedVideos(product.id, queuedVideos(product.id) - 1);
   const research = latestResearch(product.id);
   const earlier = db.prepare("SELECT idea, status FROM videos WHERE product_id = ? AND idea IS NOT NULL ORDER BY id DESC LIMIT 10").all(product.id);
@@ -108,7 +111,7 @@ Butik: ${product.shop_url}
 Aktuella erbjudanden: ${currentOffers() || "(inga)"}${product.focus ? `\nÄgarens instruktioner för just den här produkten (följ dem):\n${product.focus}` : ""}`;
   const researchText = research?.notes ?? "(ingen research än – använd beprövade grepp: problem–lösning, före/efter, och inga siffror utöver pris)";
   const earlierText = earlier.map((e) => `- [${e.status}] ${e.idea}`).join("\n") || "(inga)";
-  const images = product.image_url ? [product.image_url] : [];
+  const images = imageUrl ? [imageUrl] : [];
 
   let plan;
   let feedback = "";
@@ -177,7 +180,7 @@ ${JSON.stringify(concepts, null, 2)}`,
   progress.stage(product.id, "prompt", "send", `Video #${videoId}`);
   try {
     const requestId = await startVideo({
-      prompt: plan.video_prompt, imageUrl: product.image_url, idempotencyKey: `agent-uf-video-${videoId}`,
+      prompt: plan.video_prompt, imageUrl, idempotencyKey: `agent-uf-video-${videoId}`,
     });
     db.prepare("UPDATE videos SET hf_request_id = ? WHERE id = ?").run(requestId, videoId);
     log(product.id, "prompt", `Video #${videoId} beställd (${plan.score}/10): ${plan.idea}`);

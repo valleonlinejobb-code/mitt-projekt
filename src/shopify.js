@@ -42,3 +42,23 @@ export async function importShopifyProducts() {
   log(null, "shopify", added.length ? `Nya produkter från butiken: ${added.join(", ")}` : "Inga nya produkter i butiken.");
   return { added, total: products.length };
 }
+
+/**
+ * Kollar att produktbilden går att hämta innan agenterna lägger pengar på en video.
+ * Har bilden bytts i Shopify (den gamla länken ger fel) hämtas den nya bilden från butiken och sparas.
+ */
+export async function workingProductImage(product) {
+  if (!product.image_url) return "";
+  const reachable = async (url) => (await fetch(url, { method: "HEAD" }).catch(() => null))?.ok;
+  if (await reachable(product.image_url)) return product.image_url;
+  if (product.shopify_handle) {
+    const res = await fetch(`${STORE_URL}/products/${product.shopify_handle}.json`).catch(() => null);
+    const src = res?.ok ? (await res.json()).product?.image?.src : null;
+    if (src && await reachable(src)) {
+      db.prepare("UPDATE products SET image_url = ? WHERE id = ?").run(src, product.id);
+      log(product.id, "prompt", "Produktbilden hade bytts i butiken. Den nya bilden används nu.");
+      return src;
+    }
+  }
+  throw new Error(`Produktbilden går inte att hämta (${product.image_url}). Klistra in en fungerande bildlänk under "Produktinfo som agenterna använder".`);
+}
