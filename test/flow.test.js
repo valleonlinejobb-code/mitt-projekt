@@ -49,7 +49,10 @@ const claudeText = (text, citations, extra = {}) => json({
 const CONCEPT = {
   idea: "Lerig tass blir ren på tre sekunder",
   hook: "Lerig tass i närbild",
-  video_prompt: "0-3 s: close-up of a muddy dog paw entering a silicone paw washer cup...",
+  video_prompt: "Shot 1 (0-2s): Close-up at the dog's eye level, static camera. A golden retriever with light fur walks a very muddy front paw toward a white rug in a bright clean Scandinavian home with a light oak floor and soft natural daylight from a window. " +
+    "Shot 2 (2-7s): Close-up, gentle handheld. The owner's left hand gently holds the dog's front leg while the right hand holds the paw-washing cup from the reference images, filled with a little water. The owner lowers the muddy paw into the cup, pumps the cup up and down three times and twists it so the soft bristles scrub all around the paw, muddy brown water swirling, then lifts out the clean paw. " +
+    "Shot 3 (7-10s): Medium close-up, slow push-in. The owner wraps the clean paw in the grey microfiber towel from the reference images and rubs it dry while the relaxed golden retriever sits calmly on the white rug. " +
+    "Photorealistic vertical smartphone video, sharp focus, natural colors, realistic hand and paw anatomy, no on-screen text.",
   hook_type: "problem–lösning",
   variant_of: 0,
   audience: "ägare till stora hundar",
@@ -127,7 +130,9 @@ globalThis.fetch = async (input, init = {}) => {
     return new Response(init.method === "HEAD" ? null : fs.readFileSync(sampleImage), { status: 200 });
   }
   if (url === "https://vardagshoppen.com/products/tasstvattkit-sma-och-mellanstora-hundar.json") {
-    return json({ product: { image: { src: "https://cdn.shopify.com/s/files/ny-bild.jpg" } } });
+    return json({ product: { image: { src: "https://cdn.shopify.com/s/files/ny-bild.jpg" }, images: [
+      { src: "https://cdn.shopify.com/s/files/ny-bild.jpg?v=2" }, { src: "https://cdn.shopify.com/s/files/borsten.jpg" }, { src: "https://cdn.shopify.com/s/files/handduk.jpg" },
+    ] } });
   }
   if (url === "https://cdn.higgsfield.test/video.mp4") return new Response(fs.readFileSync(sampleVideo));
   if (url === "https://texttospeech.googleapis.com/v1/text:synthesize") {
@@ -172,7 +177,8 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   assert.equal(hf.headers.get("Authorization"), "Key test-id:test-secret");
   assert.equal(hf.body.prompt, CONCEPT.video_prompt);
   // Den gamla produktbilden var borttagen i Shopify, så den nya hämtades från butiken.
-  assert.deepEqual(hf.body.image_urls, ["https://cdn.shopify.com/s/files/ny-bild.jpg"]);
+  // Alla produktbilder skickas med (huvudbilden först, utan dubletter), så att videomodellen ser koppen, borsten och handduken.
+  assert.deepEqual(hf.body.image_urls, ["https://cdn.shopify.com/s/files/ny-bild.jpg", "https://cdn.shopify.com/s/files/borsten.jpg", "https://cdn.shopify.com/s/files/handduk.jpg"]);
   assert.deepEqual(ideaCall.body.messages[0].content[0].source, { type: "url", url: "https://cdn.shopify.com/s/files/ny-bild.jpg" });
   assert.equal(hf.body.duration, 10);
   assert.equal(hf.body.aspect_ratio, "9:16");
@@ -525,4 +531,36 @@ test("Kundernas röst plockas ut ur researchen, så att svarsagenten kan bemöta
   assert.equal(researchSection(notes, "Kundernas röst"), "- Invändning: Passar den stora hundar? (källa: https://example.com/r)");
   assert.equal(researchSection(notes, "Finns inte"), "");
   assert.equal(researchSection(undefined, "Kundernas röst"), "");
+});
+
+test("Videoprompten kontrolleras: utan scener och utan tydlig användning beställs ingen video", async () => {
+  const { videoPromptProblems } = await import("../src/agents/prompt.js");
+  const product = activeProduct();
+  assert.deepEqual(videoPromptProblems(CONCEPT.video_prompt, product), []);
+  const dipOnly = "Shot 1 (0-3s): A muddy paw near a white rug in a bright home, from the reference images. " +
+    "Shot 2 (3-5s): The owner dips the paw in the cup and lifts it out. Shot 3 (5-10s): A happy dog on the rug. " + "Calm natural daylight. ".repeat(20);
+  const problems = videoPromptProblems(dipOnly, product);
+  assert.ok(problems.some((p) => /visar inte hur koppen används/.test(p)), problems.join(" "));
+  assert.ok(problems.some((p) => /handduken/.test(p)));
+  assert.ok(videoPromptProblems("A dog with a cup.", product).some((p) => /2–3 scener/.test(p)));
+
+  // Granskarens slutversion med en dålig prompt: Higgsfield anropas inte.
+  db.prepare("UPDATE videos SET status = 'rejected' WHERE status = 'generating'").run();
+  reviewedConcept = { ...CONCEPT, video_prompt: dipOnly };
+  const before = calls.filter((c) => c.url.endsWith("/reference-to-video")).length;
+  setQueuedVideos(product.id, 1);
+  await tick();
+  reviewedConcept = CONCEPT;
+  assert.equal(calls.filter((c) => c.url.endsWith("/reference-to-video")).length, before, "Higgsfield anropades inte");
+});
+
+test("Videomodellen går att byta, och priset räknas med", async () => {
+  const { setSetting } = await import("../src/db.js");
+  const { videoModel, videoModelSek, VIDEO_MODELS } = await import("../src/higgsfield.js");
+  assert.equal(videoModel(), "alibaba/wan-3.0/reference-to-video", "standard är oförändrad");
+  setSetting("video_model", "bytedance/seedance-2.0/reference-to-video");
+  assert.equal(videoModelSek(), VIDEO_MODELS["bytedance/seedance-2.0/reference-to-video"].sek);
+  setSetting("video_model", "finns-inte");
+  assert.equal(videoModel(), "alibaba/wan-3.0/reference-to-video", "okänd modell faller tillbaka");
+  setSetting("video_model", "alibaba/wan-3.0/reference-to-video");
 });

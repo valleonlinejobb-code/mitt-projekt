@@ -105,6 +105,12 @@
   <h2>Beställ videor</h2>
   <div class="card" id="order"></div>
 
+  <h2>Videomodell</h2>
+  <div class="card">
+    <div class="muted">Vilken AI hos Higgsfield som gör videorna. Priset är ungefär för en video på 10 sekunder, utöver Claude.</div>
+    <div id="videoModels" style="margin-top:8px"></div>
+  </div>
+
   <h2>Vad Claude har kostat</h2>
   <div class="card">
     <div class="muted">Riktiga kostnader, räknade från varje svar från Claude (tokens och webbsökningar). Saldot på console.anthropic.com kan skilja några kronor beroende på växelkursen. Higgsfield betalas separat.</div>
@@ -345,6 +351,9 @@ function render() {
   $("auto_reply_facebook").checked = state.settings.auto_reply_facebook;
   if (document.activeElement !== $("offers")) $("offers").value = state.settings.offers;
   renderSpend();
+  $("videoModels").innerHTML = state.videoModels.map((m) => `
+    <label class="check" style="display:block;margin:6px 0"><input type="radio" name="videoModel" ${m.chosen ? "checked" : ""} onchange="chooseModel('${esc(m.id)}', ${m.sek}, '${esc(m.name)}')">
+      <strong>${esc(m.name)}</strong> · ca ${m.sek} kr per video <span class="muted">${esc(m.note)}</span></label>`).join("");
   $("inbox").innerHTML = state.inbox.map((m) => `
     <div class="card" style="margin-bottom:10px">
       <strong>${CHANNEL_NAMES[m.channel]}</strong> · ${m.kind === "dm" ? "DM" : "kommentar"} från ${esc(m.author || "okänd")}
@@ -651,6 +660,11 @@ async function approve(id) {
   const channels = Object.keys(CHANNEL_NAMES).filter((ch) => document.querySelector(`[data-key="ch-${id}-${ch}"]`).checked);
   if (!channels.length) return alert("Bocka i minst en kanal.");
   await api("POST", `/api/videos/${id}/approve`, { captions, channels }); refresh();
+}
+async function chooseModel(id, sek, name) {
+  if (!confirm(`Byta till ${name}? En video kostar då ungefär ${sek} kr hos Higgsfield, plus Claude.`)) return refresh();
+  await api("POST", "/api/settings", { video_model: id });
+  refresh();
 }
 async function reedit(id) {
   await api("POST", `/api/videos/${id}/reedit`);
