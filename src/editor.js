@@ -61,28 +61,37 @@ const LAYOUT = {
   product: { logo: { size: 120, y: 60 }, brand: 220, headline: 262, image: { w: 480, h: 360, y: 370 }, features: 775, price: 875, offer: 965, cta: 1075, domain: 1155 },
 };
 
+/** y-uttryck för ffmpeg: bilden börjar `dist` pixlar längre ner och glider upp på plats på 0,45 s, mjukt på slutet. */
+const slideIn = (y, start, dist = 40) => `'${y}+${dist}*pow(max(0,1-(t-${start.toFixed(2)})/0.45),2)'`;
+
 function buildAss({ duration, total, overlays, price, endCard, infoBar, layout }) {
   const t0 = duration;
   const L = layout;
   const line = (start, end, style, text, tags = "") => `Dialogue: 1,${assTime(start)},${assTime(end)},${style},,0,0,0,,${tags}${assText(text)}`;
+  // Mjuka rörelser i stället för texter som bara tänds: allt glider upp en bit och tonas in, ett i taget.
+  const rise = (x, y, an = 5, ms = 380) => `{\\an${an}\\move(${x},${y + 36},${x},${y},0,${ms})\\fad(${ms},0)}`;
   const events = [
     // Butiksnamnet bredvid loggan och priset uppe till höger, hela videon utom slutbilden.
-    line(0, t0, "Brand", "Vardagshoppen", "{\\an4\\pos(130,78)}"),
-    ...(price ? [line(1.5, t0, "Badge", price, "{\\an9\\pos(686,52)\\fad(200,0)}")] : []),
-    // Produktraden längst ner, som i en riktig reklam: vad det är och vad det kostar.
-    ...(infoBar ? [line(0.5, t0, "Info", infoBar, "{\\an2\\pos(360,1235)\\fad(250,0)}")] : []),
+    line(0, t0, "Brand", "Vardagshoppen", "{\\an4\\pos(130,78)\\fad(300,150)}"),
+    // Prisrutan glider in från höger kant.
+    ...(price ? [line(1.5, t0, "Badge", price, "{\\an9\\move(790,52,686,52,0,320)\\fad(200,150)}")] : []),
+    // Produktraden längst ner glider upp, som i en riktig reklam: vad det är och vad det kostar.
+    ...(infoBar ? [line(0.5, t0, "Info", infoBar, "{\\an2\\move(360,1300,360,1235,0,380)\\fad(300,150)}")] : []),
+    // Texten i bild poppar in mjukt (växer från 85 % till 100 %).
     ...overlays
       .filter((o) => o.text && o.to > o.from && o.from < t0)
-      .map((o) => line(o.from, Math.min(o.to, t0), "Caption", o.text, "{\\fad(120,120)}")),
-    // Slutbilden: grön bakgrund, loggan läggs ovanpå av ffmpeg.
-    `Dialogue: 0,${assTime(t0)},${assTime(total)},Box,,0,0,0,,{\\an7\\pos(0,0)\\fad(250,0)\\p1}m 0 0 l ${W} 0 ${W} ${H} 0 ${H}{\\p0}`,
-    line(t0, total, "EndBrand", "Vardagshoppen", `{\\an5\\pos(360,${L.brand})\\fad(250,0)}`),
-    ...(endCard.headline ? [line(t0, total, "EndText", endCard.headline, `{\\an8\\pos(360,${L.headline})\\fad(250,0)}`)] : []),
-    ...((endCard.features ?? []).length ? [line(t0 + 0.2, total, "EndFeature", endCard.features.slice(0, 3).join("  ·  "), `{\\an5\\pos(360,${L.features})\\fad(200,0)}`)] : []),
-    ...(price ? [line(t0 + 0.3, total, "EndPrice", price, `{\\an5\\pos(360,${L.price})\\fad(200,0)}`)] : []),
-    ...(endCard.offer_lines ?? []).slice(0, 2).map((t, i) => line(t0 + 0.6, total, "EndOffer", t, `{\\an5\\pos(360,${L.offer + i * 56})\\fad(200,0)}`)),
-    ...(endCard.cta ? [line(t0 + 0.9, total, "EndOffer", endCard.cta, `{\\an5\\pos(360,${L.cta})\\fad(200,0)}`)] : []),
-    line(t0 + 0.9, total, "EndCta", STORE_DOMAIN, `{\\an5\\pos(360,${L.domain})\\fad(200,0)}`),
+      .map((o) => line(o.from, Math.min(o.to, t0), "Caption", o.text, "{\\fscx85\\fscy85\\t(0,180,\\fscx100\\fscy100)\\fad(150,150)}")),
+    // Övergången till slutbilden: en ljus och en grön panel sveper upp över videon, som i en riktig reklamfilm.
+    `Dialogue: 0,${assTime(t0)},${assTime(t0 + 0.6)},Wipe,,0,0,0,,{\\an7\\move(0,${H},0,0,0,360)\\p1}m 0 0 l ${W} 0 ${W} ${H} 0 ${H}{\\p0}`,
+    `Dialogue: 0,${assTime(t0 + 0.08)},${assTime(total)},Box,,0,0,0,,{\\an7\\move(0,${H},0,0,0,420)\\p1}m 0 0 l ${W} 0 ${W} ${H} 0 ${H}{\\p0}`,
+    line(t0 + 0.35, total, "EndBrand", "Vardagshoppen", rise(360, L.brand)),
+    ...(endCard.headline ? [line(t0 + 0.45, total, "EndText", endCard.headline, rise(360, L.headline, 8))] : []),
+    ...((endCard.features ?? []).length ? [line(t0 + 0.75, total, "EndFeature", endCard.features.slice(0, 3).join("  ·  "), rise(360, L.features))] : []),
+    // Priset poppar fram (lite större först, sedan rätt storlek).
+    ...(price ? [line(t0 + 0.9, total, "EndPrice", price, `{\\an5\\pos(360,${L.price})\\fscx70\\fscy70\\t(0,220,\\fscx108\\fscy108)\\t(220,380,\\fscx100\\fscy100)\\fad(200,0)}`)] : []),
+    ...(endCard.offer_lines ?? []).slice(0, 2).map((t, i) => line(t0 + 1.1 + i * 0.12, total, "EndOffer", t, rise(360, L.offer + i * 56))),
+    ...(endCard.cta ? [line(t0 + 1.4, total, "EndOffer", endCard.cta, rise(360, L.cta))] : []),
+    line(t0 + 1.5, total, "EndCta", STORE_DOMAIN, rise(360, L.domain)),
   ];
   return `[Script Info]
 ScriptType: v4.00+
@@ -97,6 +106,7 @@ Style: Brand,Inter Display,42,&H00FFFFFF,&H00FFFFFF,&H60000000,&H00000000,1,0,0,
 Style: Badge,Inter Display,46,&H00FFFFFF,&H00FFFFFF,${GREEN},&H00000000,1,0,0,0,100,100,0,0,3,12,0,9,0,0,0,1
 Style: Caption,Inter Display,58,&H00FFFFFF,&H00FFFFFF,&H50000000,&H00000000,1,0,0,0,100,100,0,0,3,14,0,2,60,60,330,1
 Style: Box,Inter Display,10,&H00223307,&H00223307,&H00223307,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+Style: Wipe,Inter Display,10,${OFFWHITE},${OFFWHITE},${OFFWHITE},&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
 Style: EndBrand,Inter Display,66,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 Style: EndText,Inter,42,${OFFWHITE},${OFFWHITE},&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,8,60,60,0,1
 Style: EndPrice,Inter Display,132,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
@@ -148,11 +158,14 @@ export async function editVideo({ input, output, overlays = [], price = "", endC
     "[1:v]split=2[l1][l2]", "[l1]scale=84:84[ls]", `[l2]scale=${layout.logo.size}:${layout.logo.size}[lb]`,
     `[v0][ls]overlay=28:36[v1]`,
     `[v1]subtitles=filename=${assFile}:fontsdir=${path.join(ASSETS, "fonts")}[v2]`,
-    `[v2][lb]overlay=${(W - layout.logo.size) / 2}:${layout.logo.y}:enable='gte(t,${duration.toFixed(2)})'[v3]`,
+    // Loggan och produktbilden i slutbilden tonas in och glider upp på plats (samma rörelse som texterna).
+    `[lb]format=rgba,fade=t=in:st=${(duration + 0.4).toFixed(2)}:d=0.4:alpha=1[lbf]`,
+    `[v2][lbf]overlay=${(W - layout.logo.size) / 2}:${slideIn(layout.logo.y, duration + 0.4)}:eval=frame:enable='gte(t,${duration.toFixed(2)})'[v3]`,
     // Produktbilden på ett vitt kort mitt i slutbilden.
     productImage
-      ? `[${imageIndex}:v]scale=${layout.image.w - 40}:${layout.image.h - 40}:force_original_aspect_ratio=decrease,pad=${layout.image.w}:${layout.image.h}:(ow-iw)/2:(oh-ih)/2:white,setsar=1[pi];` +
-        `[v3][pi]overlay=${(W - layout.image.w) / 2}:${layout.image.y}:enable='gte(t,${duration.toFixed(2)})'[vout]`
+      ? `[${imageIndex}:v]scale=${layout.image.w - 40}:${layout.image.h - 40}:force_original_aspect_ratio=decrease,pad=${layout.image.w}:${layout.image.h}:(ow-iw)/2:(oh-ih)/2:white,setsar=1,` +
+        `format=rgba,fade=t=in:st=${(duration + 0.55).toFixed(2)}:d=0.45:alpha=1[pi];` +
+        `[v3][pi]overlay=${(W - layout.image.w) / 2}:${slideIn(layout.image.y, duration + 0.55, 50)}:eval=frame:enable='gte(t,${duration.toFixed(2)})'[vout]`
       : "[v3]null[vout]",
     // Videomodellens ljud sänks när rösten pratar.
     `[${hasAudio ? 0 : silenceIndex}:a]volume=${voice ? 0.25 : 1},apad[a0]`,
