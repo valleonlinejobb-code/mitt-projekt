@@ -10,6 +10,10 @@ import * as progress from "../progress.js";
 import { workingProductImage } from "../shopify.js";
 import { editVideo } from "../editor.js";
 import { voiceConfigured, synthesizeVoice } from "../voice.js";
+import { refreshStats, performance } from "./stats.js";
+
+// Krok-typerna från Metas Ads Creative Studio. De tre idéerna ska använda olika typer.
+export const HOOK_TYPES = ["nöjsam start", "känslosam berättelse", "sketch", "FOMO", "problem–lösning"];
 
 const MAX_PER_MONTH = Number(process.env.MAX_VIDEOS_PER_MONTH || 35);
 
@@ -28,9 +32,11 @@ const CAPTIONS = {
 const CONCEPT = {
   type: "object",
   additionalProperties: false,
-  required: ["idea", "audience", "hook", "video_prompt", "overlays", "voiceover", "end_card", "captions"],
+  required: ["idea", "hook_type", "variant_of", "audience", "hook", "video_prompt", "overlays", "voiceover", "end_card", "captions"],
   properties: {
     idea: { type: "string", description: "Kort beskrivning av idén på svenska" },
+    hook_type: { type: "string", enum: HOOK_TYPES, description: "Vilken sorts krok de första 3 sekunderna" },
+    variant_of: { type: "integer", description: "Numret på vinnarvideon om idén är en variant av den, annars 0" },
     audience: { type: "string", description: "Vem annonsen riktar sig till (identitetsordet), t.ex. 'ägare till stora hundar'" },
     hook: { type: "string", description: "Vad tittaren ser de första 2 sekunderna" },
     video_prompt: { type: "string", description: "Prompt till videomodellen, på engelska" },
@@ -97,6 +103,10 @@ const RULES = `Regler för en bra annons:
 - voiceover: en lugn, vänlig kvinnoröst som pratar svenska, högst 30 ord (ca 12 sekunder). Den säger problemet, lösningen, priset och erbjudandet med exakt kod, och avslutar med var man köper (vardagshoppen.com). Skriv koden så att den går att uttala, t.ex. "koden FORSTA10".
 - end_card: headline är samma löfte som produktsidan ger (annonsen och sidan ska matcha). offer_lines är 0–2 korta rader med erbjudandena, t.ex. "−5 % med koden VALKOMMEN5". cta är en kort uppmaning utan webbadress.
 - Rikta varje idé till en tydlig grupp i målgruppen med ett identitetsord (t.ex. "ägare till stora hundar", "du som bor på landet", "hundägare med ljust golv") och skriv in det i texten i bild eller texterna. Ge de tre idéerna olika grupper.
+- Krokar: ge de tre idéerna olika krok-typer (hook_type): "nöjsam start" (t.ex. lera som sköljs bort i närbild, tillfredsställande att se), "känslosam berättelse" (ägaren och hunden, vardagskänsla), "sketch" (en kort rolig situation, t.ex. hunden springer in lerig precis efter städningen), "FOMO" (bara med ett riktigt erbjudande, t.ex. att FORSTA10 bara gäller de 10 första) eller "problem–lösning".
+- Visa produkten i användning av en människa (händer, ägaren med hunden), inte bara produkten på ett bord. Det ger mänsklig kontakt och förtroende.
+- Förtroendesignaler gör annonsen trovärdigare, men bara sanna: Vardagshoppen är ett svenskt UF-företag. Andra (garanti, leveranstid, betyg, antal sålda) bara om de står i produktinfon, ägarens instruktioner eller "Verifierade fakta".
+- Finns en vinnarvideo under "Resultat" ska en av de tre idéerna vara en variant av den (variant_of = dess nummer): behåll kärnan som fungerade, men byt kroken (de första 3 sekunderna), miljön eller utseendet så att tittaren inte tänker "den här har jag sett förut".
 - Prioritera videor som visar hur produkten används som bäst, enligt "Så används produkten bäst" i researchen.
 - Låna greppen från "Annonser som gått bra och varför" – krok, format och känsla – men kopiera aldrig någon annans video.
 - Hundar ska se naturliga och glada ut. Inget som kan uppfattas som djurplågeri.
@@ -175,18 +185,23 @@ export async function createVideo(product) {
   // Bilden kollas innan Claude anropas, så att inga pengar går åt om den inte går att hämta.
   const imageUrl = await workingProductImage(product);
   setQueuedVideos(product.id, queuedVideos(product.id) - 1);
+  await refreshStats(product.id); // gratis: hur våra publicerade videor har gått
+  const results = performance(product.id);
   const research = latestResearch(product.id);
-  const earlier = db.prepare("SELECT idea, status FROM videos WHERE product_id = ? AND idea IS NOT NULL ORDER BY id DESC LIMIT 10").all(product.id);
+  const earlier = db.prepare("SELECT id, idea, status FROM videos WHERE product_id = ? AND idea IS NOT NULL ORDER BY id DESC LIMIT 10").all(product.id);
 
   const offers = currentOffers();
   for (const warning of offerMismatches(product.description, offers)) log(product.id, "prompt", `Obs: ${warning}`);
   const productInfo = `Produkt: ${product.name}, pris ${product.price}
 Beskrivning: ${product.description}
 Målgrupp: ${product.audience}
-Butik: ${product.shop_url}
+Butik: Vardagshoppen (vardagshoppen.com), ett svenskt UF-företag. Produktsidan: ${product.shop_url}
 Aktuella erbjudanden (de enda rabatterna som får nämnas): ${offers || "(inga)"}${product.focus ? `\nÄgarens instruktioner för just den här produkten (följ dem):\n${product.focus}` : ""}`;
   const researchText = research?.notes ?? "(ingen research än – använd beprövade grepp: problem–lösning, före/efter, och inga siffror utöver pris)";
-  const earlierText = earlier.map((e) => `- [${e.status}] ${e.idea}`).join("\n") || "(inga)";
+  const earlierText = earlier.map((e) => `- #${e.id} [${e.status}] ${e.idea}`).join("\n") || "(inga)";
+  const resultsText = results.text
+    ? `${results.text}\n${results.winner ? `Vinnarvideon just nu: #${results.winner.id} (högst krokgrad). Gör en av idéerna som en variant av den.` : "Ingen video har visats minst 300 gånger än, så det finns ingen vinnare."}`
+    : "(inga resultat än – videorna är inte publicerade eller Meta har inte skickat siffror)";
   const images = imageUrl ? [imageUrl] : [];
 
   let plan;
@@ -211,6 +226,9 @@ ${researchText}
 
 Tidigare idéer (upprepa inte; "rejected" betyder att ägaren inte gillade den, "approved" att den gillade den):
 ${earlierText}
+
+Resultat för våra publicerade videor (krokgrad = andel som tittade minst 3 s av dem som fick se videon):
+${resultsText}
 ${feedback ? `\nGranskarens kommentarer på förra försöket, rätta till dem:\n${feedback}\n` : ""}
 Skriv tre olika idéer.`,
     });
@@ -227,12 +245,16 @@ Skriv tre olika idéer.`,
         "Kolla särskilt: stark krok inom 2 s, tydligt före (smutsigt problem) och efter (rent resultat), att produkten beskrivs som på bilden, " +
         "att videomodellen klarar scenerna, att videon känns som ett vanligt inlägg och inte som en annons, ett tydligt identitetsord för målgruppen, " +
         "att rösten och slutbilden säger pris och erbjudande rätt och lockar till köp, att rubriken matchar produktsidan, " +
+        "att produkten används av en människa, att förtroendesignaler är sanna, och att idéerna bygger på det som gått bra under 'Resultat'. " +
         "och att varje siffra och påstående i texterna stöds av produktinfon, 'Aktuella erbjudanden' eller 'Verifierade fakta'. " +
         "Ta den bästa idén och skriv en förbättrad slutversion där alla problem är rättade.\n\n" + REFERENCE + "\n\n" + RULES,
       prompt: `${productInfo}
 
 Research (faktakollad):
 ${researchText}
+
+Resultat för våra publicerade videor:
+${resultsText}
 
 Idéer att granska:
 ${JSON.stringify(concepts, null, 2)}`,
@@ -251,7 +273,7 @@ ${JSON.stringify(concepts, null, 2)}`,
     progress.stopped(product.id, "prompt", `Ingen idé nådde ${MIN_SCORE}/10, så ingen video beställdes`);
     return;
   }
-  const idea = `${plan.idea} · För: ${plan.audience} · Kvalitet ${plan.score}/10 · Text i bild: ${plan.overlays.map((o) => o.text).join(" / ")} · Röst: "${plan.voiceover}"`;
+  const idea = `${plan.idea} · Krok: ${plan.hook_type}${plan.variant_of ? ` (variant av #${plan.variant_of})` : ""} · För: ${plan.audience} · Kvalitet ${plan.score}/10 · Text i bild: ${plan.overlays.map((o) => o.text).join(" / ")} · Röst: "${plan.voiceover}"`;
   const edit = { overlays: plan.overlays, voiceover: plan.voiceover, end_card: plan.end_card };
 
   const { lastInsertRowid } = db.prepare(

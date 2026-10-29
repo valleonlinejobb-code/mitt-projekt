@@ -271,7 +271,7 @@ function render() {
   const statusText = { generating: "skapas", pending: "väntar på dig", approved: "godkänd", rejected: "slängd", failed: "misslyckades" };
   $("history").innerHTML = videos.map((v) => `
     <tr><td>#${v.id}</td><td>${time(v.created_at)}</td><td>${statusText[v.status]}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</td>
-    <td>${esc(v.idea)}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}`).join("<br>")}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
+    <td>${esc(v.idea)}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}${p.statsText ? `<div class="muted">${esc(p.statsText)}</div>` : ""}`).join("<br>")}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
 
   $("researchInfo").textContent = researchText;
   $("research").textContent = product.research?.notes || "";

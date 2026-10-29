@@ -6,6 +6,7 @@ import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
 import { higgsfieldConfigured } from "./higgsfield.js";
 import { queuedVideos, setQueuedVideos } from "./agents/prompt.js";
+import { statsText } from "./agents/stats.js";
 import { researchDue, latestResearch, RESEARCH_EVERY_DAYS } from "./agents/research.js";
 import { importShopifyProducts } from "./shopify.js";
 import { STAGES, progressOf } from "./progress.js";
@@ -73,7 +74,7 @@ app.get("/api/state", (_req, res) => {
     videos: all("SELECT * FROM videos ORDER BY id DESC LIMIT 30").map((v) => ({
       ...v,
       captions: v.captions ? JSON.parse(v.captions) : null,
-      posts: all("SELECT * FROM posts WHERE video_id = ?", v.id),
+      posts: all("SELECT * FROM posts WHERE video_id = ?", v.id).map((p) => ({ ...p, statsText: p.stats ? statsText(JSON.parse(p.stats)) : "" })),
     })),
     inbox: all("SELECT * FROM inbox WHERE status IN ('drafted', 'failed') ORDER BY id DESC LIMIT 50"),
     log: all("SELECT * FROM log ORDER BY id DESC LIMIT 60"),

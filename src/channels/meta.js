@@ -95,3 +95,24 @@ export async function sendDirectMessage(recipientId, text) {
     recipient: { id: recipientId }, message: { text }, messaging_type: "RESPONSE",
   });
 }
+
+/** Hur en Facebook-video har gått: visningar, hur många som stannade och hur länge. Gratis att hämta. */
+export async function fetchFacebookVideoStats(videoId) {
+  const { data = [] } = await graph("GET", `${videoId}/video_insights`, {
+    metric: "total_video_impressions,total_video_views,total_video_10s_views,total_video_complete_views,total_video_avg_time_watched",
+  });
+  const v = Object.fromEntries(data.map((m) => [m.name, Number(m.values?.[0]?.value ?? 0)]));
+  return {
+    impressions: v.total_video_impressions ?? 0,
+    views: v.total_video_views ?? 0, // minst 3 sekunder
+    views10s: v.total_video_10s_views ?? 0,
+    completeViews: v.total_video_complete_views ?? 0,
+    avgSeconds: (v.total_video_avg_time_watched ?? 0) / 1000,
+  };
+}
+
+export async function fetchInstagramReelStats(mediaId) {
+  const { data = [] } = await graph("GET", `${mediaId}/insights`, { metric: "reach,views,likes,comments,shares,saved,ig_reels_avg_watch_time" });
+  const v = Object.fromEntries(data.map((m) => [m.name, Number(m.values?.[0]?.value ?? 0)]));
+  return { impressions: v.reach ?? 0, views: v.views ?? 0, likes: v.likes, comments: v.comments, shares: v.shares, saves: v.saved, avgSeconds: (v.ig_reels_avg_watch_time ?? 0) / 1000 };
+}

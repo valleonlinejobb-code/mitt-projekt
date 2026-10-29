@@ -46,3 +46,14 @@
 - 10–13 s: slutbild (läggs på automatiskt): logga, Vardagshoppen, rubrik, pris, erbjudanden, uppmaning, vardagshoppen.com.
 - Hela tiden: logga och butiksnamn uppe till vänster, priset uppe till höger.
 - Rösten: en lugn svensk kvinnoröst som säger problemet, lösningen, priset och erbjudandet, t.ex. "Trött på leriga tassar i hallen? Doppa, vrid, torka – klart. Tasstvättkit för 199 kronor på vardagshoppen.com. Använd koden FORSTA10 – bara för de tio första."
+
+# Lärdomar från Metas Ads Creative Studio
+
+Ägaren klistrade in en andra YouTube-video (Ben Heath om Metas nya Ads Creative Studio och Metas AI-assistent). Metas egna verktyg analyserar annonser mot de bästa i branschen och ger råd. Det här gäller oss:
+
+1. **Visa produkten i användning, med en människa.** Metas analys: annonser som bara visar produkten (stilleben, rabatt i stor text) presterar sämre än annonser där produkten används av en person och där det finns förtroendesignaler. Visa händer, ägaren och hunden, inte bara koppen.
+2. **Förtroendesignaler.** Toppannonser visar sådant som får folk att lita på köpet (garanti, certifiering, betyg). Vi använder bara sanna: "Svenskt UF-företag", och annat bara om det står i produktinfon eller i verifierade fakta. Hitta aldrig på garantier eller betyg.
+3. **Olika sorters krokar.** Metas verktyg föreslår fyra typer för de första 3–5 sekunderna: nöjsam start (tillfredsställande att se), känslosam berättelse, sketch och FOMO. Lägg till problem–lösning. Testa olika typer i stället för samma krok varje gång.
+4. **Bygg vidare på vinnare.** När en video går bra: behåll kärnan, men byt kroken (de första 3–5 sekunderna), miljön, utseendet eller rösten. Folk hoppar över sådant de tror att de redan har sett ("den här har jag sett förut"-filtret). Det tröttar ut annonser, och nya varianter håller dem vid liv.
+5. **Mät mot trösklar.** Meta sätter lägsta nivåer per konto för klickfrekvens (CTR) och kostnad per köp, och visar krokgrad (hook rate: andel som tittar minst 3 s) och hur många som tittar kvar (hold rate). Tumregler som många annonsörer använder, inte siffror från Meta: krokgrad över ca 30 % är bra, under ca 20 % betyder att kroken behöver bytas. De riktiga trösklarna för vårt konto syns i Ads Creative Studio när vi kör betalda annonser.
+6. **AI-förslag är förslag.** Varken Metas AI eller vi har alltid rätt. Ägaren godkänner varje video, och det som inte fungerar slängs.
