@@ -487,6 +487,7 @@ function renderFlow(product) {
       <div class="row">
         <button class="${a.running ? "ghost" : ""}" onclick="toggleAgent('${ch}', ${a.running ? 0 : 1})">${a.running ? "Stoppa" : "Starta"}</button>
         <button class="ghost" onclick="runAgent('${ch}')">Kör nu</button>
+        ${ch === "facebook" ? `<button class="ghost" onclick="checkMeta()">Kontrollera</button>` : ""}
       </div>`);
     $(`node-${ch}`).classList.toggle("working", status === "working");
     target[`prompt-${ch}`] = promptWorking ? progressPct("prompt", prompt) : task ? 100 : 0;
@@ -654,6 +655,7 @@ async function runResearch() {
   if (!confirm(`Köra research nu för ungefär ${state.cost.research} kr?`)) return;
   runAgent("research");
 }
+async function checkMeta() { const r = await api("GET", "/api/meta/check"); alert("Facebook-kontroll\n\n" + r.lines.join("\n")); }
 async function runAgent(kind) { await api("POST", `/api/agents/${productId}/${kind}/run`); setTimeout(refresh, 1500); }
 async function approve(id) {
   const captions = Object.fromEntries(Object.keys(CHANNEL_NAMES).map((ch) => [ch, document.querySelector(`[data-key="cap-${id}-${ch}"]`).value]));

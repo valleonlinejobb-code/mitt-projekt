@@ -131,3 +131,51 @@ export async function fetchInstagramReelStats(mediaId) {
   const v = Object.fromEntries(data.map((m) => [m.name, Number(m.values?.[0]?.value ?? 0)]));
   return { impressions: v.reach ?? 0, views: v.views ?? 0, likes: v.likes, comments: v.comments, shares: v.shares, saves: v.saved, avgSeconds: (v.ig_reels_avg_watch_time ?? 0) / 1000 };
 }
+
+const NEEDED_FOR_FACEBOOK = ["pages_show_list", "pages_read_engagement", "pages_manage_posts"];
+
+async function debugToken(t) {
+  const url = new URL(`${GRAPH}/debug_token`);
+  url.searchParams.set("input_token", t);
+  url.searchParams.set("access_token", t);
+  const body = await fetch(url).then((r) => r.json()).catch((e) => ({ error: { message: e.message } }));
+  return body.data ?? { error: body.error?.message ?? "okänt fel" };
+}
+
+/** Kontrollerar Facebook-kopplingen och säger på svenska vad som saknas. Visar aldrig själva nycklarna. */
+export async function diagnoseMeta() {
+  const raw = process.env.META_PAGE_TOKEN;
+  if (!pageId() || !raw) return { ok: false, lines: ["✗ META_PAGE_ID eller META_PAGE_TOKEN saknas i Railway."] };
+  const lines = [];
+  const info = await debugToken(raw);
+  if (info.error || info.is_valid === false) {
+    return { ok: false, lines: [`✗ Nyckeln i Railway fungerar inte: ${info.error?.message ?? info.error ?? "ogiltig eller utgången"}. Gör en ny nyckel.`] };
+  }
+  lines.push(`Nyckeln i Railway är en ${info.type === "PAGE" ? "sidnyckel" : info.type === "USER" ? "användarnyckel" : info.type}${info.expires_at ? `, gäller till ${new Date(info.expires_at * 1000).toISOString().slice(0, 10)}` : ", går inte ut"}.`);
+
+  if (info.type === "USER") {
+    const url = new URL(`${GRAPH}/me/accounts`);
+    url.searchParams.set("fields", "id,name,tasks");
+    url.searchParams.set("access_token", raw);
+    const { data = [], error } = await fetch(url).then((r) => r.json()).catch(() => ({}));
+    const page = data.find((p) => p.id === pageId());
+    if (error) lines.push(`✗ Kunde inte läsa dina sidor: ${error.message}`);
+    else if (!page) lines.push(`✗ Nyckeln ser inte sidan med id ${pageId()}. Välj sidan Vardagshoppen när du godkänner i Facebook-rutan.`);
+    else {
+      lines.push(`✓ Nyckeln ser sidan ${page.name}.`);
+      const tasks = page.tasks ?? [];
+      lines.push(tasks.includes("CREATE_CONTENT") ? "✓ Ditt konto får skapa inlägg på sidan." : `✗ Ditt konto saknar rätten att skapa inlägg på sidan (har: ${tasks.join(", ") || "inga"}). Du behöver full kontroll över sidan.`);
+    }
+  }
+
+  await ensurePageToken();
+  const pageInfo = pageToken && pageToken !== raw ? await debugToken(pageToken) : info;
+  lines.push(pageInfo.type === "PAGE" ? "✓ Agenten använder sidans egen nyckel." : "✗ Agenten fick ingen sidnyckel. Kolla att du valde sidan Vardagshoppen.");
+  const scopes = pageInfo.scopes ?? info.scopes ?? [];
+  for (const s of NEEDED_FOR_FACEBOOK) lines.push(`${scopes.includes(s) ? "✓" : "✗"} ${s}`);
+  const missing = NEEDED_FOR_FACEBOOK.filter((s) => !scopes.includes(s));
+  if (missing.length) lines.push(`Lägg till ${missing.join(", ")} i Graph API Explorer, tryck Generate Access Token och lägg den nya nyckeln i META_PAGE_TOKEN.`);
+  const ok = !lines.some((l) => l.startsWith("✗"));
+  if (ok) lines.push("Allt ser rätt ut. Tryck Försök igen på videon.");
+  return { ok, lines };
+}

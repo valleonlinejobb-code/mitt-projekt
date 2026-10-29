@@ -6,6 +6,7 @@ import path from "node:path";
 import { db, log, getSetting, setSetting, ensureAgents, activeProduct, currentOffers, CHANNELS, MEDIA_DIR } from "./db.js";
 import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
+import { diagnoseMeta } from "./channels/meta.js";
 import { higgsfieldConfigured, VIDEO_MODELS, videoModel, videoModelSek } from "./higgsfield.js";
 import { geminiConfigured } from "./gemini.js";
 import { queuedVideos, setQueuedVideos, addVideoJobs, videoJobs, newAbGroup } from "./agents/prompt.js";
@@ -258,6 +259,10 @@ app.post("/api/posts/:id/done", (req, res) => {
 });
 
 // Ett misslyckat inlägg tas bort så att agenten försöker igen.
+app.get("/api/meta/check", async (_req, res) => {
+  try { res.json(await diagnoseMeta()); } catch (err) { res.json({ ok: false, lines: [`✗ ${err.message}`] }); }
+});
+
 app.post("/api/posts/:id/retry", (req, res) => {
   db.prepare("DELETE FROM posts WHERE id = ? AND status = 'failed'").run(req.params.id);
   res.json({ ok: true });
