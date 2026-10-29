@@ -6,7 +6,7 @@ import path from "node:path";
 import { db, log, getSetting, setSetting, ensureAgents, activeProduct, currentOffers, CHANNELS, MEDIA_DIR } from "./db.js";
 import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
-import { higgsfieldConfigured } from "./higgsfield.js";
+import { higgsfieldConfigured, VIDEO_MODELS, videoModel, videoModelSek } from "./higgsfield.js";
 import { geminiConfigured } from "./gemini.js";
 import { queuedVideos, setQueuedVideos, addVideoJobs, videoJobs, newAbGroup } from "./agents/prompt.js";
 import { statsText, abTests, performance } from "./agents/stats.js";
@@ -96,8 +96,10 @@ app.get("/api/state", (_req, res) => {
       ...Object.fromEntries(CHANNELS.map((c) => [c, channelConfigured[c]()])),
     },
     // Vad ett jobb brukar kosta (snittet av de senaste, annars en uppskattning) och vad Claude faktiskt har kostat.
-    cost: { video: estimateSek("video"), research: geminiConfigured() ? 0 : estimateSek("research"), clip: estimateSek("clip") },
+    // En video = Claude (idéer och granskning) + Higgsfield (den valda videomodellen).
+    cost: { video: estimateSek("video") + videoModelSek(), research: geminiConfigured() ? 0 : estimateSek("research"), clip: estimateSek("clip") },
     spend: spendSummary(),
+    videoModels: Object.entries(VIDEO_MODELS).map(([id, m]) => ({ id, ...m, chosen: id === videoModel() })),
     maxOrder: MAX_ORDER,
     settings: {
       auto_reply_instagram: getSetting("auto_reply_instagram", false),
@@ -282,6 +284,11 @@ app.post("/api/inbox/:id/ignore", (req, res) => {
 app.post("/api/settings", (req, res) => {
   for (const key of ["auto_reply_instagram", "auto_reply_facebook"]) {
     if (key in req.body) setSetting(key, Boolean(req.body[key]));
+  }
+  if ("video_model" in req.body) {
+    if (!VIDEO_MODELS[req.body.video_model]) return res.status(400).json({ error: "Okänd videomodell" });
+    setSetting("video_model", req.body.video_model);
+    log(null, "prompt", `Videomodellen är nu ${VIDEO_MODELS[req.body.video_model].name} (ca ${VIDEO_MODELS[req.body.video_model].sek} kr per video hos Higgsfield).`);
   }
   if ("claude_budget_sek" in req.body) {
     const budget = Math.max(0, Math.round(Number(req.body.claude_budget_sek) || 0));

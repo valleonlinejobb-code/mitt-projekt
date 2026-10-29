@@ -8,7 +8,7 @@ import { newRun } from "../costs.js";
 import { startVideo, checkVideo, higgsfieldConfigured } from "../higgsfield.js";
 import { latestResearch } from "./research.js";
 import * as progress from "../progress.js";
-import { workingProductImage } from "../shopify.js";
+import { workingProductImage, productImageUrls } from "../shopify.js";
 import { editVideo } from "../editor.js";
 import { voiceConfigured, synthesizeVoice } from "../voice.js";
 import { refreshStats, performance } from "./stats.js";
@@ -53,7 +53,7 @@ const CONCEPT = {
     variant_of: { type: "integer", description: "Numret på vinnarvideon om idén är en variant av den, annars 0" },
     audience: { type: "string", description: "Vem annonsen riktar sig till (identitetsordet), t.ex. 'ägare till stora hundar'" },
     hook: { type: "string", description: "Vad tittaren ser de första 2 sekunderna" },
-    video_prompt: { type: "string", description: "Prompt till videomodellen, på engelska" },
+    video_prompt: { type: "string", description: "Prompt till videomodellen på engelska, i scener: 'Shot 1 (0-2s): ...' (se Så skriver du videoprompten)" },
     overlays: {
       type: "array",
       description: "Text i bild under videon (inte slutbilden), 2–4 st, 1–5 ord var",
@@ -98,6 +98,18 @@ const REVIEW_SCHEMA = {
 
 const VIDEO_SECONDS = Number(process.env.VIDEO_SECONDS || 10);
 
+// Hur videomodellen (Wan 3.0 via Higgsfield) vill ha prompten. Modellen har ingen negativ prompt och följer det som står
+// konkret: scen för scen, med bild, rörelse, ljus och handling uttryckt med verb. Delvis kontrolleras det av videoPromptProblems.
+const PROMPT_GUIDE = `Så skriver du videoprompten (det är den som avgör hur bra videon blir):
+- Engelska, 100–250 ord, uppdelad i 2–3 scener som börjar exakt så här: "Shot 1 (0-2s): ...", "Shot 2 (2-8s): ...", "Shot 3 (8-${VIDEO_SECONDS}s): ...". Tiderna ska gå från 0 till ${VIDEO_SECONDS} utan glapp.
+- Scenen där produkten används är den längsta, minst 4 sekunder, och beskriver rörelsen steg för steg med tydliga verb i rätt ordning (t.ex. "lowers the muddy paw into the cup, pumps the cup up and down three times and twists it, lifts out the clean paw").
+- Varje scen beskriver: bildutsnitt och vinkel (t.ex. "close-up at the dog's eye level"), EN kamerarörelse (t.ex. "static", "slow push-in", "gentle handheld"), vad som händer, ljus ("soft natural daylight from a window") och miljö ("bright clean Scandinavian home, light oak floor, white rug").
+- Produkten: kalla den "the paw-washing cup from the reference images" (och handduken "the grey microfiber towel from the reference images") och beskriv färg, form och de mjuka borsten inuti exakt som på bilderna.
+- Händer och hund: skriv vad varje hand gör ("the owner's left hand gently holds the dog's front leg, the right hand holds the cup"). Beskriv hunden och ägaren på samma sätt i varje scen (ras, färg, storlek, kläder) så att de inte byter utseende.
+- Fysik som gör det trovärdigt: lera på tassen, grumligt brunt vatten, droppar, borst som böjer sig, handduken som lindas runt tassen.
+- Avsluta med stilen: "Photorealistic vertical smartphone video, sharp focus, natural colors, realistic hand and paw anatomy, no on-screen text."
+- Skriv det du vill se, inte det du inte vill se (modellen förstår "inte" dåligt). Ingen text, logga, skylt, tal eller musik i bilden.`;
+
 const RULES = `Regler för en bra annons:
 - Stående 9:16, exakt ${VIDEO_SECONDS} sekunder från videomodellen, högst 3 scener. Kroken syns inom 2 sekunder.
 - Visa varför man ska köpa: först problemet (FÖRE, t.ex. en smutsig, lerig tass och leriga avtryck på golvet), sedan produkten i användning och till sist resultatet (EFTER, ren tass, rent golv, nöjd ägare). Före/efter ska synas tydligt i bild.
@@ -122,7 +134,37 @@ const RULES = `Regler för en bra annons:
 - Hundar ska se naturliga och glada ut. Inget som kan uppfattas som djurplågeri.
 - Texterna (captions) skrivs på svenska och slutar med en tydlig uppmaning, priset och erbjudandet. TikTok: lekfull, 3–5 hashtags. Instagram och Facebook: längre, beskriv vem produkten är för och vilket problem den löser (det hjälper annonssystemet att hitta rätt köpare), några hashtags.
 - Rabatter och erbjudanden: nämn bara det som står under "Aktuella erbjudanden", med exakt samma procent och kod. Rabatter som står i produktbeskrivningen kan vara gamla och får inte användas. Står det inga erbjudanden nämns ingen rabatt.
-- Alla siffror och påståenden måste vara sanna: priset från produktinfon, övriga fakta bara från "Verifierade fakta" i researchen. Annars ingen siffra.`;
+- Alla siffror och påståenden måste vara sanna: priset från produktinfon, övriga fakta bara från "Verifierade fakta" i researchen. Annars ingen siffra.
+
+${PROMPT_GUIDE}`;
+
+/**
+ * Kollar med kod att videoprompten har den form videomodellen behöver: 2–3 scener med tider från 0 till videons längd,
+ * rimlig längd, produkten från referensbilderna och en tydlig användningsscen. Returnerar en lista med problem.
+ */
+export function videoPromptProblems(prompt, product) {
+  const problems = [];
+  const text = String(prompt ?? "");
+  const shots = [...text.matchAll(/Shot\s*(\d+)\s*\((\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*s\)\s*:/gi)]
+    .map((m, i, all) => ({ from: Number(m[2]), to: Number(m[3]), body: text.slice(m.index, all[i + 1]?.index ?? text.length) }));
+  if (shots.length < 2 || shots.length > 3) problems.push(`Videoprompten ska ha 2–3 scener som börjar med "Shot 1 (0-2s):", men har ${shots.length}.`);
+  else {
+    if (shots[0].from !== 0) problems.push("Första scenen i videoprompten ska börja på 0s.");
+    if (Math.abs(shots.at(-1).to - VIDEO_SECONDS) > 0.5) problems.push(`Sista scenen i videoprompten ska sluta på ${VIDEO_SECONDS}s.`);
+    if (shots.some((s, i) => i > 0 && Math.abs(s.from - shots[i - 1].to) > 0.5)) problems.push("Scenernas tider i videoprompten hänger inte ihop.");
+  }
+  const words = text.split(/\s+/).filter(Boolean).length;
+  if (words < 80 || words > 300) problems.push(`Videoprompten är ${words} ord, den ska vara 100–250.`);
+  if (!/reference image/i.test(text)) problems.push('Videoprompten ska säga att produkten ser ut som på bilderna ("from the reference images").');
+  // Tasstvättkitet: användningen (pumpa/vrida/skrubba) ska ha en egen scen på minst 4 s, och handduken ska vara med.
+  if (/tass/i.test(`${product.name} ${product.description}`)) {
+    const use = shots.find((s) => /\b(pump|twist|scrub)/i.test(s.body));
+    if (!use) problems.push("Videoprompten visar inte hur koppen används (pumpa och vrida runt tassen).");
+    else if (use.to - use.from < 3.5) problems.push(`Användningsscenen är ${use.to - use.from} s, den ska vara minst 4 s.`);
+    if (!/towel/i.test(text)) problems.push("Videoprompten visar inte handduken som torkar tassen.");
+  }
+  return problems;
+}
 
 /**
  * Kollar med kod (inte med Claude) att annonsen bara nämner rätt pris, rätt rabattkoder och rätt procent.
@@ -263,7 +305,7 @@ Aktuella erbjudanden (de enda rabatterna som får nämnas): ${offers || "(inga)"
   const resultsText = results.text
     ? `${results.text}\n${results.winner ? `Vinnarvideon just nu: #${results.winner.id} (högst krokgrad). Gör en av idéerna som en variant av den.` : "Ingen video har visats minst 300 gånger än, så det finns ingen vinnare."}`
     : "(inga resultat än – videorna är inte publicerade eller Meta har inte skickat siffror)";
-  const images = imageUrl ? [imageUrl] : [];
+  const images = await productImageUrls(product, imageUrl);
 
   let plan;
   let feedback = "";
@@ -282,7 +324,7 @@ Aktuella erbjudanden (de enda rabatterna som får nämnas): ${offers || "(inga)"
         "Ägaren har valt en referensvideo som förebild; använd dess grepp.\n\n" + REFERENCE + "\n\n" + RULES,
       prompt: `${productInfo}
 
-Bilden ovan är produktbilden. Titta noga på hur produkten ser ut och beskriv den korrekt i videoprompten.
+Bilderna ovan är produktbilderna (samma bilder får videomodellen som referens). Titta noga på hur produkten ser ut och beskriv den korrekt i videoprompten.
 
 Research från researchagenten (faktakollad):
 ${researchText}
@@ -325,7 +367,7 @@ ${JSON.stringify(concepts, null, 2)}`,
     });
     log(product.id, "prompt", `Bästa idén fick ${review.score}/10${review.problems ? ` (${review.problems.slice(0, 200)})` : ""}.`);
     // Fel pris, kod eller procent stoppas även om granskaren gav högt betyg.
-    const wrong = [...claimProblems(review.final, product, offers), ...jobCheck(review.final)];
+    const wrong = [...claimProblems(review.final, product, offers), ...jobCheck(review.final), ...videoPromptProblems(review.final.video_prompt, product)];
     if (wrong.length) log(product.id, "prompt", `Stoppad av faktakollen: ${wrong.join(" ")}`);
     if (review.score >= MIN_SCORE && !wrong.length) plan = { ...review.final, score: review.score };
     else feedback = [...wrong, review.problems, ...review.reviews.map((r) => `${r.idea}: ${r.problems}`)].join("\n");
@@ -350,7 +392,7 @@ ${JSON.stringify(concepts, null, 2)}`,
   progress.stage(product.id, "prompt", "send", `Video #${videoId}`);
   try {
     const requestId = await startVideo({
-      prompt: plan.video_prompt, imageUrl, idempotencyKey: `agent-uf-video-${videoId}`,
+      prompt: plan.video_prompt, imageUrls: images, idempotencyKey: `agent-uf-video-${videoId}`,
     });
     db.prepare("UPDATE videos SET hf_request_id = ? WHERE id = ?").run(requestId, videoId);
     log(product.id, "prompt", `Video #${videoId} beställd (${plan.score}/10): ${plan.idea}`);

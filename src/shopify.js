@@ -44,6 +44,25 @@ export async function importShopifyProducts() {
 }
 
 /**
+ * Alla produktens bilder från butiken (huvudbilden först, högst 4), så att videomodellen ser produkten från flera håll,
+ * t.ex. koppen, borsten inuti och handduken. Går de inte att hämta används bara huvudbilden.
+ */
+export async function productImageUrls(product, mainUrl) {
+  const urls = mainUrl ? [mainUrl] : [];
+  if (!product.shopify_handle) return urls;
+  try {
+    const res = await fetch(`${STORE_URL}/products/${product.shopify_handle}.json`);
+    if (!res.ok) return urls;
+    const images = (await res.json()).product?.images ?? [];
+    for (const { src } of images) {
+      if (urls.length >= 4) break;
+      if (src && !urls.some((u) => u.split("?")[0] === src.split("?")[0])) urls.push(src);
+    }
+  } catch { /* huvudbilden räcker */ }
+  return urls;
+}
+
+/**
  * Kollar att produktbilden går att hämta innan agenterna lägger pengar på en video.
  * Har bilden bytts i Shopify (den gamla länken ger fel) hämtas den nya bilden från butiken och sparas.
  */

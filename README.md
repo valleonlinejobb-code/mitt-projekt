@@ -59,7 +59,7 @@ Kontrollsidan visar under **Vad Claude har kostat** vad varje jobb faktiskt kost
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN` | för TikTok | Se nedan. |
 | `TIKTOK_PRIVACY` | nej | `SELF_ONLY` tills TikTok har granskat appen, sedan `PUBLIC_TO_EVERYONE`. |
 | `CLAUDE_MODEL` | nej | Standard `claude-opus-5-5`. |
-| `HIGGSFIELD_MODEL` | nej | Standard `alibaba/wan-3.0/reference-to-video`. |
+| `HIGGSFIELD_MODEL` | nej | Videomodellen innan du har valt en på kontrollsidan (rutan **Videomodell**: Wan 3.0, Wan 3.0 Prime eller Seedance 2.0). Standard `alibaba/wan-3.0/reference-to-video`. |
 | `VIDEO_SECONDS`, `VIDEO_RESOLUTION` | nej | Standard `10` och `720p`. |
 | `MAX_VIDEOS_PER_MONTH` | nej | Standard `35`. |
 | `MIN_VIDEO_SCORE` | nej | Lägsta betyg (1–10) en idé måste få innan videon beställs. Standard `8`. |
