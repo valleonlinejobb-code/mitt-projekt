@@ -260,13 +260,24 @@ app.post("/api/posts/:id/done", (req, res) => {
 
 // Ett misslyckat inlägg tas bort så att agenten försöker igen.
 // "Koppla Facebook": skickar dig till Facebooks godkännanderuta och tar emot svaret.
-const metaRedirect = () => `${(process.env.PUBLIC_URL || "").replace(/\/$/, "")}/meta/callback`;
+// Adressen byggs från den adress du själv är på, så att den alltid stämmer med appens domän.
+const siteUrl = (req) => `${req.get("x-forwarded-proto") || req.protocol}://${req.get("host")}`;
+const metaRedirect = (req) => `${siteUrl(req)}/meta/callback`;
 let metaState = null;
-app.get("/meta/connect", (_req, res) => {
+app.get("/meta/connect", (req, res) => {
   if (!metaLoginConfigured()) return res.status(400).send("Lägg in META_APP_ID och META_APP_SECRET i Railway först.");
-  if (!process.env.PUBLIC_URL) return res.status(400).send("Lägg in PUBLIC_URL i Railway först.");
   metaState = crypto.randomBytes(16).toString("hex");
-  res.redirect(metaLoginUrl(metaRedirect(), metaState));
+  const host = req.get("host");
+  res.send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <body style="font-family:system-ui;background:#0b0b0b;color:#eee;padding:24px;max-width:680px;margin:auto;line-height:1.5">
+    <h2>Koppla Facebook</h2>
+    <p>Facebook måste känna till exakt de här adresserna. Kolla att de står i appen (developers.facebook.com → Vardagshoppen Agent):</p>
+    <p><b>App settings → Basic → App Domains:</b><br><code style="user-select:all;background:#222;padding:4px 8px;display:inline-block">${host}</code></p>
+    <p><b>App settings → Basic → Website → Site URL:</b><br><code style="user-select:all;background:#222;padding:4px 8px;display:inline-block">${siteUrl(req)}/</code></p>
+    <p><b>Facebook-inloggning för företag → Settings → Valid OAuth Redirect URIs:</b><br><code style="user-select:all;background:#222;padding:4px 8px;display:inline-block">${metaRedirect(req)}</code></p>
+    <p>Tryck <b>Save changes</b> på varje ställe. Sedan:</p>
+    <p><a href="${metaLoginUrl(metaRedirect(req), metaState).replace(/&/g, "&amp;")}" style="display:inline-block;background:#fff;color:#000;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Fortsätt till Facebook</a></p>
+    <p><a style="color:#aaa" href="/">Tillbaka</a></p></body>`);
 });
 app.get("/meta/callback", async (req, res) => {
   const page = (title, lines) => res.send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -276,7 +287,7 @@ app.get("/meta/callback", async (req, res) => {
   if (!metaState || req.query.state !== metaState) return page("Något gick fel", ["Länken var för gammal. Tryck Koppla Facebook igen."]);
   metaState = null;
   try {
-    const name = await finishMetaLogin(String(req.query.code), metaRedirect());
+    const name = await finishMetaLogin(String(req.query.code), metaRedirect(req));
     log(null, "facebook", `Facebook kopplat till sidan ${name}.`);
     const check = await diagnoseMeta();
     page(check.ok ? `Klart! Kopplat till ${name}` : `Kopplat till ${name}, men något saknas`, check.lines);
