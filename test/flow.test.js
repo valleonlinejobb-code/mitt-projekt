@@ -58,6 +58,13 @@ globalThis.fetch = async (input, init = {}) => {
       ? { status: "completed", request_id: "req-1", video: { url: "https://cdn.higgsfield.test/video.mp4" } }
       : { status: videoStatus, request_id: "req-1" });
   }
+  if (url.startsWith("https://cdn.shopify.com/")) {
+    if (url.includes("tasskit-med-handduk.jpg")) return new Response(null, { status: 404 }); // gammal, borttagen bild
+    return new Response(null, { status: 200 });
+  }
+  if (url === "https://vardagshoppen.com/products/tasstvattkit-sma-och-mellanstora-hundar.json") {
+    return json({ product: { image: { src: "https://cdn.shopify.com/s/files/ny-bild.jpg" } } });
+  }
   if (url === "https://cdn.higgsfield.test/video.mp4") return new Response(new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112]));
   if (url.startsWith("https://graph.facebook.com/")) {
     if (url.includes("/page-1/videos")) return json({ id: "fb-video-1" });
@@ -90,7 +97,9 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   assert.equal(hf.method, "POST");
   assert.equal(hf.headers.get("Authorization"), "Key test-id:test-secret");
   assert.equal(hf.body.prompt, CONCEPT.video_prompt);
-  assert.deepEqual(hf.body.image_urls, [product.image_url]);
+  // Den gamla produktbilden var borttagen i Shopify, så den nya hämtades från butiken.
+  assert.deepEqual(hf.body.image_urls, ["https://cdn.shopify.com/s/files/ny-bild.jpg"]);
+  assert.deepEqual(ideaCall.body.messages[0].content[0].source, { type: "url", url: "https://cdn.shopify.com/s/files/ny-bild.jpg" });
   assert.equal(hf.body.duration, 10);
   assert.equal(hf.body.aspect_ratio, "9:16");
   assert.ok(hf.headers.get("Idempotency-Key"));
@@ -131,6 +140,18 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   assert.equal(db.prepare("SELECT status FROM posts WHERE video_id = ? AND channel = 'instagram'").get(video.id).status, "manual");
   // TikTok-agenten är avstängd och har inte lagt upp något.
   assert.equal(db.prepare("SELECT 1 FROM posts WHERE channel = 'tiktok'").get(), undefined);
+});
+
+test("Produktbilden går inte att hämta: inga pengar går åt", async () => {
+  const product = activeProduct();
+  db.prepare("UPDATE products SET image_url = 'https://cdn.shopify.com/tasskit-med-handduk.jpg', shopify_handle = NULL WHERE id = ?").run(product.id);
+  db.prepare("UPDATE videos SET status = 'rejected' WHERE status = 'generating'").run();
+  const before = calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length;
+  setQueuedVideos(product.id, 2);
+  await tick();
+  assert.equal(calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length, before, "Claude anropades inte");
+  assert.equal(queuedVideos(product.id), 0);
+  assert.match(progressOf(product.id, "prompt").detail, /Produktbilden går inte att hämta/);
 });
 
 test("Higgsfield misslyckas: kön töms och promptagenten visar felet", async () => {
