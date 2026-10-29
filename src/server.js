@@ -277,6 +277,7 @@ app.get("/meta/connect", (req, res) => {
     <p><b>Facebook-inloggning för företag → Settings → Valid OAuth Redirect URIs:</b><br><code style="user-select:all;background:#222;padding:4px 8px;display:inline-block">${metaRedirect(req)}</code></p>
     <p>Tryck <b>Save changes</b> på varje ställe. Sedan:</p>
     <p><a href="${metaLoginUrl(metaRedirect(req), metaState).replace(/&/g, "&amp;")}" style="display:inline-block;background:#fff;color:#000;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Fortsätt till Facebook</a></p>
+    ${process.env.META_LOGIN_CONFIG_ID ? `<p>Visar Facebook "Sorry, something went wrong"? Prova i stället:<br><a href="${metaLoginUrl(metaRedirect(req), metaState, false).replace(/&/g, "&amp;")}" style="display:inline-block;margin-top:6px;background:#333;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Fortsätt utan konfiguration</a></p>` : ""}
     <p><a style="color:#aaa" href="/">Tillbaka</a></p></body>`);
 });
 app.get("/meta/callback", async (req, res) => {

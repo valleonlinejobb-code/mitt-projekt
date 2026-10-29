@@ -194,13 +194,13 @@ const SCOPES = ["pages_show_list", "pages_read_engagement", "pages_manage_posts"
 export const metaLoginConfigured = () => Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET);
 
 /** Länken till Facebooks godkännanderuta. Med META_LOGIN_CONFIG_ID används konfigurationen (Facebook-inloggning för företag). */
-export function metaLoginUrl(redirectUri, state) {
+export function metaLoginUrl(redirectUri, state, useConfig = true) {
   const url = new URL(`https://www.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/dialog/oauth`);
   url.searchParams.set("client_id", process.env.META_APP_ID);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("state", state);
   url.searchParams.set("response_type", "code");
-  if (process.env.META_LOGIN_CONFIG_ID) url.searchParams.set("config_id", process.env.META_LOGIN_CONFIG_ID);
+  if (useConfig && process.env.META_LOGIN_CONFIG_ID) url.searchParams.set("config_id", process.env.META_LOGIN_CONFIG_ID);
   else url.searchParams.set("scope", SCOPES.join(","));
   return url.toString();
 }
