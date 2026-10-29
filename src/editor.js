@@ -57,11 +57,11 @@ const OFFWHITE = "&H00F0F5F7";
 
 // Slutbildens platser (y-led). Med produktbild flyttas texten så att bilden får plats i mitten.
 const LAYOUT = {
-  plain: { logo: { size: 220, y: 250 }, brand: 520, headline: 580, price: 790, offer: 900, cta: 1050, domain: 1125 },
-  product: { logo: { size: 130, y: 70 }, brand: 245, headline: 290, image: { w: 480, h: 400, y: 430 }, price: 935, offer: 1030, cta: 1135, domain: 1200 },
+  plain: { logo: { size: 200, y: 200 }, brand: 450, headline: 505, features: 660, price: 790, offer: 900, cta: 1050, domain: 1125 },
+  product: { logo: { size: 120, y: 60 }, brand: 220, headline: 262, image: { w: 480, h: 360, y: 370 }, features: 775, price: 875, offer: 965, cta: 1075, domain: 1155 },
 };
 
-function buildAss({ duration, total, overlays, price, endCard, layout }) {
+function buildAss({ duration, total, overlays, price, endCard, infoBar, layout }) {
   const t0 = duration;
   const L = layout;
   const line = (start, end, style, text, tags = "") => `Dialogue: 1,${assTime(start)},${assTime(end)},${style},,0,0,0,,${tags}${assText(text)}`;
@@ -69,6 +69,8 @@ function buildAss({ duration, total, overlays, price, endCard, layout }) {
     // Butiksnamnet bredvid loggan och priset uppe till höger, hela videon utom slutbilden.
     line(0, t0, "Brand", "Vardagshoppen", "{\\an4\\pos(130,78)}"),
     ...(price ? [line(1.5, t0, "Badge", price, "{\\an9\\pos(686,52)\\fad(200,0)}")] : []),
+    // Produktraden längst ner, som i en riktig reklam: vad det är och vad det kostar.
+    ...(infoBar ? [line(0.5, t0, "Info", infoBar, "{\\an2\\pos(360,1235)\\fad(250,0)}")] : []),
     ...overlays
       .filter((o) => o.text && o.to > o.from && o.from < t0)
       .map((o) => line(o.from, Math.min(o.to, t0), "Caption", o.text, "{\\fad(120,120)}")),
@@ -76,6 +78,7 @@ function buildAss({ duration, total, overlays, price, endCard, layout }) {
     `Dialogue: 0,${assTime(t0)},${assTime(total)},Box,,0,0,0,,{\\an7\\pos(0,0)\\fad(250,0)\\p1}m 0 0 l ${W} 0 ${W} ${H} 0 ${H}{\\p0}`,
     line(t0, total, "EndBrand", "Vardagshoppen", `{\\an5\\pos(360,${L.brand})\\fad(250,0)}`),
     ...(endCard.headline ? [line(t0, total, "EndText", endCard.headline, `{\\an8\\pos(360,${L.headline})\\fad(250,0)}`)] : []),
+    ...((endCard.features ?? []).length ? [line(t0 + 0.2, total, "EndFeature", endCard.features.slice(0, 3).join("  ·  "), `{\\an5\\pos(360,${L.features})\\fad(200,0)}`)] : []),
     ...(price ? [line(t0 + 0.3, total, "EndPrice", price, `{\\an5\\pos(360,${L.price})\\fad(200,0)}`)] : []),
     ...(endCard.offer_lines ?? []).slice(0, 2).map((t, i) => line(t0 + 0.6, total, "EndOffer", t, `{\\an5\\pos(360,${L.offer + i * 56})\\fad(200,0)}`)),
     ...(endCard.cta ? [line(t0 + 0.9, total, "EndOffer", endCard.cta, `{\\an5\\pos(360,${L.cta})\\fad(200,0)}`)] : []),
@@ -97,6 +100,8 @@ Style: Box,Inter Display,10,&H00223307,&H00223307,&H00223307,&H00000000,0,0,0,0,
 Style: EndBrand,Inter Display,66,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 Style: EndText,Inter,42,${OFFWHITE},${OFFWHITE},&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,8,60,60,0,1
 Style: EndPrice,Inter Display,132,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: Info,Inter Display,34,&H00FFFFFF,&H00FFFFFF,${GREEN},&H00000000,1,0,0,0,100,100,0,0,3,14,0,2,40,40,0,1
+Style: EndFeature,Inter,32,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,40,40,0,1
 Style: EndOffer,Inter,38,${OFFWHITE},${OFFWHITE},&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,40,40,0,1
 Style: EndCta,Inter Display,40,${GREEN},${GREEN},&H00FFFFFF,&H00000000,1,0,0,0,100,100,0,0,3,16,0,5,0,0,0,1
 
@@ -116,8 +121,9 @@ ${events.join("\n")}
  * @param {{headline?:string, offer_lines?:string[], cta?:string}} o.endCard
  * @param {string} [o.voiceFile] berättarrösten (MP3)
  * @param {string} [o.productImage] produktbilden, visas i slutbilden så att man ser vad vi säljer
+ * @param {string} [o.infoBar]   produktraden längst ner under videon
  */
-export async function editVideo({ input, output, overlays = [], price = "", endCard = {}, voiceFile, productImage }) {
+export async function editVideo({ input, output, overlays = [], price = "", endCard = {}, voiceFile, productImage, infoBar = "" }) {
   const { duration, hasAudio } = await probe(input);
   const voice = voiceFile ? await probe(voiceFile) : null;
   // Slutbilden står kvar 3 s, längre om rösten behöver det (högst 6 s).
@@ -126,7 +132,7 @@ export async function editVideo({ input, output, overlays = [], price = "", endC
 
   const assFile = `${output}.ass`;
   const layout = productImage ? LAYOUT.product : LAYOUT.plain;
-  fs.writeFileSync(assFile, buildAss({ duration, total, overlays, price, endCard, layout }));
+  fs.writeFileSync(assFile, buildAss({ duration, total, overlays, price, endCard, infoBar, layout }));
 
   const args = ["-y", "-i", input, "-loop", "1", "-i", path.join(ASSETS, "logo.png")];
   let next = 2;
@@ -179,7 +185,7 @@ export async function selfCheck(dir) {
     await editVideo({
       input, output, price: "199 kr",
       overlays: [{ from: 0, to: 1, text: "Test" }],
-      endCard: { headline: "Test", offer_lines: ["Test"], cta: "Test" },
+      endCard: { headline: "Test", features: ["Test"], offer_lines: ["Test"], cta: "Test" }, infoBar: "Test",
     });
     return { ok: true };
   } catch (err) {

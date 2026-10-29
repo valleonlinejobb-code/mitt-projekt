@@ -1,3 +1,29 @@
+# Ägarens användningsvideo (viktigast)
+
+Ägaren skickade en TikTok-video (ca 9 s, en tasstvättkopp av samma typ som vår, en golden doodle, POV från ägaren) som visar exakt hur produkten ska användas och visas. Det här är det viktigaste i varje annons: tittaren ska se och förstå hur man gör.
+
+Så går videon, bild för bild:
+1. **0–2 s:** koppen fylls med vatten vid diskbänkens kran. Ägarens hand håller koppen.
+2. **2–3 s:** koppen hålls upp nära kameran så att man ser de mjuka borsten inuti.
+3. **3–6 s:** ägaren sitter på huk vid hunden på en ljus matta. Ena handen håller hundens ben, andra handen håller koppen. Tassen förs ner i koppen, och ägaren pumpar koppen upp och ner och vrider den flera gånger runt tassen. Det syns tydligt i närbild i nästan 3 sekunder utan klipp. Tassen kommer upp ren.
+4. **6–8 s:** tassen lindas in i handduken och gnuggas torr, medan hunden sitter lugnt och tittar i kameran.
+5. **8–9 s:** det smutsiga, bruna vattnet hälls ut i diskhon. Det är beviset på att det fungerar.
+
+Det vi lär oss:
+- **Visa hela användningen i rätt ordning:** tass i koppen → pumpa och vrid flera gånger → upp med en ren tass → torka med handduken. Användningen ska synas i minst 4 sekunder i närbild, i en följd. Att bara doppa tassen och lyfta den är fel.
+- **Händerna syns hela tiden:** ena handen på hundens ben, andra på koppen. Det visar hur enkelt det är.
+- **Bevis i bild:** det smutsiga vattnet (i koppen eller när det hälls ut) och den rena tassen.
+- **Lugn hund, lugn kamera:** hunden sitter still och ser nöjd ut, kameran i hundens höjd.
+- **Ljust och rent:** ljus matta, dagsljus, städat hem. Det ser snyggt och proffsigt ut.
+- På 10 sekunder hinner vi högst 3 scener. Prioritera: (1) kort krok med lerig tass, (2) användningen i koppen, lång och tydlig, (3) torkning med handduken eller det smutsiga vattnet.
+
+# Snygg och informativ reklam
+
+Ägaren vill att annonsen ser ut som en riktig reklam: snygg, ren och full av information om butiken och produkten, men med äkta användning.
+- Filmen: ljus, ren och skarp, ett städat svenskt hem, lugna kamerarörelser. Inga röriga miljöer.
+- Klipparen lägger på information hela tiden: logga och Vardagshoppen uppe till vänster, priset uppe till höger, produktraden (info_bar) längst ner, korta texter i bild och en slutbild med produktbild, rubrik, 2–3 fördelar (features), pris, erbjudanden, uppmaning och vardagshoppen.com.
+- Fördelar och fakta tas bara från produktinfon (t.ex. mjuka borst, handduk ingår, storlekar, 14 dagars ångerrätt).
+
 # Referensvideo: vad som gör den bra
 
 Ägaren valde en TikTok-video (whatif.sim, 67 s, ca 35 miljoner visningar på serien) som förebild. Den förklarar hur man gör "What if"-videor med Claude. Ämnet är ett annat än vårt, men greppen är de vi ska använda.
@@ -29,7 +55,7 @@
 
 Ägaren klistrade in en YouTube-video ("8 hacks" från någon som säger sig ha annonserat för över 300 miljoner dollar på Meta). Det här är det som gäller våra korta videor:
 
-1. **Annonsen ska inte se ut som en annons.** Folk scrollar förbi sådant som ser ut som reklam. Gör videon som det innehåll hundägare redan tittar på: en vanlig mobilvideo i ett vanligt svenskt hem, en riktig hund, en riktig lerig tass. Ingen studio, ingen glättig reklamfilm. Det säljande (logga, pris, erbjudande) läggs på i hörnen och i slutbilden, inte i själva filmen.
+1. **Äkta användning i en snygg förpackning.** Ägaren har bestämt (2026-10-29) att annonsen ska se ut som en snygg, ren reklam med mycket information. Själva filmen visar äkta användning i ett riktigt hem med en riktig hund, och klipparen lägger på logga, pris, produktrad, fördelar och erbjudanden.
 2. **Identitetsord.** Annonssystemet läser bild, text och erbjudande för att hitta rätt personer. Skriv in vem annonsen är för, t.ex. "För dig med stor hund", "Hundägare på landet", "Du med ljust golv i hallen". Ett ord om gruppen räcker. Gör olika versioner för olika grupper i stället för en allmän annons.
 3. **Samma vinnare i flera versioner.** När en idé har godkänts (status approved) är den en vinnare: gör nästa idéer som varianter av den, med samma ton men riktad till en ny grupp, i stället för något helt nytt.
 4. **Bred målgrupp, tydlig annons.** Annonsen själv ska berätta vem den är för och vilket problem den löser. Därför får texterna till Instagram och Facebook vara längre och beskriva hundägaren, problemet (lera, grus, slask, smutsigt golv, bilen) och lösningen.
@@ -41,10 +67,10 @@
 ## Annonsens delar (så ser en färdig video ut)
 
 - 0–2 s, FÖRE: problemet i närbild. Lerig, smutsig tass, leriga avtryck på ljust golv. Text i bild med identitetsord, t.ex. "Lerig hund igen?".
-- 2–7 s: produkten används, rätt och lugnt: tassen i koppen, vrid koppen fram och tillbaka så att borsten gnuggar runt tassen, lyft upp den rena tassen, torka med handduken.
-- 7–10 s, EFTER: ren tass, rent golv, glad hund och ägare.
-- 10–13 s: slutbild (läggs på automatiskt): logga, Vardagshoppen, rubrik, pris, erbjudanden, uppmaning, vardagshoppen.com.
-- Hela tiden: logga och butiksnamn uppe till vänster, priset uppe till höger.
+- 2–8 s: produkten används som i ägarens användningsvideo: ena handen på hundens ben, tassen i koppen, pumpa och vrid koppen flera gånger, lyft upp den rena tassen, torka med handduken. Minst 4 sekunder, i närbild.
+- 8–10 s, EFTER: ren tass, det smutsiga vattnet som bevis, glad hund.
+- 10–13 s: slutbild (läggs på automatiskt): logga, Vardagshoppen, rubrik, produktbild, fördelar, pris, erbjudanden, uppmaning, vardagshoppen.com.
+- Hela tiden: logga och butiksnamn uppe till vänster, priset uppe till höger, produktraden längst ner.
 - Rösten: en lugn svensk kvinnoröst som säger problemet, lösningen, priset och erbjudandet, t.ex. "Trött på leriga tassar i hallen? Doppa, vrid, torka – klart. Tasstvättkit för 199 kronor på vardagshoppen.com. Använd koden FORSTA10 – bara för de tio första."
 
 # Lärdomar från Metas Ads Creative Studio

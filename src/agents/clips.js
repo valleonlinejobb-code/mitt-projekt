@@ -7,7 +7,7 @@ import { db, now, log, currentOffers, MEDIA_DIR } from "../db.js";
 import { askClaude } from "../claude.js";
 import { newRun } from "../costs.js";
 import { extractFrames, probe } from "../editor.js";
-import { HOOK_TYPES, claimProblems, editAndOffer } from "./prompt.js";
+import { HOOK_TYPES, claimProblems, editAndOffer, INFO_BAR, END_CARD } from "./prompt.js";
 import * as progress from "../progress.js";
 
 export const MAX_CLIP_SECONDS = 90;
@@ -16,7 +16,7 @@ const REFERENCE = fs.readFileSync(new URL("./reference-ad.md", import.meta.url),
 const CLIP_PLAN = {
   type: "object",
   additionalProperties: false,
-  required: ["idea", "hook_type", "audience", "overlays", "voiceover", "end_card", "captions"],
+  required: ["idea", "hook_type", "audience", "overlays", "voiceover", "info_bar", "end_card", "captions"],
   properties: {
     idea: { type: "string", description: "Kort beskrivning på svenska av vad filmen visar och vinkeln i annonsen" },
     hook_type: { type: "string", enum: HOOK_TYPES },
@@ -31,12 +31,8 @@ const CLIP_PLAN = {
       },
     },
     voiceover: { type: "string" },
-    end_card: {
-      type: "object",
-      additionalProperties: false,
-      required: ["headline", "offer_lines", "cta"],
-      properties: { headline: { type: "string" }, offer_lines: { type: "array", items: { type: "string" } }, cta: { type: "string" } },
-    },
+    info_bar: INFO_BAR,
+    end_card: END_CARD,
     captions: {
       type: "object",
       additionalProperties: false,
@@ -105,7 +101,8 @@ Filmen är ${duration.toFixed(1)} sekunder. Bilderna ovan är tagna vid ${frames
 Skriv:
 - overlays: 2–4 korta texter (1–5 ord) med tider mellan 0 och ${duration.toFixed(1)} s som passar det som syns just då. Den första ska fånga på 2 sekunder.
 - voiceover: en lugn svensk kvinnoröst, högst ${maxWords} ord. Den säger problemet, lösningen, priset och erbjudandet med exakt kod, och avslutar med vardagshoppen.com.
-- end_card: rubrik (samma löfte som produktsidan, högst 6 ord), 0–2 rader med erbjudandena och en kort uppmaning utan webbadress.
+- info_bar: produktraden längst ner under hela filmen, högst 40 tecken, t.ex. "Tasstvättkit · kopp + handduk · ${product.price}".
+- end_card: rubrik (samma löfte som produktsidan, högst 6 ord), 2–3 korta fördelar ur produktinfon (features, högst 3 ord var), 0–2 rader med erbjudandena och en kort uppmaning utan webbadress.
 - captions: inläggstexter för Instagram, Facebook och TikTok på svenska som slutar med uppmaning, pris och erbjudande.
 Bara priset ${product.price} och erbjudandena ovan får nämnas. Inga andra siffror om de inte står i produktinfon.
 ${feedback ? `\nRätta det här från förra försöket:\n${feedback}` : ""}`,
@@ -118,7 +115,7 @@ ${feedback ? `\nRätta det här från förra försöket:\n${feedback}` : ""}`,
     }
     if (!plan) throw new Error("Texterna klarade inte faktakollen två gånger. Filmen är inte bearbetad.");
 
-    const edit = { note, overlays: plan.overlays, voiceover: plan.voiceover, end_card: plan.end_card };
+    const edit = { note, overlays: plan.overlays, voiceover: plan.voiceover, info_bar: plan.info_bar, end_card: plan.end_card };
     const idea = `Egen film: ${plan.idea} · Krok: ${plan.hook_type} · För: ${plan.audience} · Text i bild: ${plan.overlays.map((o) => o.text).join(" / ")} · Röst: "${plan.voiceover}"`;
     db.prepare("UPDATE videos SET idea = ?, edit = ?, captions = ?, hook_type = ? WHERE id = ?")
       .run(idea, JSON.stringify(edit), JSON.stringify(plan.captions), plan.hook_type, video.id);

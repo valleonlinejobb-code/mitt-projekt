@@ -30,10 +30,23 @@ const CAPTIONS = {
   required: ["instagram", "facebook", "tiktok"],
   properties: { instagram: { type: "string" }, facebook: { type: "string" }, tiktok: { type: "string" } },
 };
+// Information om butiken och produkten som klipparen visar snyggt i bild (ägaren vill ha en ren, informativ reklam).
+export const INFO_BAR = { type: "string", description: "Produktraden längst ner under hela videon, högst 40 tecken, t.ex. 'Tasstvättkit · kopp + handduk · 199 kr'" };
+export const END_CARD = {
+  type: "object",
+  additionalProperties: false,
+  required: ["headline", "features", "offer_lines", "cta"],
+  properties: {
+    headline: { type: "string", description: "Samma löfte som på produktsidan, högst 6 ord" },
+    features: { type: "array", items: { type: "string" }, description: "2–3 korta fördelar ur produktinfon, högst 3 ord var, t.ex. 'Mjuka borst', 'Handduk ingår'" },
+    offer_lines: { type: "array", items: { type: "string" }, description: "0–2 korta rader med erbjudandena, exakt kod och procent" },
+    cta: { type: "string", description: "Kort uppmaning utan webbadress, t.ex. 'Beställ idag'" },
+  },
+};
 const CONCEPT = {
   type: "object",
   additionalProperties: false,
-  required: ["idea", "hook_type", "variant_of", "audience", "hook", "video_prompt", "overlays", "voiceover", "end_card", "captions"],
+  required: ["idea", "hook_type", "variant_of", "audience", "hook", "video_prompt", "overlays", "voiceover", "info_bar", "end_card", "captions"],
   properties: {
     idea: { type: "string", description: "Kort beskrivning av idén på svenska" },
     hook_type: { type: "string", enum: HOOK_TYPES, description: "Vilken sorts krok de första 3 sekunderna" },
@@ -52,16 +65,8 @@ const CONCEPT = {
       },
     },
     voiceover: { type: "string", description: "Berättarrösten på svenska, högst 30 ord, nämner erbjudandet" },
-    end_card: {
-      type: "object",
-      additionalProperties: false,
-      required: ["headline", "offer_lines", "cta"],
-      properties: {
-        headline: { type: "string", description: "Samma löfte som på produktsidan, högst 6 ord" },
-        offer_lines: { type: "array", items: { type: "string" }, description: "0–2 korta rader med erbjudandena, exakt kod och procent" },
-        cta: { type: "string", description: "Kort uppmaning utan webbadress, t.ex. 'Beställ idag'" },
-      },
-    },
+    info_bar: INFO_BAR,
+    end_card: END_CARD,
     captions: CAPTIONS,
   },
 };
@@ -97,9 +102,11 @@ const RULES = `Regler för en bra annons:
 - Stående 9:16, exakt ${VIDEO_SECONDS} sekunder från videomodellen, högst 3 scener. Kroken syns inom 2 sekunder.
 - Visa varför man ska köpa: först problemet (FÖRE, t.ex. en smutsig, lerig tass och leriga avtryck på golvet), sedan produkten i användning och till sist resultatet (EFTER, ren tass, rent golv, nöjd ägare). Före/efter ska synas tydligt i bild.
 - Produkten ska se ut exakt som på produktbilden (form, färg, storlek). Hitta inte på delar, logotyper eller förpackningar.
-- Videoprompten skrivs på engelska och beskriver för varje scen: tid (t.ex. 0–3 s), vad som händer, kameravinkel och rörelse, ljus och miljö. Realistisk stil som en vanlig mobilvideo i ett svenskt hem, inte reklamfilm i studio, så att den känns som ett vanligt inlägg och inte som en annons.
+- Videoprompten skrivs på engelska och beskriver för varje scen: tid (t.ex. 0–3 s), vad som händer, kameravinkel och rörelse, ljus och miljö. Ljus, ren och snygg stil: ett städat svenskt hem i dagsljus (ljust golv, ljus matta), skarp bild, lugn kamera i hundens höjd. Äkta och trovärdig, men välkomponerad som en snygg reklamfilm, inte rörig.
 - Videomodellen klarar inte text, logotyper eller komplicerade handrörelser. Ingen text, skylt eller logga i videoprompten. Be om naturliga ljud (vatten, tassar) men inget tal och ingen musik, eftersom berättarrösten läggs på efteråt. Håll den sista sekunden lugn.
-- Det här läggs på automatiskt efteråt, så du ska inte be videomodellen om det: Vardagshoppens logga och namn uppe till vänster, priset uppe till höger, din text i bild (overlays) och en slutbild på 3 sekunder med logga, rubrik, pris, erbjudanden, uppmaning och webbadress.
+- VIKTIGAST: visa tydligt hur produkten används, som i ägarens användningsvideo i referensen. Användningen ska synas i minst 4 sekunder i en följd, i närbild, så att tittaren förstår exakt hur man gör. Se "Ägarens användningsvideo" i referensen och ägarens instruktioner för produkten. En video där produkten bara skymtar eller används fel är underkänd.
+- Annonsen ska se ut som en snygg, ren reklam med mycket information om butiken och produkten: info_bar (produktraden längst ner hela videon) och end_card.features (2–3 korta fördelar ur produktinfon) visas av klipparen. Bara sant från produktinfon.
+- Det här läggs på automatiskt efteråt, så du ska inte be videomodellen om det: Vardagshoppens logga och namn uppe till vänster, priset uppe till höger, din text i bild (overlays) produktraden (info_bar) längst ner och en slutbild på 3 sekunder med logga, rubrik, produktbild, fördelar, pris, erbjudanden, uppmaning och webbadress.
 - overlays: 2–4 korta texter (1–5 ord) med tider mellan 0 och ${VIDEO_SECONDS} s som följer före → efter, t.ex. "Leriga tassar igen?" och "Ren tass på sekunder". Skriv som en vanlig TikTok-text, inte som en reklamskylt.
 - voiceover: en lugn, vänlig kvinnoröst som pratar svenska, högst 30 ord (ca 12 sekunder). Den säger problemet, lösningen, priset och erbjudandet med exakt kod, och avslutar med var man köper (vardagshoppen.com). Skriv koden så att den går att uttala, t.ex. "koden FORSTA10".
 - end_card: headline är samma löfte som produktsidan ger (annonsen och sidan ska matcha). offer_lines är 0–2 korta rader med erbjudandena, t.ex. "−5 % med koden VALKOMMEN5". cta är en kort uppmaning utan webbadress.
@@ -124,7 +131,7 @@ export function claimProblems(plan, product, offers, maxWords = 30) {
   const problems = [];
   const texts = [
     ...(plan.overlays ?? []).map((o) => o.text), plan.voiceover,
-    plan.end_card?.headline, ...(plan.end_card?.offer_lines ?? []), plan.end_card?.cta,
+    plan.info_bar, plan.end_card?.headline, ...(plan.end_card?.features ?? []), ...(plan.end_card?.offer_lines ?? []), plan.end_card?.cta,
     ...Object.values(plan.captions ?? {}),
   ].filter(Boolean);
   const all = texts.join("\n");
@@ -299,7 +306,7 @@ Skriv tre olika idéer.`,
         "Du är en sträng kvalitetsgranskare av korta reklamvideor för Vardagshoppen. Du jämför idéer med ägarens referensvideo och reglerna, " +
         "och du godkänner bara sådant som verkligen kan bli en bra annons. Betygsätt 1–10 där 8 betyder 'skulle fungera bra som betald annons'. " +
         "Kolla särskilt: stark krok inom 2 s, tydligt före (smutsigt problem) och efter (rent resultat), att produkten beskrivs som på bilden, " +
-        "att videomodellen klarar scenerna, att videon känns som ett vanligt inlägg och inte som en annons, ett tydligt identitetsord för målgruppen, " +
+        "att videomodellen klarar scenerna, att produktens användning visas tydligt i minst 4 sekunder i en följd (som i ägarens användningsvideo), att videon ser ut som en snygg och ren reklam med tydlig information om butiken och produkten, ett tydligt identitetsord för målgruppen, " +
         "att rösten och slutbilden säger pris och erbjudande rätt och lockar till köp, att rubriken matchar produktsidan, " +
         "att produkten används av en människa och på rätt sätt enligt ägarens instruktioner (står det hur produkten ska användas, t.ex. att tassen gnuggas runt i koppen och torkas med handduken, ska det stå tydligt i videoprompten), att förtroendesignaler är sanna, och att idéerna bygger på det som gått bra under 'Resultat'. " +
         "och att varje siffra och påstående i texterna stöds av produktinfon, 'Aktuella erbjudanden' eller 'Verifierade fakta'. " +
@@ -330,7 +337,7 @@ ${JSON.stringify(concepts, null, 2)}`,
     return;
   }
   const idea = `${plan.idea} · Krok: ${plan.hook_type}${plan.variant_of ? ` (variant av #${plan.variant_of})` : ""} · För: ${plan.audience} · Kvalitet ${plan.score}/10 · Text i bild: ${plan.overlays.map((o) => o.text).join(" / ")} · Röst: "${plan.voiceover}"`;
-  const edit = { overlays: plan.overlays, voiceover: plan.voiceover, end_card: plan.end_card };
+  const edit = { overlays: plan.overlays, voiceover: plan.voiceover, info_bar: plan.info_bar, end_card: plan.end_card };
 
   const { lastInsertRowid } = db.prepare(`INSERT INTO videos
     (product_id, created_at, status, idea, prompt, captions, edit, hook_type, variant_of, ab_group, source)
@@ -448,6 +455,7 @@ export async function finishAd(video, rawFile, outFile) {
     overlays: edit.overlays ?? [],
     price: product?.price ?? "",
     endCard: edit.end_card ?? {},
+    infoBar: edit.info_bar ?? "",
     voiceFile,
   };
   try {

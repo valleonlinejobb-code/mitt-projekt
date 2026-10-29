@@ -141,12 +141,18 @@ if (!postColumns.includes("stats_at")) db.exec("ALTER TABLE posts ADD COLUMN sta
 
 // Det som bara gäller tasstvättkitet (förut inskrivet i agenternas kod).
 const PAW_KIT_FOCUS_OLD_USAGE = "Video: prioritera videor som visar hur kitet används som bäst, i rätt ordning (doppa, vrid, torka med handduken).";
-const PAW_KIT_FOCUS_USAGE = `Video: prioritera videor som visar hur kitet används som bäst, i rätt ordning:
+const PAW_KIT_FOCUS_USAGE_V2 = `Video: prioritera videor som visar hur kitet används som bäst, i rätt ordning:
 1) ägaren håller koppen med lite vatten och för ner den leriga tassen,
 2) ägaren vrider koppen fram och tillbaka flera varv så att de mjuka borsten gnuggar och skrubbar runt hela tassen (syns tydligt i 2–3 sekunder, leran löses upp och vattnet blir grumligt),
 3) tassen lyfts upp ren,
 4) tassen torkas med mikrofiberhandduken.
 Att bara doppa tassen och lyfta upp den direkt är fel och får inte visas. Skriv gnuggningen tydligt i videoprompten på engelska, t.ex. "the owner twists the cup back and forth several times so the soft bristles scrub all around the paw, muddy water swirling", och torkningen, t.ex. "then dries the clean paw with the grey microfiber towel".`;
+const PAW_KIT_FOCUS_USAGE = `Video: prioritera videor som visar hur kitet används som bäst, som i ägarens användningsvideo, i rätt ordning:
+1) ägaren håller hundens ben med ena handen och koppen (med lite vatten) med den andra, och för ner den leriga tassen,
+2) ägaren pumpar koppen upp och ner och vrider den flera gånger runt tassen så att de mjuka borsten gnuggar och skrubbar hela tassen (syns tydligt i närbild i minst 3 sekunder, leran löses upp och vattnet blir grumligt),
+3) tassen lyfts upp ren,
+4) tassen lindas in i mikrofiberhandduken och gnuggas torr.
+Bevisa gärna med det smutsiga vattnet. Att bara doppa tassen och lyfta upp den direkt är fel och får inte visas. Skriv användningen tydligt i videoprompten på engelska, t.ex. "the owner holds the dog's leg with one hand and the cup with the other, pumps the cup up and down and twists it several times so the soft bristles scrub all around the paw, muddy water swirling", och torkningen, t.ex. "then wraps the clean paw in the grey microfiber towel and rubs it dry".`;
 const PAW_KIT_FOCUS = `Produkten är ett kit: tasstvätt (kopp med mjuka TPR-borst) plus mikrofiberhandduk med tassmönster.
 Research: ta reda på hur kitet används bäst (rätt vattentemperatur och mängd, hur man för in och vrider tassen, hur handduken torkar mellan trampdynor och klor, hur man vänjer en ovan hund, rengöring av kopp och handduk, val av storlek) från tillverkare, veterinärer och djurbutiker.
 Massagekänslan: de mjuka borsten känns som massage för hunden. Sök vad tillverkare, veterinärer och hundägare säger om det och skriv bara det som källorna stöder.
@@ -182,7 +188,10 @@ if (!db.prepare("SELECT 1 FROM products LIMIT 1").get()) {
 db.prepare("UPDATE products SET focus = ? WHERE focus = '' AND shop_url LIKE '%/products/tasstvattkit-%'").run(PAW_KIT_FOCUS);
 
 // Befintliga databaser: tydligare instruktion om hur tassen tvättas (ägaren 2026-10-29: "den ska ju gnugga runt lite").
-db.prepare("UPDATE products SET focus = replace(focus, ?, ?) WHERE shop_url LIKE '%/products/tasstvattkit-%'").run(PAW_KIT_FOCUS_OLD_USAGE, PAW_KIT_FOCUS_USAGE);
+// Ägarens användningsvideo (2026-10-29): pumpa och vrid koppen med ena handen på hundens ben, linda in tassen i handduken.
+for (const old of [PAW_KIT_FOCUS_OLD_USAGE, PAW_KIT_FOCUS_USAGE_V2]) {
+  db.prepare("UPDATE products SET focus = replace(focus, ?, ?) WHERE shop_url LIKE '%/products/tasstvattkit-%'").run(old, PAW_KIT_FOCUS_USAGE);
+}
 
 // Sant från butikens produktsida (2026-10-29). Förtroendesignaler som agenterna får använda, och leveransen som de inte får överdriva.
 const PAW_KIT_SHOP_FACTS = `Fakta från butikens produktsida (sanna, får användas som förtroendesignaler):
