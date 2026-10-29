@@ -7,6 +7,7 @@ import { db, log, getSetting, setSetting, ensureAgents, activeProduct, currentOf
 import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
 import { higgsfieldConfigured } from "./higgsfield.js";
+import { geminiConfigured } from "./gemini.js";
 import { queuedVideos, setQueuedVideos, addVideoJobs, videoJobs, newAbGroup } from "./agents/prompt.js";
 import { statsText, abTests, performance } from "./agents/stats.js";
 import { addClip } from "./agents/clips.js";
@@ -87,6 +88,7 @@ app.get("/api/state", (_req, res) => {
     log: all("SELECT * FROM log ORDER BY id DESC LIMIT 60"),
     connections: {
       claude: Boolean(process.env.ANTHROPIC_API_KEY),
+      gemini: geminiConfigured(),
       higgsfield: higgsfieldConfigured(),
       publicUrl: Boolean(process.env.PUBLIC_URL),
       editor: checks.editor,
@@ -94,7 +96,7 @@ app.get("/api/state", (_req, res) => {
       ...Object.fromEntries(CHANNELS.map((c) => [c, channelConfigured[c]()])),
     },
     // Vad ett jobb brukar kosta (snittet av de senaste, annars en uppskattning) och vad Claude faktiskt har kostat.
-    cost: { video: estimateSek("video"), research: estimateSek("research"), clip: estimateSek("clip") },
+    cost: { video: estimateSek("video"), research: geminiConfigured() ? 0 : estimateSek("research"), clip: estimateSek("clip") },
     spend: spendSummary(),
     maxOrder: MAX_ORDER,
     settings: {

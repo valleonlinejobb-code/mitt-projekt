@@ -210,7 +210,7 @@ async function refresh() {
 let orderCount = 1;
 function render() {
   const c = state.connections;
-  $("connections").innerHTML = [["claude","Claude"],["higgsfield","Higgsfield"],["publicUrl","Publik adress"],["instagram","Instagram"],["facebook","Facebook"],["tiktok","TikTok"]]
+  $("connections").innerHTML = [["claude","Claude"],["gemini","Gemini (gratis research)"],["higgsfield","Higgsfield"],["publicUrl","Publik adress"],["instagram","Instagram"],["facebook","Facebook"],["tiktok","TikTok"]]
     .map(([k, n]) => `<span class="chip ${c[k] ? "on" : ""}">${c[k] ? "✓" : "–"} ${n}</span>`).join("") +
     // Provklippet och provrösten som görs när servern startar.
     [["editor", "Klipparen"], ["voice", "Berättarröst"]].filter(([k]) => c[k])
@@ -244,7 +244,7 @@ function render() {
   const ordered = product.queued > 0 || generatingNow;
   const orderCost = (n) => n * state.cost.video + (product.researchDue ? state.cost.research : 0);
   $("order").innerHTML = `
-    <div class="muted">Videorna görs för <strong>${esc(product.name)}</strong>. Agenterna gör inga videor förrän du beställer. En video kostar ungefär ${state.cost.video} kr${product.researchDue ? `, plus ungefär ${state.cost.research} kr för ny research` : " (researchen finns redan och är gratis att återanvända)"}.</div>
+    <div class="muted">Videorna görs för <strong>${esc(product.name)}</strong>. Agenterna gör inga videor förrän du beställer. En video kostar ungefär ${state.cost.video} kr${product.researchDue ? (state.cost.research ? `, plus ungefär ${state.cost.research} kr för ny research` : ", och ny research görs gratis med Gemini") : " (researchen finns redan och är gratis att återanvända)"}.</div>
     <div class="row">
       <select onchange="orderCount = Number(this.value); render()">
         ${Array.from({ length: 10 }, (_, i) => i + 1).map((n) => `<option value="${n}" ${n === orderCount ? "selected" : ""}>${n} ${n === 1 ? "video" : "videor"}</option>`).join("")}
@@ -409,7 +409,7 @@ function renderFlow(product) {
   else if (research?.status === "error") { rStatus = "error"; rText = "Researchen misslyckades."; }
   else if (research?.status === "done") { rStatus = "done"; rText = `Klar ${time(research.at)}. Skickad till promptagenten.`; }
   $("node-research").innerHTML = nodeHtml(agent("research"), rStatus, rText,
-    `<div class="row"><button class="ghost" onclick="runResearch()" ${researchWorking ? "disabled" : ""}>Kör research · ca ${state.cost.research} kr</button></div>`);
+    `<div class="row"><button class="ghost" onclick="runResearch()" ${researchWorking ? "disabled" : ""}>Kör research · ${state.cost.research ? `ca ${state.cost.research} kr` : "gratis"}</button></div>`);
 
   // Promptagenten
   let pStatus = "idle", pText = "Väntar på en beställning. Den gör bara videor du har beställt.";

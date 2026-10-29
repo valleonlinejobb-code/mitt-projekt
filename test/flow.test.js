@@ -98,6 +98,20 @@ globalThis.fetch = async (input, init = {}) => {
     }
     if (system.startsWith("Du är klippagent")) return claudeText(JSON.stringify(clipPlan ?? CLIP_PLAN));
   }
+  if (url.startsWith("https://generativelanguage.googleapis.com/")) {
+    // Gemini med Google-sökning: platsen för källan räknas i byte, så texten har å, ä och ö.
+    const first = "Tvätta tassen i ljummet vatten.";
+    const text = body.systemInstruction.parts[0].text.startsWith("Du är researchagent")
+      ? `${first} Torka sedan med handduken.`
+      : `## Så används produkten bäst\n- Gemini-faktakollad: ${first}`;
+    const grounded = body.systemInstruction.parts[0].text.startsWith("Du är researchagent");
+    return json({ candidates: [{ content: { parts: [{ text }] }, finishReason: "STOP",
+      ...(grounded ? { groundingMetadata: {
+        groundingChunks: [{ web: { uri: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", title: "hundtips.se" } }],
+        groundingSupports: [{ segment: { endIndex: Buffer.byteLength(first) }, groundingChunkIndices: [0] }],
+      } } : {}) }] });
+  }
+  if (url.startsWith("https://vertexaisearch.cloud.google.com/")) return new Response(null, { status: 302, headers: { location: "https://hundtips.se/tassar" } });
   if (url === "https://api.higgsfield.ai/alibaba/wan-3.0/reference-to-video") {
     return json({ status: "queued", request_id: "req-1", status_url: "https://api.higgsfield.ai/requests/req-1/status" });
   }
@@ -465,4 +479,28 @@ test("Promptagenten och granskaren vet att tassen ska gnuggas runt i koppen och 
 test("Provklippet när servern startar visar att klipparen fungerar", async () => {
   const { selfCheck } = await import("../src/editor.js");
   assert.deepEqual(await selfCheck(path.join(dataDir, "media")), { ok: true });
+});
+
+test("Med GEMINI_API_KEY görs researchen gratis med Gemini, och källorna får riktiga adresser", async () => {
+  const { runResearch, latestResearch } = await import("../src/agents/research.js");
+  const product = activeProduct();
+  const costsBefore = db.prepare("SELECT COUNT(*) AS n FROM costs").get().n;
+  const claudeBefore = calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length;
+  process.env.GEMINI_API_KEY = "gemini-key";
+  try {
+    await runResearch(product);
+  } finally {
+    delete process.env.GEMINI_API_KEY;
+  }
+  assert.match(latestResearch(product.id).notes, /Gemini-faktakollad/);
+  const geminiCalls = calls.filter((c) => c.url.startsWith("https://generativelanguage.googleapis.com/"));
+  assert.equal(geminiCalls.length, 2, "utkast och faktakoll");
+  assert.ok(geminiCalls.every((c) => c.url.includes("gemini-2.5-flash:generateContent") && c.headers.get("x-goog-api-key") === "gemini-key"));
+  assert.deepEqual(geminiCalls[0].body.tools, [{ google_search: {} }]);
+  // Faktakollen fick utkastet med källan på rätt plats och den riktiga adressen, inte Googles omdirigering.
+  const checkPrompt = geminiCalls[1].body.contents[0].parts[0].text;
+  assert.match(checkPrompt, /Tvätta tassen i ljummet vatten\. \(källa: https:\/\/hundtips\.se\/tassar\) Torka/);
+  assert.match(checkPrompt, /- hundtips\.se: https:\/\/hundtips\.se\/tassar/);
+  assert.equal(calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length, claudeBefore, "Claude anropades inte");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM costs").get().n, costsBefore, "ingen kostnad");
 });
