@@ -22,6 +22,11 @@ export function latestResearch(productId) {
   return db.prepare("SELECT * FROM research WHERE product_id = ? ORDER BY id DESC LIMIT 1").get(productId);
 }
 
+/** En del av rapporten, t.ex. "Kundernas röst", eller tom sträng om den saknas. */
+export function researchSection(notes = "", heading) {
+  return notes.split(/^## /m).find((part) => part.startsWith(heading))?.slice(heading.length).trim() ?? "";
+}
+
 export function researchDue(product) {
   const last = latestResearch(product.id);
   return !last || Date.now() - new Date(last.created_at).getTime() > RESEARCH_EVERY_DAYS * 86_400_000;
@@ -60,8 +65,13 @@ ${product.focus ? `Ägarens instruktioner för just den här produkten:\n${produ
 4. Varför just de gick bra för just de företagen: krok, format (demo, före/efter, UGC, ASMR, humor), känsla, ljud, längd, målgrupp och timing. Skilj på vad källan säger och din bedömning.
 5. Vilka grupper inom målgruppen konkurrenterna riktar sig till och vilka ord de använder om dem (t.ex. hundras, storlek, boende, golv, bil), och hur annonsen matchar sidan man kommer till.
 6. Vad som får målgruppen att köpa (pris, erbjudanden, känslor, säsong – just nu är det ${new Date().toLocaleDateString("sv-SE", { month: "long" })} i Sverige).
-7. Tre videoidéer på 10 sekunder för oss, i stående format, med före/efter. Minst en ska visa hur produkten används bäst.
-8. Saker att undvika (även sådant plattformarnas regler förbjuder i annonser).
+7. Svenska kunders röst: läs vad riktiga kunder skriver om den här typen av produkt (och om problemet den löser), helst på svenska. Sök i recensioner hos svenska butiker (t.ex. Zooplus, Arken Zoo, Musti, Granngården, Amazon.se, Prisjakt) och på Trustpilot, och i diskussioner om problemet (t.ex. Reddit, Facebook-grupper och forum för hundägare). Ta fram:
+   - Klagomål och problem: vad kunderna irriterar sig på, både med problemet (leriga tassar, smutsiga golv, bilen) och med liknande produkter (t.ex. för liten, spricker, svår att torka).
+   - Invändningar innan köp: varför folk tvekar (t.ex. "funkar den på stora hundar?", "blir det blött överallt?", "är den värd pengarna?").
+   - Kundernas egna ord: korta citat ordagrant, med källa. De ska kunna användas som krokar och i svar på kommentarer.
+   Hitta aldrig på citat. Hittar du inget på svenska går engelska bra, men skriv det.
+8. Tre videoidéer på 10 sekunder för oss, i stående format, med före/efter. Minst en ska visa hur produkten används bäst.
+9. Saker att undvika (även sådant plattformarnas regler förbjuder i annonser).
 ${previous ? `\nFörra rapporten (bygg vidare, upprepa inte):\n${previous.notes.slice(0, 4000)}` : ""}`,
   });
 
@@ -83,15 +93,19 @@ ${draft.text}
 Källor som lästes:
 ${draft.sources.map((s) => `- ${s.title}: ${s.url}`).join("\n") || "(inga)"}
 
-Skriv den slutliga rapporten till promptagenten med exakt dessa rubriker:
+Skriv den slutliga rapporten till promptagenten med exakt dessa rubriker, i den här ordningen. Ägaren läser också rapporten, så skriv kort och enkelt: en punkt per rad som börjar med "- ".
+## Det här tar vi med oss
+De 3 viktigaste lärdomarna för nästa annons, en mening var, i klartext. Bara sådant som rapporten nedan stöder.
 ## Så används produkten bäst
 Steg och tips, varje punkt med (källa: URL).
 ## Annonser som gått bra och varför
-Varje annons med företag, vad den visar, resultat (siffror) och (källa: URL). Varför den gick bra märks som fakta med källa eller som "Bedömning:".
+En punkt per annons i formen: "**Företag**: vad annonsen visar. Krok: de första 2 sekunderna. Resultat: siffror om de finns. (källa: URL)". Varför den gick bra märks som fakta med källa eller som "Bedömning:".
 ## Så gör konkurrenterna sina annonser
 Före/efter, logga, pris och rabatt, röst eller text, slut och uppmaning, längd, och om den ser ut som ett vanligt inlägg. Fakta med (källa: URL), resten som "Bedömning:".
 ## Grupper och ord
 Vilka grupper konkurrenterna riktar sig till och vilka ord de använder, med källa eller som "Bedömning:".
+## Kundernas röst
+Tre delar, med en punkt per sak: "Klagomål:", "Invändning:" eller "Citat:" först på raden. Citat skrivs ordagrant inom citattecken. Varje punkt slutar med (källa: URL). Stryk citat som källan inte innehåller.
 ## Verifierade fakta
 Övriga fakta. Varje punkt slutar med (källa: URL). Bara sådant som källan stöder.
 ## Bedömningar

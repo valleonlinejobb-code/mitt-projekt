@@ -507,6 +507,9 @@ test("Med GEMINI_API_KEY görs researchen gratis med Gemini, och källorna får 
   assert.equal(geminiCalls.length, 2, "utkast och faktakoll");
   assert.ok(geminiCalls.every((c) => c.url.includes("gemini-2.5-flash:generateContent") && c.headers.get("x-goog-api-key") === "gemini-key"));
   assert.deepEqual(geminiCalls[0].body.tools, [{ google_search: {} }]);
+  // Researchen letar också efter svenska kunders klagomål, invändningar och ord.
+  assert.match(geminiCalls[0].body.contents[0].parts[0].text, /Svenska kunders röst/);
+  assert.match(geminiCalls[1].body.contents[0].parts[0].text, /## Det här tar vi med oss[\s\S]*## Kundernas röst/);
   // Faktakollen fick utkastet med källan på rätt plats och den riktiga adressen, inte Googles omdirigering.
   const checkPrompt = geminiCalls[1].body.contents[0].parts[0].text;
   assert.match(checkPrompt, /Tvätta tassen i ljummet vatten\. \(källa: https:\/\/hundtips\.se\/tassar\) Torka/);
@@ -515,3 +518,11 @@ test("Med GEMINI_API_KEY görs researchen gratis med Gemini, och källorna får 
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM costs").get().n, costsBefore, "ingen kostnad");
 });
 
+
+test("Kundernas röst plockas ut ur researchen, så att svarsagenten kan bemöta vanliga invändningar", async () => {
+  const { researchSection } = await import("../src/agents/research.js");
+  const notes = "## Det här tar vi med oss\n- Lerig tass först\n## Kundernas röst\n- Invändning: Passar den stora hundar? (källa: https://example.com/r)\n## Verifierade fakta\n- x";
+  assert.equal(researchSection(notes, "Kundernas röst"), "- Invändning: Passar den stora hundar? (källa: https://example.com/r)");
+  assert.equal(researchSection(notes, "Finns inte"), "");
+  assert.equal(researchSection(undefined, "Kundernas röst"), "");
+});
