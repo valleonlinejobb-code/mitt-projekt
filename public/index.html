@@ -6,7 +6,7 @@
 <title>Agent UF – Kontroll</title>
 <style>
   :root { --bg:#fff; --fg:#111; --muted:#666; --line:#e5e5e5; --card:#fafafa; --ok:#0a7d32; --bad:#c62828; --warn:#b26a00; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0b0b0b; --fg:#f2f2f2; --muted:#9a9a9a; --line:#262626; --card:#141414; } }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b0b0b; --fg:#f2f2f2; --muted:#9a9a9a; --line:#262626; --card:#141414; --ok:#35c46a; --bad:#ef5350; } }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
   header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid var(--line); }
@@ -44,6 +44,31 @@
   .product { display:flex; gap:14px; align-items:center; }
   .product img { width:72px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--line); background:#fff; flex:none; }
   .badge.bad { color:var(--bad); border-color:var(--bad); }
+
+  /* Agentflödet: research → prompt → kanalerna. Pilarna fylls med grönt medan agenten före jobbar. */
+  .flow { position:relative; display:grid; gap:40px; }
+  .flow .channels { display:grid; gap:12px; padding-left:30px; }
+  .wires { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+  .wires .track { fill:none; stroke:var(--line); stroke-width:3; stroke-linecap:round; }
+  .wires .fill { fill:none; stroke:var(--ok); stroke-width:3; stroke-linecap:round; }
+  .wires .head { fill:var(--ok); opacity:0; transition:opacity .3s; }
+  .wires .working .head { opacity:1; }
+  .node { position:relative; z-index:1; transition:border-color .4s, box-shadow .4s; }
+  .node.working { border-color:var(--ok); }
+  .node.receive { animation:receive 1.6s ease-out; }
+  @keyframes receive { 0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); border-color:var(--ok); } 100% { box-shadow:0 0 0 14px transparent; } }
+  .dot.working { background:var(--ok); animation:pulse 1.2s ease-in-out infinite; }
+  .dot.error { background:var(--bad); }
+  @keyframes pulse { 50% { opacity:.3; } }
+  .pill { margin-left:auto; font-size:11px; font-weight:500; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
+  .pill.working, .pill.done { color:var(--ok); border-color:var(--ok); }
+  .pill.error { color:var(--bad); border-color:var(--bad); }
+  .status { font-size:14px; margin:6px 0 2px; }
+  @media (min-width:900px) {
+    .flow { grid-template-columns:1fr 1fr 1fr; column-gap:80px; align-items:center; }
+    .flow .channels { padding-left:0; }
+  }
+  @media (prefers-reduced-motion: reduce) { .node.receive, .dot.working { animation:none; } }
 </style>
 </head>
 <body>
@@ -71,7 +96,21 @@
     <button id="stopAll" class="ghost">Stoppa kanalerna</button>
   </div>
   <p class="muted">Kanalagenterna lägger bara upp videor du har godkänt. Research och videor körs bara när du beställer.</p>
-  <div class="grid" id="agents"></div>
+  <div class="flow" id="flow">
+    <svg class="wires" id="wires" aria-hidden="true">
+      <defs>
+        <marker id="tip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--line)"/></marker>
+        <marker id="tipDone" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ok)"/></marker>
+      </defs>
+    </svg>
+    <div class="card node" id="node-research"></div>
+    <div class="card node" id="node-prompt"></div>
+    <div class="channels">
+      <div class="card node" id="node-tiktok"></div>
+      <div class="card node" id="node-instagram"></div>
+      <div class="card node" id="node-facebook"></div>
+    </div>
+  </div>
 
   <h2>Väntar på ditt godkännande</h2>
   <div id="pending"></div>
@@ -176,24 +215,7 @@ function render() {
     ${ordered ? `<div class="row"><strong>${product.queued} i kön${generatingNow ? ", 1 skapas nu" : ""}</strong>
       ${product.queued > 0 ? `<button class="danger" onclick="cancelOrder()">Avbryt kön</button>` : ""}</div>` : ""}`;
 
-  const busyAgent = { research: false, prompt: ordered };
-  $("agents").innerHTML = Object.keys(AGENTS).map((k) => product.agents.find((a) => a.kind === k)).filter(Boolean).map((a) => {
-    const channel = a.kind in CHANNEL_NAMES;
-    const on = channel ? a.running : busyAgent[a.kind];
-    return `
-    <div class="card">
-      <h3><span class="dot ${on ? "on" : ""}"></span>${AGENTS[a.kind][0]}</h3>
-      <div class="muted">${AGENTS[a.kind][1]}</div>
-      <div class="muted">Senast klar: ${time(a.last_run_at)}</div>
-      ${a.last_error ? `<div class="err">${esc(a.last_error)}</div>` : ""}
-      <div class="row">
-        ${channel ? `
-          <button class="${a.running ? "ghost" : ""}" onclick="toggleAgent('${a.kind}', ${a.running ? 0 : 1})">${a.running ? "Stoppa" : "Starta"}</button>
-          <button class="ghost" onclick="runAgent('${a.kind}')">Kör nu</button>` : ""}
-        ${a.kind === "research" ? `<button class="ghost" onclick="runResearch()">Kör research · ca ${state.cost.research} kr</button>` : ""}
-      </div>
-    </div>`;
-  }).join("");
+  renderFlow(product);
 
   const videos = state.videos.filter((v) => v.product_id === productId);
   const pending = videos.filter((v) => v.status === "pending");
@@ -262,6 +284,188 @@ function render() {
   $("log").innerHTML = state.log.map((l) => `<tr><td style="white-space:nowrap">${time(l.at)}</td><td>${esc(AGENTS[l.agent]?.[0] || LOG_NAMES[l.agent] || l.agent)}</td><td>${esc(l.message)}</td></tr>`).join("");
 }
 
+// ---------- Agentflödet med pilarna ----------
+// En pil fylls med grönt medan agenten före den jobbar. När pilen är full är agenten klar och uppgiften går vidare.
+const WIRES = [["research", "prompt"], ["prompt", "tiktok"], ["prompt", "instagram"], ["prompt", "facebook"]];
+const wires = {}; // "från-till" → { target, shown, live, el }
+const STATUS_PILL = { working: "Arbetar", done: "Klar", error: "Fel", stopped: "Stoppad", idle: "Vilar", waiting: "Väntar", on: "På", off: "Av" };
+
+/** Hur långt agenten har kommit, 0–100. Inom ett steg fylls pilen efter hur lång tid steget brukar ta, men aldrig ända fram förrän agenten är klar. */
+function progressPct(agent, p) {
+  if (!p || p.status !== "working") return p?.status === "done" ? 100 : 0;
+  const stages = state.flow.stages[agent];
+  const total = stages.reduce((sum, st) => sum + st.seconds, 0);
+  const before = stages.slice(0, p.stage).reduce((sum, st) => sum + st.seconds, 0);
+  const elapsed = (Date.now() - new Date(p.stageStartedAt).getTime()) / 1000;
+  const within = stages[p.stage].seconds * Math.min(0.92, 1 - Math.exp(-elapsed / stages[p.stage].seconds));
+  return Math.min(97, ((before + within) / total) * 100);
+}
+
+function stageText(agent, p) {
+  const stages = state.flow.stages[agent];
+  return `${stages[p.stage].label}${p.detail ? ` (${esc(p.detail)})` : ""}… <span class="muted">steg ${p.stage + 1} av ${stages.length}</span>`;
+}
+
+function nodeHtml(agent, status, text, extra = "") {
+  const dot = { working: "working", error: "error", on: "on", done: "on" }[status] ?? "";
+  return `
+    <h3><span class="dot ${dot}"></span>${AGENTS[agent.kind][0]}<span class="pill ${status}">${STATUS_PILL[status]}</span></h3>
+    <div class="status">${text}</div>
+    <div class="muted">${AGENTS[agent.kind][1]}</div>
+    ${agent.last_error && !["working", "done"].includes(status) ? `<div class="err">${esc(agent.last_error)}</div>` : ""}
+    ${extra}`;
+}
+
+// Det kanalagenten har fått från promptagenten: den äldsta videon den inte har lagt upp än.
+function channelTask(channel) {
+  const videos = state.videos.filter((v) => v.product_id === productId && ["pending", "approved"].includes(v.status));
+  for (const v of videos.slice().reverse()) {
+    const post = v.posts.find((p) => p.channel === channel);
+    if (!post || post.status === "publishing") return { v, post };
+  }
+  return null;
+}
+
+function renderFlow(product) {
+  const { research, prompt } = state.flow;
+  const agent = (kind) => product.agents.find((a) => a.kind === kind);
+  const researchWorking = research?.status === "working";
+  const promptWorking = prompt?.status === "working";
+
+  // Researchagenten
+  let rStatus = "idle", rText = "Ingen research än. Den görs vid första beställningen.";
+  if (researchWorking) { rStatus = "working"; rText = stageText("research", research); }
+  else if (research?.status === "error") { rStatus = "error"; rText = "Researchen misslyckades."; }
+  else if (research?.status === "done") { rStatus = "done"; rText = `Klar ${time(research.at)}. Skickad till promptagenten.`; }
+  $("node-research").innerHTML = nodeHtml(agent("research"), rStatus, rText,
+    `<div class="row"><button class="ghost" onclick="runResearch()" ${researchWorking ? "disabled" : ""}>Kör research · ca ${state.cost.research} kr</button></div>`);
+
+  // Promptagenten
+  let pStatus = "idle", pText = "Väntar på en beställning. Den gör bara videor du har beställt.";
+  const lastVideo = state.videos.find((v) => v.product_id === productId);
+  if (promptWorking) { pStatus = "working"; pText = stageText("prompt", prompt); }
+  else if (product.queued > 0 && researchWorking) { pStatus = "waiting"; pText = "Väntar på researchen. Sedan börjar den på videon."; }
+  else if (product.queued > 0) { pStatus = "waiting"; pText = "Börjar på nästa video inom en minut."; }
+  else if (prompt?.status === "error") { pStatus = "error"; pText = esc(prompt.detail || "Något gick fel."); }
+  else if (prompt?.status === "stopped") { pStatus = "stopped"; pText = esc(prompt.detail); }
+  else if (prompt?.status === "done") { pStatus = "done"; pText = `${esc(prompt.detail)} klar ${time(prompt.at)}. Skickad till kanalagenterna.`; }
+  else if (lastVideo?.status === "pending") { pStatus = "done"; pText = `Video #${lastVideo.id} är klar och skickad till kanalagenterna.`; }
+  $("node-prompt").innerHTML = nodeHtml(agent("prompt"), pStatus, pText,
+    (product.queued > 0 && promptWorking ? `<div class="muted">${product.queued} till i kön</div>` : "") +
+    `<div class="row"><button class="ghost" onclick="order(1)">Beställ 1 video · ca ${state.cost.video + (product.researchDue ? state.cost.research : 0)} kr</button></div>`);
+  $("node-research").classList.toggle("working", researchWorking);
+  $("node-prompt").classList.toggle("working", promptWorking);
+
+  // Kanalagenterna
+  const target = { "research-prompt": progressPct("research", research) };
+  for (const ch of Object.keys(CHANNEL_NAMES)) {
+    const a = agent(ch);
+    const task = channelTask(ch);
+    const lastPost = state.videos.flatMap((v) => v.posts.filter((p) => p.channel === ch).map((p) => ({ ...p, videoId: v.id }))).sort((x, y) => y.id - x.id)[0];
+    let status = a.running ? "on" : "off", text = "Ingen video att lägga upp än.";
+    if (task?.post?.status === "publishing") { status = "working"; text = `Lägger upp video #${task.v.id}…`; }
+    else if (task?.v.status === "pending") { status = "waiting"; text = `Har fått video #${task.v.id}. Väntar på ditt godkännande nedan.`; }
+    else if (task) text = a.running ? `Video #${task.v.id} är godkänd och läggs upp (högst en om dagen).` : `Video #${task.v.id} är godkänd. Tryck Starta så läggs den upp.`;
+    else if (lastPost?.status === "posted") text = `Lade upp video #${lastPost.videoId} ${time(lastPost.created_at)}.`;
+    else if (lastPost?.status === "manual") text = `Video #${lastPost.videoId} ligger under Lägg upp själv.`;
+    else if (lastPost?.status === "failed") { status = "error"; text = `Video #${lastPost.videoId} gick inte att lägga upp.`; }
+    $(`node-${ch}`).innerHTML = nodeHtml(a, status, text, `
+      <div class="row">
+        <button class="${a.running ? "ghost" : ""}" onclick="toggleAgent('${ch}', ${a.running ? 0 : 1})">${a.running ? "Stoppa" : "Starta"}</button>
+        <button class="ghost" onclick="runAgent('${ch}')">Kör nu</button>
+      </div>`);
+    $(`node-${ch}`).classList.toggle("working", status === "working");
+    target[`prompt-${ch}`] = promptWorking ? progressPct("prompt", prompt) : task ? 100 : 0;
+  }
+
+  for (const [from, to] of WIRES) {
+    const id = `${from}-${to}`;
+    wires[id] ??= { shown: target[id] };
+    wires[id].target = target[id];
+    wires[id].live = from === "research" ? researchWorking : promptWorking;
+  }
+  drawWires();
+}
+
+// Ritar pilarna mellan korten. Görs om när sidan ändrar storlek, så att pilarna sitter rätt på både dator och mobil.
+function drawWires() {
+  const svg = $("wires");
+  const box = $("flow").getBoundingClientRect();
+  const rect = (id) => {
+    const r = $(`node-${id}`).getBoundingClientRect();
+    const left = r.left - box.left, top = r.top - box.top;
+    return { left, top, right: left + r.width, bottom: top + r.height, midX: left + r.width / 2, midY: top + r.height / 2 };
+  };
+  const wide = window.matchMedia("(min-width:900px)").matches;
+  for (const [from, to] of WIRES) {
+    const id = `${from}-${to}`;
+    const a = rect(from), b = rect(to);
+    let d;
+    if (wide) {
+      const x1 = a.right, y1 = a.midY, x2 = b.left - 3, y2 = b.midY, dx = (x2 - x1) / 2;
+      d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    } else if (from === "research") {
+      d = `M${a.midX},${a.bottom} L${b.midX},${b.top - 3}`;
+    } else {
+      // Mobil: en stam längs vänsterkanten som grenar av in till varje kanal.
+      const x = 14, r = 10;
+      d = `M${x},${a.bottom} L${x},${b.midY - r} Q${x},${b.midY} ${x + r},${b.midY} L${b.left - 3},${b.midY}`;
+    }
+    let g = svg.querySelector(`[data-wire="${id}"]`);
+    if (!g) {
+      g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.dataset.wire = id;
+      g.innerHTML = `<path class="track" marker-end="url(#tip)"/><path class="fill" pathLength="100" stroke-dasharray="100 100"/><circle class="head" r="5"/>`;
+      svg.appendChild(g);
+    }
+    wires[id].el = g;
+    g.querySelectorAll("path").forEach((p) => p.setAttribute("d", d));
+  }
+  paintWires();
+}
+
+function paintWires() {
+  for (const w of Object.values(wires)) {
+    if (!w.el) continue;
+    const track = w.el.querySelector(".track"), head = w.el.querySelector(".head");
+    w.el.querySelector(".fill").setAttribute("stroke-dashoffset", String(100 - w.shown));
+    track.setAttribute("marker-end", w.shown >= 99.5 ? "url(#tipDone)" : "url(#tip)");
+    w.el.classList.toggle("working", Boolean(w.live) && w.shown > 0.5 && w.shown < 99.5);
+    const length = track.getTotalLength();
+    const pt = track.getPointAtLength((length * w.shown) / 100);
+    head.setAttribute("cx", pt.x);
+    head.setAttribute("cy", pt.y);
+  }
+}
+
+// Mjuk animation: pilen glider mot målet och fortsätter fyllas sakta medan agenten jobbar.
+let lastFrame = performance.now();
+function animate(t) {
+  const dt = Math.min(0.1, (t - lastFrame) / 1000);
+  lastFrame = t;
+  if (state?.flow) {
+    for (const [from, to] of WIRES) {
+      const w = wires[`${from}-${to}`];
+      if (!w) continue;
+      if (w.live) w.target = progressPct(from, state.flow[from]);
+      const before = w.shown;
+      const step = (w.target > w.shown ? 60 : 150) * dt;
+      w.shown = Math.abs(w.target - w.shown) <= step ? w.target : w.shown + Math.sign(w.target - w.shown) * step;
+      if (before < 99.5 && w.shown >= 99.5) {
+        // Pilen är full: nästa agent tar emot uppgiften.
+        const node = $(`node-${to}`);
+        node.classList.remove("receive");
+        void node.offsetWidth;
+        node.classList.add("receive");
+      }
+    }
+    paintWires();
+  }
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+new ResizeObserver(() => state?.flow && drawWires()).observe($("flow"));
+
 async function chooseProduct(id) {
   const current = state.products.find((p) => p.id === productId);
   if (current.queued > 0 && !confirm(`Du har ${current.queued} videor i kön för ${current.name}. Kön töms om du byter. Byta ändå?`)) { render(); return; }
@@ -311,8 +515,15 @@ $("productForm").onsubmit = async (e) => {
   document.activeElement.blur(); refresh();
 };
 
-refresh();
-setInterval(refresh, 15000);
+// Uppdatera var 3:e sekund medan en agent jobbar, annars var 15:e.
+async function poll() {
+  try { await refresh(); } catch {}
+  const product = state?.products.find((p) => p.id === productId);
+  const busy = state?.flow && (state.flow.research?.status === "working" || state.flow.prompt?.status === "working" || product?.queued > 0
+    || state.videos.some((v) => v.posts.some((p) => p.status === "publishing")));
+  setTimeout(poll, busy ? 3000 : 15000);
+}
+poll();
 </script>
 </body>
 </html>

@@ -3,6 +3,7 @@ import { db, now, log, activeProduct, CHANNELS } from "./db.js";
 import { researchDue, runResearch } from "./agents/research.js";
 import { videoDue, createVideo, pollVideos, setQueuedVideos } from "./agents/prompt.js";
 import { postDue, publish, checkInbox } from "./agents/social.js";
+import * as progress from "./progress.js";
 
 const INBOX_EVERY_MS = Number(process.env.INBOX_EVERY_MINUTES || 10) * 60_000;
 const lastInboxCheck = {};
@@ -20,6 +21,7 @@ async function runAgent(product, kind, job) {
   } catch (err) {
     if (product) db.prepare("UPDATE agents SET last_error = ? WHERE product_id = ? AND kind = ?").run(err.message, product.id, kind);
     log(product?.id ?? null, kind, `Fel: ${err.message}`);
+    if (product && kind in progress.STAGES) progress.failed(product.id, kind, err.message);
     return false;
   } finally {
     busy.delete(key);
@@ -50,7 +52,8 @@ export async function tick() {
   const product = activeProduct();
   if (product) {
     // Research och video körs bara när du har beställt videor. Vid fel töms kön så att inga fler pengar går åt.
-    if (videoDue(product)) {
+    // Kör researchen redan (Kör research) väntar promptagenten tills den är klar och får den nya researchen.
+    if (videoDue(product) && !busy.has(`${product.id}:research`)) {
       const researched = researchDue(product) ? await runAgent(product, "research", () => runResearch(product)) : true;
       const ok = researched === false ? false : await runAgent(product, "prompt", () => createVideo(product));
       if (ok === false) {
@@ -82,5 +85,7 @@ export function startScheduler() {
     try { await tick(); } finally { running = false; }
   };
   setInterval(loop, 60_000);
+  // Kolla Higgsfield oftare, så att videon går vidare till kanalagenterna så fort den är klar. Att fråga om status är gratis.
+  setInterval(() => runAgent(null, "videopoll", pollVideos), 15_000);
   setTimeout(loop, 5_000);
 }
