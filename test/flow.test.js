@@ -5,6 +5,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
+import ffmpeg from "ffmpeg-static";
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-uf-test-"));
 Object.assign(process.env, {
@@ -15,7 +17,15 @@ Object.assign(process.env, {
   META_PAGE_ID: "page-1",
   META_PAGE_TOKEN: "page-token",
   META_IG_USER_ID: "",
+  GOOGLE_TTS_API_KEY: "tts-key",
 });
+
+// En riktig liten video (2 s med ljud) och en riktig röstfil, så att klipparen testas på riktigt.
+const sampleVideo = path.join(dataDir, "sample.mp4");
+const sampleVoice = path.join(dataDir, "voice.mp3");
+execFileSync(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "testsrc=s=480x854:d=2:r=24", "-f", "lavfi", "-i", "sine=f=300:d=2",
+  "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", sampleVideo]);
+execFileSync(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=f=500:d=4", sampleVoice]);
 
 const calls = [];
 let videoStatus = "queued";
@@ -29,9 +39,13 @@ const CONCEPT = {
   idea: "Lerig tass blir ren på tre sekunder",
   hook: "Lerig tass i närbild",
   video_prompt: "0-3 s: close-up of a muddy dog paw entering a silicone paw washer cup...",
-  overlay_text: "0–2 s: Leriga tassar?",
+  audience: "ägare till stora hundar",
+  overlays: [{ from: 0, to: 1, text: "Lerig hund igen?" }, { from: 1, to: 2, text: "Ren tass på sekunder" }],
+  voiceover: "Trött på leriga tassar? Tasstvättkit för 199 kronor på vardagshoppen.com. De tio första får 10 % extra med koden FORSTA10.",
+  end_card: { headline: "Rena tassar på sekunder", offer_lines: ["−5 % med koden VALKOMMEN5", "+10 % för de 10 första: FORSTA10"], cta: "Beställ idag" },
   captions: { instagram: "IG-text", facebook: "FB-text", tiktok: "TT-text" },
 };
+let reviewedConcept = CONCEPT;
 
 globalThis.fetch = async (input, init = {}) => {
   const url = String(input instanceof Request ? input.url : input);
@@ -47,7 +61,7 @@ globalThis.fetch = async (input, init = {}) => {
     if (system.startsWith("Du är faktagranskare")) return claudeText("## Så används produkten bäst\n- Doppa och vrid (källa: https://example.com/a)");
     if (system.startsWith("Du är promptagent")) return claudeText(JSON.stringify({ concepts: [CONCEPT, CONCEPT, CONCEPT] }));
     if (system.startsWith("Du är en sträng kvalitetsgranskare")) {
-      return claudeText(JSON.stringify({ reviews: [{ idea: CONCEPT.idea, score: 9, problems: "" }], final: CONCEPT, score: 9, problems: "" }));
+      return claudeText(JSON.stringify({ reviews: [{ idea: CONCEPT.idea, score: 9, problems: "" }], final: reviewedConcept, score: 9, problems: "" }));
     }
   }
   if (url === "https://api.higgsfield.ai/alibaba/wan-3.0/reference-to-video") {
@@ -65,7 +79,10 @@ globalThis.fetch = async (input, init = {}) => {
   if (url === "https://vardagshoppen.com/products/tasstvattkit-sma-och-mellanstora-hundar.json") {
     return json({ product: { image: { src: "https://cdn.shopify.com/s/files/ny-bild.jpg" } } });
   }
-  if (url === "https://cdn.higgsfield.test/video.mp4") return new Response(new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112]));
+  if (url === "https://cdn.higgsfield.test/video.mp4") return new Response(fs.readFileSync(sampleVideo));
+  if (url === "https://texttospeech.googleapis.com/v1/text:synthesize") {
+    return json({ audioContent: fs.readFileSync(sampleVoice).toString("base64") });
+  }
   if (url.startsWith("https://graph.facebook.com/")) {
     if (url.includes("/page-1/videos")) return json({ id: "fb-video-1" });
     return json({ data: [] }); // kommentarer och DM: inga nya
@@ -78,6 +95,7 @@ const { db, activeProduct } = await import("../src/db.js");
 const { tick } = await import("../src/scheduler.js");
 const { setQueuedVideos, queuedVideos, pollVideos } = await import("../src/agents/prompt.js");
 const { progressOf, STAGES } = await import("../src/progress.js");
+const { probe } = await import("../src/editor.js");
 
 test("research → prompt → Higgsfield → video tillbaka → kanalagenterna", async () => {
   const product = activeProduct();
@@ -121,6 +139,16 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   video = db.prepare("SELECT * FROM videos WHERE id = ?").get(video.id);
   assert.equal(video.status, "pending");
   assert.ok(fs.existsSync(path.join(dataDir, "media", video.local_file)), "videofilen är sparad");
+  // Klipparen har lagt på slutbild och röst: 2 s video + slutbild som räcker för rösten (4 s + marginal).
+  assert.equal(video.error, null);
+  assert.notEqual(video.local_file, video.raw_file);
+  const finished = await probe(path.join(dataDir, "media", video.local_file));
+  assert.ok(finished.duration > 4.5 && finished.duration < 5.5, `längd ${finished.duration}`);
+  assert.ok(finished.hasAudio);
+  const tts = calls.find((c) => c.url.startsWith("https://texttospeech.googleapis.com/"));
+  assert.equal(tts.body.input.text, CONCEPT.voiceover);
+  assert.equal(tts.body.voice.languageCode, "sv-SE");
+  assert.match(video.idea, /Röst: "Trött på leriga tassar/);
   assert.equal(progressOf(product.id, "prompt").status, "done");
 
   // Inget läggs upp innan du har godkänt.
@@ -162,4 +190,26 @@ test("Higgsfield misslyckas: kön töms och promptagenten visar felet", async ()
   await pollVideos();
   assert.equal(queuedVideos(product.id), 0);
   assert.equal(progressOf(product.id, "prompt").status, "error");
+});
+
+test("Fel rabatt i annonsen: ingen video beställs, även om granskaren gav 9/10", async () => {
+  const product = activeProduct();
+  db.prepare("UPDATE products SET image_url = 'https://cdn.shopify.com/s/files/ny-bild.jpg' WHERE id = ?").run(product.id);
+  db.prepare("UPDATE videos SET status = 'rejected' WHERE status = 'generating'").run();
+  reviewedConcept = { ...CONCEPT, voiceover: "Nu 25 % rabatt med koden FORSTA10!" };
+  const before = calls.filter((c) => c.url.endsWith("/reference-to-video")).length;
+  setQueuedVideos(product.id, 1);
+  await tick();
+  reviewedConcept = CONCEPT;
+  assert.equal(calls.filter((c) => c.url.endsWith("/reference-to-video")).length, before, "Higgsfield anropades inte");
+  assert.equal(progressOf(product.id, "prompt").status, "stopped");
+  const logged = db.prepare("SELECT message FROM log WHERE message LIKE 'Stoppad av faktakollen%'").get();
+  assert.match(logged.message, /25 % finns inte/);
+});
+
+test("Produkttexten säger en annan rabatt än erbjudandena: ägaren får veta det", async () => {
+  const { offerMismatches } = await import("../src/agents/prompt.js");
+  const { DEFAULT_OFFERS } = await import("../src/db.js");
+  const [warning] = offerMismatches("Lanseringserbjudande: de 10 första kunderna får 25 % rabatt med koden FORSTA10 i kassan.", DEFAULT_OFFERS);
+  assert.match(warning, /25 % för FORSTA10.*10 %/);
 });

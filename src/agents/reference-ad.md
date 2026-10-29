@@ -20,7 +20,29 @@
 - 2–7 s: lösningen. Produkten i användning, tydligt och ärligt: tass i koppen, några vridningar, ren tass. Produkten ska se ut exakt som på produktbilden.
 - 7–10 s: resultatet. Ren tass, glad hund, rent golv. Lugn slutbild där text och uppmaning får plats.
 - Högst 3 scener på 10 sekunder. Hellre en enkel sak som ser verklig ut än många saker som ser konstiga ut.
-- En stil per video: ett ljus, en färgskala, en miljö. Vår accentfärg är svart/vit, som butiken.
-- Videomodellen kan inte skriva text. All text i bild läggs på efteråt, så föreslå den separat: 1–3 ord per rad, ett nyckelord per rad.
+- En stil per video: ett ljus, en färgskala, en miljö. Butikens färg är mörkgrön (#073322) och benvit.
+- Videomodellen kan inte skriva text. All text i bild, loggan, priset och slutbilden läggs på efteråt av klipparen, så föreslå texten separat (overlays): 1–5 ord per rad.
 - Siffror och påståenden i texten måste vara sanna. Pris och innehåll tas från produktinfon. Statistik tas bara från researchens verifierade fakta, med källa. Annars används ingen siffra.
 - Avsluta texterna med en tydlig uppmaning (t.ex. "Länk i bio" eller "Beställ på vardagshoppen.com").
+
+# Annonstips från en annonsexpert
+
+Ägaren klistrade in en YouTube-video ("8 hacks" från någon som säger sig ha annonserat för över 300 miljoner dollar på Meta). Det här är det som gäller våra korta videor:
+
+1. **Annonsen ska inte se ut som en annons.** Folk scrollar förbi sådant som ser ut som reklam. Gör videon som det innehåll hundägare redan tittar på: en vanlig mobilvideo i ett vanligt svenskt hem, en riktig hund, en riktig lerig tass. Ingen studio, ingen glättig reklamfilm. Det säljande (logga, pris, erbjudande) läggs på i hörnen och i slutbilden, inte i själva filmen.
+2. **Identitetsord.** Annonssystemet läser bild, text och erbjudande för att hitta rätt personer. Skriv in vem annonsen är för, t.ex. "För dig med stor hund", "Hundägare på landet", "Du med ljust golv i hallen". Ett ord om gruppen räcker. Gör olika versioner för olika grupper i stället för en allmän annons.
+3. **Samma vinnare i flera versioner.** När en idé har godkänts (status approved) är den en vinnare: gör nästa idéer som varianter av den, med samma ton men riktad till en ny grupp, i stället för något helt nytt.
+4. **Bred målgrupp, tydlig annons.** Annonsen själv ska berätta vem den är för och vilket problem den löser. Därför får texterna till Instagram och Facebook vara längre och beskriva hundägaren, problemet (lera, grus, slask, smutsigt golv, bilen) och lösningen.
+5. **Annonsen ska matcha produktsidan.** Rubriken i slutbilden ska lova samma sak som produktsidan, med samma pris och samma rabattkoder. Annars lämnar folk sidan direkt.
+6. **Ett tydligt erbjudande gör uppmaningen starkare.** Säg priset och erbjudandet med exakt kod i rösten och i slutbilden.
+7. **Många nya annonser behövs.** Annonser tröttnar. Variera krok, miljö, hund och grupp mellan videorna, men bara med idéer som håller kvaliteten.
+8. **Mät det som spelar roll.** Det som räknas är sålda kit, inte visningar. (Det här gör ägaren, inte agenten.)
+
+## Annonsens delar (så ser en färdig video ut)
+
+- 0–2 s, FÖRE: problemet i närbild. Lerig, smutsig tass, leriga avtryck på ljust golv. Text i bild med identitetsord, t.ex. "Lerig hund igen?".
+- 2–7 s: produkten används, rätt och lugnt: doppa, vrid, torka med handduken.
+- 7–10 s, EFTER: ren tass, rent golv, glad hund och ägare.
+- 10–13 s: slutbild (läggs på automatiskt): logga, Vardagshoppen, rubrik, pris, erbjudanden, uppmaning, vardagshoppen.com.
+- Hela tiden: logga och butiksnamn uppe till vänster, priset uppe till höger.
+- Rösten: en lugn svensk kvinnoröst som säger problemet, lösningen, priset och erbjudandet, t.ex. "Trött på leriga tassar i hallen? Doppa, vrid, torka – klart. Tasstvättkit för 199 kronor på vardagshoppen.com. Använd koden FORSTA10 – bara för de tio första."

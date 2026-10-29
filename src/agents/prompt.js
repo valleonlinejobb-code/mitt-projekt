@@ -8,6 +8,8 @@ import { startVideo, checkVideo, higgsfieldConfigured } from "../higgsfield.js";
 import { latestResearch } from "./research.js";
 import * as progress from "../progress.js";
 import { workingProductImage } from "../shopify.js";
+import { editVideo } from "../editor.js";
+import { voiceConfigured, synthesizeVoice } from "../voice.js";
 
 const MAX_PER_MONTH = Number(process.env.MAX_VIDEOS_PER_MONTH || 35);
 
@@ -26,12 +28,33 @@ const CAPTIONS = {
 const CONCEPT = {
   type: "object",
   additionalProperties: false,
-  required: ["idea", "hook", "video_prompt", "overlay_text", "captions"],
+  required: ["idea", "audience", "hook", "video_prompt", "overlays", "voiceover", "end_card", "captions"],
   properties: {
     idea: { type: "string", description: "Kort beskrivning av idén på svenska" },
+    audience: { type: "string", description: "Vem annonsen riktar sig till (identitetsordet), t.ex. 'ägare till stora hundar'" },
     hook: { type: "string", description: "Vad tittaren ser de första 2 sekunderna" },
     video_prompt: { type: "string", description: "Prompt till videomodellen, på engelska" },
-    overlay_text: { type: "string", description: "Förslag på text i bild med tider, t.ex. '0–2 s: Leriga tassar?'" },
+    overlays: {
+      type: "array",
+      description: "Text i bild under videon (inte slutbilden), 2–4 st, 1–5 ord var",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["from", "to", "text"],
+        properties: { from: { type: "number" }, to: { type: "number" }, text: { type: "string" } },
+      },
+    },
+    voiceover: { type: "string", description: "Berättarrösten på svenska, högst 30 ord, nämner erbjudandet" },
+    end_card: {
+      type: "object",
+      additionalProperties: false,
+      required: ["headline", "offer_lines", "cta"],
+      properties: {
+        headline: { type: "string", description: "Samma löfte som på produktsidan, högst 6 ord" },
+        offer_lines: { type: "array", items: { type: "string" }, description: "0–2 korta rader med erbjudandena, exakt kod och procent" },
+        cta: { type: "string", description: "Kort uppmaning utan webbadress, t.ex. 'Beställ idag'" },
+      },
+    },
     captions: CAPTIONS,
   },
 };
@@ -61,17 +84,68 @@ const REVIEW_SCHEMA = {
   },
 };
 
+const VIDEO_SECONDS = Number(process.env.VIDEO_SECONDS || 10);
+
 const RULES = `Regler för en bra annons:
-- Stående 9:16, exakt 10 sekunder, högst 3 scener. Kroken syns inom 2 sekunder.
+- Stående 9:16, exakt ${VIDEO_SECONDS} sekunder från videomodellen, högst 3 scener. Kroken syns inom 2 sekunder.
+- Visa varför man ska köpa: först problemet (FÖRE, t.ex. en smutsig, lerig tass och leriga avtryck på golvet), sedan produkten i användning och till sist resultatet (EFTER, ren tass, rent golv, nöjd ägare). Före/efter ska synas tydligt i bild.
 - Produkten ska se ut exakt som på produktbilden (form, färg, storlek). Hitta inte på delar, logotyper eller förpackningar.
-- Videoprompten skrivs på engelska och beskriver för varje scen: tid (t.ex. 0–3 s), vad som händer, kameravinkel och rörelse, ljus och miljö. Realistisk stil som en bra mobilvideo, inte reklamfilm i studio.
-- Videomodellen klarar inte text, logotyper eller komplicerade handrörelser. Ingen text i bild i videoprompten; text i bild föreslås separat i overlay_text.
+- Videoprompten skrivs på engelska och beskriver för varje scen: tid (t.ex. 0–3 s), vad som händer, kameravinkel och rörelse, ljus och miljö. Realistisk stil som en vanlig mobilvideo i ett svenskt hem, inte reklamfilm i studio, så att den känns som ett vanligt inlägg och inte som en annons.
+- Videomodellen klarar inte text, logotyper eller komplicerade handrörelser. Ingen text, skylt eller logga i videoprompten. Be om naturliga ljud (vatten, tassar) men inget tal och ingen musik, eftersom berättarrösten läggs på efteråt. Håll den sista sekunden lugn.
+- Det här läggs på automatiskt efteråt, så du ska inte be videomodellen om det: Vardagshoppens logga och namn uppe till vänster, priset uppe till höger, din text i bild (overlays) och en slutbild på 3 sekunder med logga, rubrik, pris, erbjudanden, uppmaning och webbadress.
+- overlays: 2–4 korta texter (1–5 ord) med tider mellan 0 och ${VIDEO_SECONDS} s som följer före → efter, t.ex. "Leriga tassar igen?" och "Ren tass på sekunder". Skriv som en vanlig TikTok-text, inte som en reklamskylt.
+- voiceover: en lugn, vänlig kvinnoröst som pratar svenska, högst 30 ord (ca 12 sekunder). Den säger problemet, lösningen, priset och erbjudandet med exakt kod, och avslutar med var man köper (vardagshoppen.com). Skriv koden så att den går att uttala, t.ex. "koden FORSTA10".
+- end_card: headline är samma löfte som produktsidan ger (annonsen och sidan ska matcha). offer_lines är 0–2 korta rader med erbjudandena, t.ex. "−5 % med koden VALKOMMEN5". cta är en kort uppmaning utan webbadress.
+- Rikta varje idé till en tydlig grupp i målgruppen med ett identitetsord (t.ex. "ägare till stora hundar", "du som bor på landet", "hundägare med ljust golv") och skriv in det i texten i bild eller texterna. Ge de tre idéerna olika grupper.
 - Prioritera videor som visar hur produkten används som bäst, enligt "Så används produkten bäst" i researchen.
 - Låna greppen från "Annonser som gått bra och varför" – krok, format och känsla – men kopiera aldrig någon annans video.
 - Hundar ska se naturliga och glada ut. Inget som kan uppfattas som djurplågeri.
-- Texterna skrivs på svenska, är korta och slutar med en tydlig uppmaning. TikTok: lekfull, 3–5 hashtags. Instagram: lite längre, hashtags. Facebook: vänlig, få hashtags.
-- Rabatter och erbjudanden: nämn bara det som står under "Aktuella erbjudanden", med exakt samma procent och kod. Ett erbjudande gör gärna uppmaningen starkare (t.ex. sist i texterna eller i text i bild). Står det inga erbjudanden nämns ingen rabatt.
-- Alla siffror och påståenden måste vara sanna: pris och innehåll från produktinfon, övriga fakta bara från "Verifierade fakta" i researchen. Annars ingen siffra.`;
+- Texterna (captions) skrivs på svenska och slutar med en tydlig uppmaning, priset och erbjudandet. TikTok: lekfull, 3–5 hashtags. Instagram och Facebook: längre, beskriv vem produkten är för och vilket problem den löser (det hjälper annonssystemet att hitta rätt köpare), några hashtags.
+- Rabatter och erbjudanden: nämn bara det som står under "Aktuella erbjudanden", med exakt samma procent och kod. Rabatter som står i produktbeskrivningen kan vara gamla och får inte användas. Står det inga erbjudanden nämns ingen rabatt.
+- Alla siffror och påståenden måste vara sanna: priset från produktinfon, övriga fakta bara från "Verifierade fakta" i researchen. Annars ingen siffra.`;
+
+/**
+ * Kollar med kod (inte med Claude) att annonsen bara nämner rätt pris, rätt rabattkoder och rätt procent.
+ * Returnerar en lista med problem. Tom lista betyder att allt stämmer.
+ */
+export function claimProblems(plan, product, offers) {
+  const problems = [];
+  const texts = [
+    ...(plan.overlays ?? []).map((o) => o.text), plan.voiceover,
+    plan.end_card?.headline, ...(plan.end_card?.offer_lines ?? []), plan.end_card?.cta,
+    ...Object.values(plan.captions ?? {}),
+  ].filter(Boolean);
+  const all = texts.join("\n");
+  const codesInOffers = new Set(offers.match(/\b[A-ZÅÄÖ]{3,}\d+\b/g) ?? []);
+  const percentsInOffers = new Set([...offers.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:%|procent)/gi)].map((m) => m[1]));
+  const price = String(product.price).match(/\d+/)?.[0];
+  for (const code of new Set(all.match(/\b[A-ZÅÄÖ]{3,}\d+\b/g) ?? [])) {
+    if (!codesInOffers.has(code)) problems.push(`Rabattkoden ${code} finns inte under Aktuella erbjudanden.`);
+  }
+  for (const [, n] of all.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:%|procent)/gi)) {
+    if (!percentsInOffers.has(n)) problems.push(`${n} % finns inte under Aktuella erbjudanden.`);
+  }
+  for (const [, n] of all.matchAll(/(\d+)\s*(?:kr\b|kronor|:-)/gi)) {
+    if (n !== price) problems.push(`Priset ${n} kr stämmer inte med produktens pris (${product.price}).`);
+  }
+  const words = String(plan.voiceover ?? "").split(/\s+/).filter(Boolean).length;
+  if (words > 34) problems.push(`Berättarrösten har ${words} ord, högst 30 får plats.`);
+  return [...new Set(problems)];
+}
+
+/** Säger till om produkttexten i Shopify lovar en annan procent för en kod än Aktuella erbjudanden. */
+export function offerMismatches(description, offers) {
+  const percentFor = (text, code) => text.match(new RegExp(`(\\d+)\\s*%[^.!?\\n]{0,80}?\\b${code}\\b`))?.[1];
+  const result = [];
+  for (const code of new Set(offers.match(/\b[A-ZÅÄÖ]{3,}\d+\b/g) ?? [])) {
+    const inOffers = percentFor(offers, code);
+    const inDescription = percentFor(description ?? "", code);
+    if (inOffers && inDescription && inOffers !== inDescription) {
+      result.push(`Produkttexten i Shopify säger ${inDescription} % för ${code}, men Aktuella erbjudanden säger ${inOffers} %. Annonserna använder ${inOffers} %. Ändra den text som är fel.`);
+    }
+  }
+  return result;
+}
 
 // Videor görs bara när du har beställt dem på kontrollsidan. Kön sparas per produkt.
 export const queuedVideos = (productId) => getSetting(`video_queue_${productId}`, 0);
@@ -104,11 +178,13 @@ export async function createVideo(product) {
   const research = latestResearch(product.id);
   const earlier = db.prepare("SELECT idea, status FROM videos WHERE product_id = ? AND idea IS NOT NULL ORDER BY id DESC LIMIT 10").all(product.id);
 
+  const offers = currentOffers();
+  for (const warning of offerMismatches(product.description, offers)) log(product.id, "prompt", `Obs: ${warning}`);
   const productInfo = `Produkt: ${product.name}, pris ${product.price}
 Beskrivning: ${product.description}
 Målgrupp: ${product.audience}
 Butik: ${product.shop_url}
-Aktuella erbjudanden: ${currentOffers() || "(inga)"}${product.focus ? `\nÄgarens instruktioner för just den här produkten (följ dem):\n${product.focus}` : ""}`;
+Aktuella erbjudanden (de enda rabatterna som får nämnas): ${offers || "(inga)"}${product.focus ? `\nÄgarens instruktioner för just den här produkten (följ dem):\n${product.focus}` : ""}`;
   const researchText = research?.notes ?? "(ingen research än – använd beprövade grepp: problem–lösning, före/efter, och inga siffror utöver pris)";
   const earlierText = earlier.map((e) => `- [${e.status}] ${e.idea}`).join("\n") || "(inga)";
   const images = imageUrl ? [imageUrl] : [];
@@ -148,8 +224,10 @@ Skriv tre olika idéer.`,
       system:
         "Du är en sträng kvalitetsgranskare av korta reklamvideor för Vardagshoppen. Du jämför idéer med ägarens referensvideo och reglerna, " +
         "och du godkänner bara sådant som verkligen kan bli en bra annons. Betygsätt 1–10 där 8 betyder 'skulle fungera bra som betald annons'. " +
-        "Kolla särskilt: stark krok inom 2 s, att produkten beskrivs som på bilden, att videomodellen klarar scenerna, ett tydligt budskap, " +
-        "och att varje siffra och påstående i texterna stöds av produktinfon eller av 'Verifierade fakta'. " +
+        "Kolla särskilt: stark krok inom 2 s, tydligt före (smutsigt problem) och efter (rent resultat), att produkten beskrivs som på bilden, " +
+        "att videomodellen klarar scenerna, att videon känns som ett vanligt inlägg och inte som en annons, ett tydligt identitetsord för målgruppen, " +
+        "att rösten och slutbilden säger pris och erbjudande rätt och lockar till köp, att rubriken matchar produktsidan, " +
+        "och att varje siffra och påstående i texterna stöds av produktinfon, 'Aktuella erbjudanden' eller 'Verifierade fakta'. " +
         "Ta den bästa idén och skriv en förbättrad slutversion där alla problem är rättade.\n\n" + REFERENCE + "\n\n" + RULES,
       prompt: `${productInfo}
 
@@ -160,8 +238,11 @@ Idéer att granska:
 ${JSON.stringify(concepts, null, 2)}`,
     });
     log(product.id, "prompt", `Bästa idén fick ${review.score}/10${review.problems ? ` (${review.problems.slice(0, 200)})` : ""}.`);
-    if (review.score >= MIN_SCORE) plan = { ...review.final, score: review.score };
-    else feedback = [review.problems, ...review.reviews.map((r) => `${r.idea}: ${r.problems}`)].join("\n");
+    // Fel pris, kod eller procent stoppas även om granskaren gav högt betyg.
+    const wrong = claimProblems(review.final, product, offers);
+    if (wrong.length) log(product.id, "prompt", `Stoppad av faktakollen: ${wrong.join(" ")}`);
+    if (review.score >= MIN_SCORE && !wrong.length) plan = { ...review.final, score: review.score };
+    else feedback = [...wrong, review.problems, ...review.reviews.map((r) => `${r.idea}: ${r.problems}`)].join("\n");
   }
 
   if (!plan) {
@@ -170,11 +251,12 @@ ${JSON.stringify(concepts, null, 2)}`,
     progress.stopped(product.id, "prompt", `Ingen idé nådde ${MIN_SCORE}/10, så ingen video beställdes`);
     return;
   }
-  const idea = `${plan.idea} · Kvalitet ${plan.score}/10 · Text i bild: ${plan.overlay_text}`;
+  const idea = `${plan.idea} · För: ${plan.audience} · Kvalitet ${plan.score}/10 · Text i bild: ${plan.overlays.map((o) => o.text).join(" / ")} · Röst: "${plan.voiceover}"`;
+  const edit = { overlays: plan.overlays, voiceover: plan.voiceover, end_card: plan.end_card };
 
   const { lastInsertRowid } = db.prepare(
-    "INSERT INTO videos (product_id, created_at, status, idea, prompt, captions) VALUES (?, ?, 'generating', ?, ?, ?)"
-  ).run(product.id, now(), idea, plan.video_prompt, JSON.stringify(plan.captions));
+    "INSERT INTO videos (product_id, created_at, status, idea, prompt, captions, edit) VALUES (?, ?, 'generating', ?, ?, ?, ?)"
+  ).run(product.id, now(), idea, plan.video_prompt, JSON.stringify(plan.captions), JSON.stringify(edit));
   const videoId = Number(lastInsertRowid);
 
   progress.stage(product.id, "prompt", "send", `Video #${videoId}`);
@@ -206,12 +288,51 @@ export async function pollVideos() {
       continue;
     }
     progress.stage(video.product_id, "prompt", "download", `Video #${video.id}`);
-    const file = `${crypto.randomBytes(12).toString("hex")}.mp4`;
+    const name = crypto.randomBytes(12).toString("hex");
+    const rawFile = `${name}-raw.mp4`;
     const res = await fetch(result.videoUrl);
     if (!res.ok) throw new Error(`Kunde inte ladda ner video #${video.id} (${res.status})`);
-    fs.writeFileSync(path.join(MEDIA_DIR, file), Buffer.from(await res.arrayBuffer()));
-    db.prepare("UPDATE videos SET status = 'pending', video_url = ?, local_file = ? WHERE id = ?").run(result.videoUrl, file, video.id);
+    fs.writeFileSync(path.join(MEDIA_DIR, rawFile), Buffer.from(await res.arrayBuffer()));
+
+    progress.stage(video.product_id, "prompt", "edit", `Video #${video.id}`);
+    let file = rawFile;
+    let note = null;
+    try {
+      file = await finishAd(video, rawFile, `${name}.mp4`);
+    } catch (err) {
+      // Hellre en video utan logga än ingen video alls. Felet syns på kontrollsidan.
+      note = `Logga, pris och röst kunde inte läggas på: ${err.message}`;
+      log(video.product_id, "prompt", `Video #${video.id}: ${note}`);
+    }
+    db.prepare("UPDATE videos SET status = 'pending', video_url = ?, local_file = ?, raw_file = ?, error = ? WHERE id = ?")
+      .run(result.videoUrl, file, rawFile, note, video.id);
     log(video.product_id, "prompt", `Video #${video.id} är klar och väntar på ditt godkännande.`);
     progress.done(video.product_id, "prompt", `Video #${video.id}`);
   }
+}
+
+/** Lägger på logga, pris, text i bild, slutbild och berättarröst. Returnerar filnamnet på den färdiga annonsen. */
+async function finishAd(video, rawFile, outFile) {
+  const product = db.prepare("SELECT * FROM products WHERE id = ?").get(video.product_id);
+  const edit = JSON.parse(video.edit || "{}");
+  let voiceFile;
+  if (edit.voiceover && voiceConfigured()) {
+    voiceFile = path.join(MEDIA_DIR, `${outFile}.voice.mp3`);
+    fs.writeFileSync(voiceFile, await synthesizeVoice(edit.voiceover));
+  } else if (edit.voiceover) {
+    log(video.product_id, "prompt", "GOOGLE_TTS_API_KEY saknas i Railway, så videon görs utan berättarröst.");
+  }
+  try {
+    await editVideo({
+      input: path.join(MEDIA_DIR, rawFile),
+      output: path.join(MEDIA_DIR, outFile),
+      overlays: edit.overlays ?? [],
+      price: product?.price ?? "",
+      endCard: edit.end_card ?? {},
+      voiceFile,
+    });
+  } finally {
+    if (voiceFile) fs.rmSync(voiceFile, { force: true });
+  }
+  return outFile;
 }

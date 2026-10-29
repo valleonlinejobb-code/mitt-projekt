@@ -13,6 +13,7 @@ export const STAGES = {
     ["send", "Skickar prompten till Higgsfield", 5],
     ["render", "Higgsfield gör videon", 240],
     ["download", "Hämtar videon från Higgsfield", 10],
+    ["edit", "Lägger på logga, pris, erbjudanden och röst", 20],
   ],
 };
 
