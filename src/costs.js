@@ -18,7 +18,7 @@ export const USD_TO_SEK = Number(process.env.USD_TO_SEK || 10.5);
 // Ungefärliga kostnader innan det finns riktiga siffror (kronor). Ersätts av snittet av de senaste jobben.
 const DEFAULT_SEK = {
   video: Number(process.env.COST_PER_VIDEO_SEK || 8),
-  research: Number(process.env.COST_PER_RESEARCH_SEK || 25),
+  research: Number(process.env.COST_PER_RESEARCH_SEK || 12),
   clip: Number(process.env.COST_PER_CLIP_SEK || 3),
 };
 

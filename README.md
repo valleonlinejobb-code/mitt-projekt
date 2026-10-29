@@ -29,7 +29,7 @@ Kanalagenterna (Instagram, Facebook, TikTok) startas och stoppas med **Starta**/
 | Vad | Ungefär |
 |---|---|
 | Railway (Hobby) | 55 kr |
-| Claude API (Opus 5.5): en research ca 15–30 kr, en video ca 5–10 kr | 100–300 kr |
+| Claude API: en research ca 8–15 kr (Sonnet 5.5), en video ca 5–10 kr | 100–300 kr |
 | Higgsfield, en video om 10 s per dag (Wan 3.0) | ca 2 kr per video, 60–100 kr |
 | Google Text-to-Speech (berättarrösten) | 0 kr: 1 miljon tecken per månad är gratis, en video använder ca 200 |
 
@@ -63,7 +63,8 @@ Kontrollsidan visar under **Vad Claude har kostat** vad varje jobb faktiskt kost
 | `MAX_VIDEOS_PER_MONTH` | nej | Standard `35`. |
 | `MIN_VIDEO_SCORE` | nej | Lägsta betyg (1–10) en idé måste få innan videon beställs. Standard `8`. |
 | `RESEARCH_EVERY_DAYS` | nej | Hur gammal researchen får vara innan en beställning kör ny. Standard `3`. |
-| `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK`, `COST_PER_CLIP_SEK` | nej | Kostnaderna som visas på knapparna innan det finns riktiga siffror. Standard `8`, `25` och `3`. |
+| `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK`, `COST_PER_CLIP_SEK` | nej | Kostnaderna som visas på knapparna innan det finns riktiga siffror. Standard `8`, `12` och `3`. |
+| `RESEARCH_MODEL` | nej | Modellen för researchen. Standard `claude-sonnet-5-5` (billigare). Videoidéer och granskning använder `CLAUDE_MODEL`. |
 | `CLAUDE_BUDGET_SEK` | nej | Månadstaket för Claude innan du har ändrat det på sidan. Standard `300`. |
 | `USD_TO_SEK` | nej | Växelkursen för kostnaderna. Standard `10.5`. |
 | `GOOGLE_TTS_API_KEY` | för rösten | API-nyckel från Google Cloud med **Cloud Text-to-Speech API** påslaget. Utan den görs videorna utan berättarröst. |

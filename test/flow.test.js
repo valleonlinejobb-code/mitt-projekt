@@ -77,7 +77,7 @@ globalThis.fetch = async (input, init = {}) => {
     if (system.startsWith("Du är researchagent")) {
       // Som en riktig research: mycket text från webbsökningarna.
       return claudeText("Utkast", [{ type: "web_search_result_location", url: "https://example.com/a", title: "Källa A", cited_text: "x", encrypted_index: "e" }],
-        { model: "claude-opus-5-5", usage: { input_tokens: 200_000, output_tokens: 10_000, server_tool_use: { web_search_requests: 12 } } });
+        { model: body.model, usage: { input_tokens: 200_000, output_tokens: 10_000, server_tool_use: { web_search_requests: 12 } } });
     }
     if (system.startsWith("Du är faktagranskare")) return claudeText("## Så används produkten bäst\n- Doppa och vrid (källa: https://example.com/a)");
     if (system.startsWith("Du är promptagent")) return claudeText(JSON.stringify({ concepts: [CONCEPT, CONCEPT, CONCEPT] }));
@@ -369,13 +369,14 @@ test("Kostnaden för varje Claude-anrop sparas och visas per jobb", async () => 
   const research = db.prepare("SELECT * FROM costs WHERE agent = 'research' ORDER BY id").all();
   assert.ok(research.length >= 2, "båda researchanropen räknas");
   assert.equal(new Set(research.slice(0, 2).map((r) => r.run)).size, 1, "utkast och faktakoll hör till samma jobb");
-  // 200 000 tokens in à 4 $ + 10 000 ut à 20 $ per miljon + 12 sökningar à 0,01 $ = 1,12 $
+  // Researchen körs med Sonnet 5.5: 200 000 tokens in à 2 $ + 10 000 ut à 10 $ per miljon + 12 sökningar à 0,01 $ = 0,62 $
+  assert.equal(research[0].model, "claude-sonnet-5-5");
   assert.equal(research[0].searches, 12);
-  assert.ok(Math.abs(research[0].usd - 1.12) < 1e-9);
+  assert.ok(Math.abs(research[0].usd - 0.62) < 1e-9);
   const summary = spendSummary();
-  assert.ok(summary.monthSek > 11, "månadens kostnad räknas i kronor");
+  assert.ok(summary.monthSek > 6, "månadens kostnad räknas i kronor");
   assert.ok(summary.byAgent.some((a) => a.agent === "prompt"), "promptagentens anrop räknas också");
-  assert.ok(estimateSek("research") >= 11, "uppskattningen bygger på riktiga jobb");
+  assert.ok(estimateSek("research") >= 6, "uppskattningen bygger på riktiga jobb");
 });
 
 test("Månadstaket nått: inga Claude-anrop och kön töms", async () => {
