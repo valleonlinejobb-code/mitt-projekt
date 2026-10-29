@@ -29,6 +29,21 @@ export async function probe(file) {
   return { duration: Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]), hasAudio: /Stream #.*Audio:/.test(stderr) };
 }
 
+/** Tar ut några bilder (JPEG, base64) jämnt utspridda i filmen, så att Claude kan se vad som händer i den. */
+export async function extractFrames(file, count = 4) {
+  const { duration } = await probe(file);
+  const frames = [];
+  for (let i = 0; i < count; i++) {
+    const at = (duration * (i + 0.5)) / count;
+    const out = `${file}.frame${i}.jpg`;
+    const { code, stderr } = await run(["-y", "-ss", at.toFixed(2), "-i", file, "-frames:v", "1", "-vf", "scale=-2:640", "-q:v", "4", out]);
+    if (code !== 0 || !fs.existsSync(out)) throw new Error(`Kunde inte ta ut bilder ur filmen: ${stderr.slice(-300)}`);
+    frames.push({ at, data: fs.readFileSync(out).toString("base64"), media_type: "image/jpeg" });
+    fs.rmSync(out, { force: true });
+  }
+  return { duration, frames };
+}
+
 const assTime = (s) => {
   const cs = Math.max(0, Math.round(s * 100));
   return `${Math.floor(cs / 360000)}:${String(Math.floor(cs / 6000) % 60).padStart(2, "0")}:${String(Math.floor(cs / 100) % 60).padStart(2, "0")}.${String(cs % 100).padStart(2, "0")}`;

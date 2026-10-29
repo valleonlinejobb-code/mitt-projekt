@@ -114,6 +114,11 @@ const videoColumns = db.prepare("PRAGMA table_info(videos)").all().map((c) => c.
 // edit: JSON med text i bild, slutbild och berättarröst som klipparen lägger på. raw_file: videon som den kom från Higgsfield.
 if (!videoColumns.includes("edit")) db.exec("ALTER TABLE videos ADD COLUMN edit TEXT");
 if (!videoColumns.includes("raw_file")) db.exec("ALTER TABLE videos ADD COLUMN raw_file TEXT");
+// hook_type/variant_of/ab_group: vilken sorts krok, vilken video den är en variant av och vilket A/B-test den hör till.
+// source: 'ai' (Higgsfield) eller 'clip' (ägarens egen mobilfilm). channels: JSON-lista med kanalerna den får läggas upp på (NULL = alla).
+for (const [column, type] of [["hook_type", "TEXT"], ["variant_of", "INTEGER"], ["ab_group", "TEXT"], ["source", "TEXT NOT NULL DEFAULT 'ai'"], ["channels", "TEXT"]]) {
+  if (!videoColumns.includes(column)) db.exec(`ALTER TABLE videos ADD COLUMN ${column} ${type}`);
+}
 const postColumns = db.prepare("PRAGMA table_info(posts)").all().map((c) => c.name);
 // stats: JSON med visningar, krokgrad m.m. från Meta. stats_at: när de hämtades senast.
 if (!postColumns.includes("stats")) db.exec("ALTER TABLE posts ADD COLUMN stats TEXT");

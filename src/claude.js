@@ -13,7 +13,7 @@ const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
  * @param {boolean} [opts.webSearch] låt Claude söka på webben
  * @param {number} [opts.maxSearches] hur många webbsökningar Claude får göra
  * @param {"low"|"medium"|"high"} [opts.effort]
- * @param {string[]} [opts.images]  bild-URL:er som Claude ska titta på
+ * @param {(string|{data:string, media_type:string})[]} [opts.images]  bilder som Claude ska titta på (länkar eller base64)
  * @param {boolean} [opts.withSources] returnera { text, sources } med webbsidorna Claude citerade
  */
 export async function askClaude({ system, prompt, schema, webSearch = false, maxSearches = 6, effort = "medium", withSources = false, images = [] }) {
@@ -23,7 +23,11 @@ export async function askClaude({ system, prompt, schema, webSearch = false, max
     system,
     messages: [{
       role: "user",
-      content: [...images.map((url) => ({ type: "image", source: { type: "url", url } })), { type: "text", text: prompt }],
+      content: [
+        // En bild är en länk eller { data, media_type } (base64), t.ex. bilder ur en egen film.
+        ...images.map((img) => ({ type: "image", source: typeof img === "string" ? { type: "url", url: img } : { type: "base64", ...img } })),
+        { type: "text", text: prompt },
+      ],
     }],
     output_config: { effort, ...(schema ? { format: { type: "json_schema", schema } } : {}) },
     betas: ["server-side-fallback-2026-07-01"],
