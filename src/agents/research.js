@@ -35,12 +35,12 @@ export async function runResearch(product) {
 Beskrivning: ${product.description}
 Målgrupp: ${product.audience}
 
-Sök efter hur konkurrenter och liknande varumärken (tasstvättar, hundtillbehör, djurbutiker i Sverige och utomlands) gör sina annonser och korta videor just nu. Skriv en rapport med:
-1. Krokar (första 2 sekunderna) som bevisligen fungerar, med konkreta exempel och källa.
-2. Format (före/efter, problem–lösning, UGC, ASMR, humor) och vilka som passar vår produkt.
-3. Vad som får hundägare att köpa (pris, erbjudanden, känslor, säsong – just nu är det ${new Date().toLocaleDateString("sv-SE", { month: "long" })} i Sverige).
-4. Fakta om problemet vi löser (smutsiga tassar, väder, hygien) som vi får använda i texterna – bara med källa.
-5. Tre videoidéer på 10 sekunder för oss, i stående format, som bygger på det du hittat.
+Produkten är ett kit: tasstvätt (kopp med mjuka silikonborst) plus mikrofiberhandduk med tassmönster. Ägaren vill göra annonser som visar hur kitet används som bäst, och som har chans att gå viralt. Sök och skriv en rapport med:
+1. Så används kitet bäst: rätt vattentemperatur och mängd, hur man för in och vrider tassen, hur handduken används för att torka (mellan trampdynor och klor), hur man vänjer en ovan hund, rengöring av kopp och handduk, val av storlek. Ta det från tillverkares bruksanvisningar, veterinärer och djurbutiker – med källa.
+2. Konkurrenternas bästa annonser: hitta konkreta annonser och korta videor för tasstvättar och liknande hundprodukter (t.ex. i Metas annonsbibliotek, TikTok och Instagram) som gått bra – med siffror som visningar, gillningar eller hur länge annonsen körts, och källa.
+3. Varför just de gick bra för just de företagen: krok, format (demo, före/efter, UGC, ASMR, humor), känsla, ljud, längd, målgrupp och timing. Skilj på vad källan säger och din bedömning.
+4. Vad som får hundägare att köpa (pris, erbjudanden, känslor, säsong – just nu är det ${new Date().toLocaleDateString("sv-SE", { month: "long" })} i Sverige).
+5. Tre videoidéer på 10 sekunder för oss, i stående format. Minst en ska visa hur kitet används bäst, med både tasstvätten och handduken.
 6. Saker att undvika (även sådant plattformarnas regler förbjuder i annonser).
 ${previous ? `\nFörra rapporten (bygg vidare, upprepa inte):\n${previous.notes.slice(0, 4000)}` : ""}`,
   });
@@ -62,8 +62,12 @@ Källor som lästes:
 ${draft.sources.map((s) => `- ${s.title}: ${s.url}`).join("\n") || "(inga)"}
 
 Skriv den slutliga rapporten till promptagenten med exakt dessa rubriker:
+## Så används kitet bäst
+Steg och tips, varje punkt med (källa: URL).
+## Annonser som gått bra och varför
+Varje annons med företag, vad den visar, resultat (siffror) och (källa: URL). Varför den gick bra märks som fakta med källa eller som "Bedömning:".
 ## Verifierade fakta
-Punktlista. Varje punkt slutar med (källa: URL). Bara sådant som källan stöder.
+Övriga fakta. Varje punkt slutar med (källa: URL). Bara sådant som källan stöder.
 ## Bedömningar
 Slutsatser och råd som inte är fakta. Varje punkt börjar med "Bedömning:".
 ## Videoidéer
