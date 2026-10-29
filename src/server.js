@@ -1,6 +1,8 @@
 // Webbservern: kontrollsidan, dess API och videofilerna som Instagram/Facebook hämtar.
 import express from "express";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { db, log, getSetting, setSetting, ensureAgents, activeProduct, currentOffers, CHANNELS, MEDIA_DIR } from "./db.js";
 import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
@@ -211,6 +213,21 @@ app.post("/api/videos/:id/approve", (req, res) => {
 
 app.post("/api/videos/:id/reject", (req, res) => {
   db.prepare("UPDATE videos SET status = 'rejected' WHERE id = ? AND status = 'pending'").run(req.params.id);
+  res.json({ ok: true });
+});
+
+// Radera en video: filerna på servern och raden på sidan. Inlägg som redan ligger ute på TikTok, Instagram
+// eller Facebook ligger kvar där (dem tar du bort i appen). En video som håller på att göras kan inte raderas.
+app.delete("/api/videos/:id", (req, res) => {
+  const video = one("SELECT * FROM videos WHERE id = ?", req.params.id);
+  if (!video) return res.status(404).json({ error: "Videon finns inte" });
+  if (["generating", "editing"].includes(video.status)) return res.status(400).json({ error: "Videon görs just nu. Vänta tills den är klar." });
+  for (const file of [video.local_file, video.raw_file]) {
+    if (file) fs.rmSync(path.join(MEDIA_DIR, path.basename(file)), { force: true });
+  }
+  db.prepare("DELETE FROM posts WHERE video_id = ?").run(video.id);
+  db.prepare("DELETE FROM videos WHERE id = ?").run(video.id);
+  log(video.product_id, "all", `Video #${video.id} raderad.`);
   res.json({ ok: true });
 });
 

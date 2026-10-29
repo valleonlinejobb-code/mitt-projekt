@@ -155,7 +155,9 @@
   <p class="muted">Av = agenten skriver utkast som du skickar. Klagomål och oklara frågor lämnas alltid åt dig.</p>
   <div id="inbox"></div>
 
-  <details><summary>Alla videor</summary><table id="history"></table></details>
+  <details><summary>Alla videor</summary>
+    <p class="muted">Radera tar bort videon och filen från kontrollsidan och servern. Inlägg som redan ligger ute på TikTok, Instagram eller Facebook ligger kvar där, dem tar du bort i appen.</p>
+    <table id="history"></table></details>
   <details><summary>Senaste research</summary><div class="card"><div class="muted" id="researchInfo" style="margin-bottom:8px"></div><pre id="research"></pre></div></details>
   <details><summary>Produktinfo som agenterna använder</summary><form class="card" id="productForm"></form></details>
   <details open><summary>Logg</summary><table id="log"></table></details>
@@ -313,7 +315,8 @@ function render() {
   const statusText = { generating: "skapas", editing: "bearbetas", pending: "väntar på dig", approved: "godkänd", rejected: "slängd", failed: "misslyckades" };
   $("history").innerHTML = videos.map((v) => `
     <tr><td>#${v.id}</td><td>${time(v.created_at)}</td><td>${statusText[v.status] ?? esc(v.status)}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</td>
-    <td>${videoBadges(v, product)}${esc(v.idea)}${v.status === "approved" ? `<div class="row" style="margin-top:6px"><button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button></div>` : ""}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}${p.statsText ? `<div class="muted">${esc(p.statsText)}</div>` : ""}`).join("<br>")}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
+    <td>${videoBadges(v, product)}${esc(v.idea)}${v.status === "approved" ? `<div class="row" style="margin-top:6px"><button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button></div>` : ""}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}${p.statsText ? `<div class="muted">${esc(p.statsText)}</div>` : ""}`).join("<br>")}</td>
+    <td>${["generating", "editing"].includes(v.status) ? "" : `<button class="danger" onclick="deleteVideo(${v.id}, ${v.posts.some((p) => p.status === "posted")})">Radera</button>`}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
 
   $("abtests").innerHTML = product.abTests.map((t) => `
     <div class="card" style="margin-bottom:10px">
@@ -601,6 +604,12 @@ async function approve(id) {
   const channels = Object.keys(CHANNEL_NAMES).filter((ch) => document.querySelector(`[data-key="ch-${id}-${ch}"]`).checked);
   if (!channels.length) return alert("Bocka i minst en kanal.");
   await api("POST", `/api/videos/${id}/approve`, { captions, channels }); refresh();
+}
+async function deleteVideo(id, published) {
+  const note = published ? "\n\nVideon är publicerad. Inläggen på TikTok, Instagram och Facebook ligger kvar, dem tar du bort i appen." : "";
+  if (!confirm(`Radera video #${id} för gott?${note}`)) return;
+  await api("DELETE", `/api/videos/${id}`);
+  refresh();
 }
 async function reject(id) { if (confirm("Släng videon?")) { await api("POST", `/api/videos/${id}/reject`); refresh(); } }
 async function post(action, id) { await api("POST", `/api/posts/${id}/${action}`); refresh(); }
