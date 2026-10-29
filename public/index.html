@@ -44,6 +44,11 @@
   .product { display:flex; gap:14px; align-items:center; }
   .product img { width:72px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--line); background:#fff; flex:none; }
   .badge.bad { color:var(--bad); border-color:var(--bad); }
+  .badge.good { color:var(--ok); border-color:var(--ok); }
+  .badges { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0; }
+  .badges .badge { margin-left:0; }
+  .check { display:inline-flex; align-items:center; gap:6px; margin:0 12px 0 0; font-size:14px; color:var(--fg); }
+  .check input { width:auto; }
 
   /* Agentflödet: research → prompt → kanalerna. Pilarna fylls med grönt medan agenten före jobbar. */
   .flow { position:relative; display:grid; gap:40px; }
@@ -90,6 +95,14 @@
   <h2>Beställ videor</h2>
   <div class="card" id="order"></div>
 
+  <h2>Egen mobilfilm</h2>
+  <div class="card">
+    <div class="muted">Äkta film av en riktig hund slår ofta AI-video. Ladda upp en film på 2–90 sekunder, så lägger agenterna på text i bild, berättarröst, logga, pris och slutbild. Filmen gäller produkten som är vald överst.</div>
+    <input type="file" id="clipFile" accept="video/*" style="margin-top:8px">
+    <input id="clipNote" placeholder="Vad visar filmen? (valfritt, t.ex. &quot;Bella efter promenad i leran&quot;)" style="margin-top:6px">
+    <div class="row"><button class="ghost" id="clipButton" onclick="uploadClip()">Ladda upp egen film</button></div>
+  </div>
+
   <h2>Agenter</h2>
   <div class="row" style="margin-top:0;margin-bottom:12px">
     <button id="startAll">Starta kanalerna</button>
@@ -114,6 +127,10 @@
 
   <h2>Väntar på ditt godkännande</h2>
   <div id="pending"></div>
+
+  <h2>A/B-tester och vinnare</h2>
+  <p class="muted">Ett A/B-test är 3 videor med samma budskap men olika start (krok). När de är publicerade och har visats minst 300 gånger var visar siffrorna vilken krok som vinner. Krokgrad = andel som tittade minst 3 sekunder.</p>
+  <div id="abtests"></div>
 
   <h2>Lägg upp själv</h2>
   <p class="muted">Kanaler som inte är kopplade än hamnar här. Ladda ner videon, kopiera texten och tryck Klar.</p>
@@ -160,10 +177,14 @@ async function api(method, url, body) {
 // Behåll det du skriver i textfälten när sidan uppdateras.
 function keepDrafts(render) {
   const saved = {};
-  document.querySelectorAll("[data-key]").forEach((el) => { saved[el.dataset.key] = el.value; });
+  const value = (el) => (el.type === "checkbox" ? el.checked : el.value);
+  document.querySelectorAll("[data-key]").forEach((el) => { saved[el.dataset.key] = value(el); });
   const focused = document.activeElement?.dataset?.key;
   render();
-  document.querySelectorAll("[data-key]").forEach((el) => { if (el.dataset.key in saved) el.value = saved[el.dataset.key]; });
+  document.querySelectorAll("[data-key]").forEach((el) => {
+    if (!(el.dataset.key in saved)) return;
+    if (el.type === "checkbox") el.checked = saved[el.dataset.key]; else el.value = saved[el.dataset.key];
+  });
   if (focused) document.querySelector(`[data-key="${focused}"]`)?.focus();
 }
 
@@ -212,29 +233,38 @@ function render() {
       </select>
       <button onclick="order(orderCount)">Beställ · ca ${orderCost(orderCount)} kr</button>
     </div>
-    ${ordered ? `<div class="row"><strong>${product.queued} i kön${generatingNow ? ", 1 skapas nu" : ""}</strong>
+    <div class="row">
+      <button class="ghost" onclick="orderAb()">A/B-test: 3 videor med olika krokar · ca ${orderCost(3)} kr</button>
+    </div>
+    ${ordered ? `<div class="row"><strong>${product.queued} i kön${generatingNow ? ", 1 skapas nu" : ""}</strong>${product.queued ? `<span class="muted">${esc(jobSummary(product.jobs))}</span>` : ""}
       ${product.queued > 0 ? `<button class="danger" onclick="cancelOrder()">Avbryt kön</button>` : ""}</div>` : ""}`;
+
+  if (!$("clipButton").disabled) $("clipButton").textContent = `Ladda upp egen film · ca ${state.cost.clip} kr`;
 
   renderFlow(product);
 
   const videos = state.videos.filter((v) => v.product_id === productId);
   const pending = videos.filter((v) => v.status === "pending");
-  const generating = videos.filter((v) => v.status === "generating");
-  $("pending").innerHTML = (generating.length ? `<p class="muted">${generating.length} video skapas just nu…</p>` : "") + (pending.map((v) => `
+  const generating = videos.filter((v) => v.status === "generating" || v.status === "editing");
+  $("pending").innerHTML = (generating.length ? `<p class="muted">${generating.length} ${generating.length === 1 ? "video" : "videor"} görs just nu…</p>` : "") + (pending.map((v) => `
     <div class="card video">
       <video src="/media/${esc(v.local_file)}" controls playsinline preload="metadata"></video>
       <div>
         <strong>Video #${v.id}</strong> <span class="muted">${time(v.created_at)}</span>
+        ${videoBadges(v, product)}
         <p style="margin:6px 0">${esc(v.idea)}</p>
         ${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}
         ${Object.keys(CHANNEL_NAMES).map((ch) => `
           <label>Text för ${CHANNEL_NAMES[ch]}</label>
           <textarea data-key="cap-${v.id}-${ch}">${esc(v.captions?.[ch])}</textarea>`).join("")}
+        <label>Lägg upp på</label>
+        <div>${Object.entries(CHANNEL_NAMES).map(([ch, name]) => `<label class="check"><input type="checkbox" data-key="ch-${v.id}-${ch}" ${channelDefault(ch) ? "checked" : ""}> ${name}</label>`).join("")}</div>
         <div class="row">
           <button onclick="approve(${v.id})">Godkänn och publicera</button>
+          <button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button>
           <button class="danger" onclick="reject(${v.id})">Släng</button>
         </div>
-        <details><summary class="muted" style="margin:10px 0 0;font-weight:400">Prompten till Higgsfield</summary><pre class="muted">${esc(v.prompt)}</pre></details>
+        ${v.prompt ? `<details><summary class="muted" style="margin:10px 0 0;font-weight:400">Prompten till Higgsfield</summary><pre class="muted">${esc(v.prompt)}</pre></details>` : ""}
       </div>
     </div>`).join("") || (generating.length ? "" : `<div class="empty">Inget att godkänna just nu.</div>`));
 
@@ -268,10 +298,21 @@ function render() {
       </div>
     </div>`).join("") || `<div class="empty">Inga nya kommentarer eller DM.</div>`;
 
-  const statusText = { generating: "skapas", pending: "väntar på dig", approved: "godkänd", rejected: "slängd", failed: "misslyckades" };
+  const statusText = { generating: "skapas", editing: "bearbetas", pending: "väntar på dig", approved: "godkänd", rejected: "slängd", failed: "misslyckades" };
   $("history").innerHTML = videos.map((v) => `
-    <tr><td>#${v.id}</td><td>${time(v.created_at)}</td><td>${statusText[v.status]}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</td>
-    <td>${esc(v.idea)}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}${p.statsText ? `<div class="muted">${esc(p.statsText)}</div>` : ""}`).join("<br>")}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
+    <tr><td>#${v.id}</td><td>${time(v.created_at)}</td><td>${statusText[v.status] ?? esc(v.status)}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</td>
+    <td>${videoBadges(v, product)}${esc(v.idea)}${v.status === "approved" ? `<div class="row" style="margin-top:6px"><button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button></div>` : ""}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}${p.statsText ? `<div class="muted">${esc(p.statsText)}</div>` : ""}`).join("<br>")}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
+
+  $("abtests").innerHTML = product.abTests.map((t) => `
+    <div class="card" style="margin-bottom:10px">
+      <strong>${esc(t.group)}</strong>
+      <span class="muted">${t.winnerId ? `Vinnare: video #${t.winnerId}` : t.videos.some((v) => v.impressions > 0) ? "För få visningar för att utse en vinnare än" : "Inte publicerat än"}</span>
+      <table style="margin-top:6px">${t.videos.map((v) => `
+        <tr><td>#${v.id}</td><td>${esc(v.hook_type || "–")}</td><td>${statusText[v.status] ?? esc(v.status)}</td>
+        <td>${v.impressions ? `${v.impressions} visade · krokgrad ${Math.round(v.hookRate * 100)} %` : "inga siffror än"}${v.id === t.winnerId ? ' <span class="badge good">vinnare</span>' : ""}</td>
+        <td>${v.id === t.winnerId && v.status === "approved" ? `<button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button>` : ""}</td></tr>`).join("")}
+      </table>
+    </div>`).join("") || `<div class="empty">Inga A/B-tester än. Beställ ett under Beställ videor.</div>`;
 
   $("researchInfo").textContent = researchText;
   $("research").textContent = product.research?.notes || "";
@@ -321,6 +362,7 @@ function nodeHtml(agent, status, text, extra = "") {
 function channelTask(channel) {
   const videos = state.videos.filter((v) => v.product_id === productId && ["pending", "approved"].includes(v.status));
   for (const v of videos.slice().reverse()) {
+    if (v.channels && !v.channels.includes(channel)) continue; // godkänd bara för andra kanaler
     const post = v.posts.find((p) => p.channel === channel);
     if (!post || post.status === "publishing") return { v, post };
   }
@@ -484,6 +526,58 @@ async function order(n) {
   if (!confirm(`Göra ${n} ${n === 1 ? "video" : "videor"} för ungefär ${cost} kr? Pengarna dras från dina API-konton.`)) return;
   await api("POST", `/api/products/${productId}/order`, { count: n }); refresh();
 }
+function jobSummary(jobs) {
+  const ab = jobs.filter((j) => j.kind === "ab"), variants = jobs.filter((j) => j.kind === "variant"), normal = jobs.length - ab.length - variants.length;
+  return [normal && `${normal} vanliga`, ab.length && `${ab.length} i ${[...new Set(ab.map((j) => j.group))].join(", ")}`, ...variants.map((j) => `variant av #${j.of}`)].filter(Boolean).join(" · ");
+}
+// Kanaler som är kopplade bockas i från början. Ingen kopplad: alla (de hamnar under Lägg upp själv).
+function channelDefault(ch) {
+  const connected = Object.keys(CHANNEL_NAMES).filter((c) => state.connections[c]);
+  return connected.length ? connected.includes(ch) : true;
+}
+function videoBadges(v, product) {
+  const b = [];
+  if (v.source === "clip") b.push('<span class="badge">egen film</span>');
+  if (v.hook_type) b.push(`<span class="badge">krok: ${esc(v.hook_type)}</span>`);
+  if (v.ab_group) b.push(`<span class="badge">${esc(v.ab_group)}</span>`);
+  if (v.variant_of) b.push(`<span class="badge">variant av #${v.variant_of}</span>`);
+  if (product.winnerId === v.id || product.abTests.some((t) => t.winnerId === v.id)) b.push('<span class="badge good">vinnare</span>');
+  if (v.channels) b.push(`<span class="badge">bara ${v.channels.map((c) => CHANNEL_NAMES[c]).join(", ")}</span>`);
+  return b.length ? `<div class="badges">${b.join("")}</div>` : "";
+}
+async function orderAb() {
+  const product = state.products.find((p) => p.id === productId);
+  const cost = 3 * state.cost.video + (product.researchDue ? state.cost.research : 0);
+  if (!confirm(`Göra ett A/B-test med 3 videor (samma budskap, olika krokar) för ungefär ${cost} kr? Pengarna dras från dina API-konton.`)) return;
+  await api("POST", `/api/products/${productId}/order`, { mode: "ab" }); refresh();
+}
+async function orderVariant(id) {
+  const product = state.products.find((p) => p.id === productId);
+  const cost = state.cost.video + (product.researchDue ? state.cost.research : 0);
+  if (!confirm(`Göra en variant av video #${id} (ny krok eller ny miljö) för ungefär ${cost} kr?`)) return;
+  await api("POST", `/api/products/${productId}/order`, { mode: "variant", of: id }); refresh();
+}
+async function uploadClip() {
+  const file = $("clipFile").files[0];
+  if (!file) return alert("Välj en film först.");
+  if (!confirm(`Ladda upp ${file.name} och låta agenterna lägga på text, röst och logga för ungefär ${state.cost.clip} kr?`)) return;
+  const button = $("clipButton");
+  button.disabled = true; button.textContent = "Laddar upp…";
+  try {
+    const res = await fetch(`/api/products/${productId}/clips`, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream", "X-Note": encodeURIComponent($("clipNote").value) },
+      body: file,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(data.error || "Uppladdningen misslyckades");
+    $("clipFile").value = ""; $("clipNote").value = "";
+    alert(`Filmen är uppladdad som video #${data.id}. Den dyker upp under "Väntar på ditt godkännande" om någon minut.`);
+  } finally {
+    button.disabled = false;
+    refresh();
+  }
+}
 async function cancelOrder() { await api("POST", `/api/products/${productId}/order/cancel`); refresh(); }
 async function runResearch() {
   if (!confirm(`Köra research nu för ungefär ${state.cost.research} kr?`)) return;
@@ -492,7 +586,9 @@ async function runResearch() {
 async function runAgent(kind) { await api("POST", `/api/agents/${productId}/${kind}/run`); setTimeout(refresh, 1500); }
 async function approve(id) {
   const captions = Object.fromEntries(Object.keys(CHANNEL_NAMES).map((ch) => [ch, document.querySelector(`[data-key="cap-${id}-${ch}"]`).value]));
-  await api("POST", `/api/videos/${id}/approve`, { captions }); refresh();
+  const channels = Object.keys(CHANNEL_NAMES).filter((ch) => document.querySelector(`[data-key="ch-${id}-${ch}"]`).checked);
+  if (!channels.length) return alert("Bocka i minst en kanal.");
+  await api("POST", `/api/videos/${id}/approve`, { captions, channels }); refresh();
 }
 async function reject(id) { if (confirm("Släng videon?")) { await api("POST", `/api/videos/${id}/reject`); refresh(); } }
 async function post(action, id) { await api("POST", `/api/posts/${id}/${action}`); refresh(); }
@@ -521,7 +617,7 @@ async function poll() {
   try { await refresh(); } catch {}
   const product = state?.products.find((p) => p.id === productId);
   const busy = state?.flow && (state.flow.research?.status === "working" || state.flow.prompt?.status === "working" || product?.queued > 0
-    || state.videos.some((v) => v.posts.some((p) => p.status === "publishing")));
+    || state.videos.some((v) => v.status === "editing" || v.posts.some((p) => p.status === "publishing")));
   setTimeout(poll, busy ? 3000 : 15000);
 }
 poll();

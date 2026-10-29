@@ -52,3 +52,41 @@ export function performance(productId) {
     text: rows.map((r) => `- Video #${r.id} på ${r.channel}: ${statsText(r.stats)} — ${r.idea}`).join("\n"),
   };
 }
+
+const hookRate = (s) => (s?.impressions ? s.views / s.impressions : 0);
+const MIN_IMPRESSIONS = 300;
+
+/** Resultat per video (alla kanaler ihop), för kontrollsidan. */
+function videoResults(videoIds) {
+  const result = new Map(videoIds.map((id) => [id, { impressions: 0, views: 0 }]));
+  if (!videoIds.length) return result;
+  const rows = db.prepare(`SELECT video_id, stats FROM posts WHERE stats IS NOT NULL AND video_id IN (${videoIds.map(() => "?").join(",")})`).all(...videoIds);
+  for (const r of rows) {
+    const s = JSON.parse(r.stats);
+    const sum = result.get(r.video_id);
+    sum.impressions += s.impressions || 0;
+    sum.views += s.views || 0;
+  }
+  return result;
+}
+
+/**
+ * A/B-testen för en produkt: varje test med sina videor, krok-typ och krokgrad.
+ * Vinnaren är videon med högst krokgrad när alla publicerade videor i testet har visats minst 300 gånger.
+ */
+export function abTests(productId) {
+  const videos = db.prepare("SELECT id, ab_group, hook_type, status, idea FROM videos WHERE product_id = ? AND ab_group IS NOT NULL ORDER BY id").all(productId);
+  const results = videoResults(videos.map((v) => v.id));
+  const groups = new Map();
+  for (const v of videos) {
+    const r = results.get(v.id);
+    const entry = { id: v.id, hook_type: v.hook_type, status: v.status, impressions: r.impressions, hookRate: hookRate(r) };
+    groups.set(v.ab_group, [...(groups.get(v.ab_group) ?? []), entry]);
+  }
+  return [...groups].reverse().map(([group, list]) => {
+    const live = list.filter((v) => v.impressions > 0);
+    const ready = live.length >= 2 && live.every((v) => v.impressions >= MIN_IMPRESSIONS);
+    const winner = ready ? live.reduce((a, b) => (b.hookRate > a.hookRate ? b : a)) : null;
+    return { group, videos: list, winnerId: winner?.id ?? null, ready };
+  });
+}

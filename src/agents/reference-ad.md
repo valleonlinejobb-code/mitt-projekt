@@ -57,3 +57,15 @@
 4. **Bygg vidare på vinnare.** När en video går bra: behåll kärnan, men byt kroken (de första 3–5 sekunderna), miljön, utseendet eller rösten. Folk hoppar över sådant de tror att de redan har sett ("den här har jag sett förut"-filtret). Det tröttar ut annonser, och nya varianter håller dem vid liv.
 5. **Mät mot trösklar.** Meta sätter lägsta nivåer per konto för klickfrekvens (CTR) och kostnad per köp, och visar krokgrad (hook rate: andel som tittar minst 3 s) och hur många som tittar kvar (hold rate). Tumregler som många annonsörer använder, inte siffror från Meta: krokgrad över ca 30 % är bra, under ca 20 % betyder att kroken behöver bytas. De riktiga trösklarna för vårt konto syns i Ads Creative Studio när vi kör betalda annonser.
 6. **AI-förslag är förslag.** Varken Metas AI eller vi har alltid rätt. Ägaren godkänner varje video, och det som inte fungerar slängs.
+
+# Förebilder: tasstvättare som redan har lyckats
+
+Dexas MudBuster och Paw Plunger är märken som gjort just tasstvättare kända med korta "lerig tass → ren tass"-videor. Researchagenten tar reda på (med källa) hur deras bästa annonser och videor ser ut. Det vi lånar är formatet, inte deras video eller deras påståenden:
+
+- **De första 2 sekunderna:** en riktigt lerig tass på väg in mot en ljus matta eller ett ljust golv, filmad nära och från hundens höjd. Tittaren hinner tänka "nej, inte på mattan!" och stannar.
+- **Sedan:** tassen i koppen, några vridningar, upp kommer en ren tass. Allt syns i en följd, utan klipp som gör det svårt att tro på.
+- **Bevisa med bild, inte med ord:** det smutsiga vattnet i koppen och den rena tassen bredvid den ljusa mattan.
+
+# A/B-test
+
+När ägaren beställer ett A/B-test görs 3 videor med samma budskap, produkt och erbjudande, men med olika krok-typer de första 3 sekunderna. När de har publicerats visar siffrorna (krokgrad) vilken krok som vinner. Sedan görs varianter av vinnaren.

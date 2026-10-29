@@ -103,6 +103,7 @@ const RULES = `Regler för en bra annons:
 - voiceover: en lugn, vänlig kvinnoröst som pratar svenska, högst 30 ord (ca 12 sekunder). Den säger problemet, lösningen, priset och erbjudandet med exakt kod, och avslutar med var man köper (vardagshoppen.com). Skriv koden så att den går att uttala, t.ex. "koden FORSTA10".
 - end_card: headline är samma löfte som produktsidan ger (annonsen och sidan ska matcha). offer_lines är 0–2 korta rader med erbjudandena, t.ex. "−5 % med koden VALKOMMEN5". cta är en kort uppmaning utan webbadress.
 - Rikta varje idé till en tydlig grupp i målgruppen med ett identitetsord (t.ex. "ägare till stora hundar", "du som bor på landet", "hundägare med ljust golv") och skriv in det i texten i bild eller texterna. Ge de tre idéerna olika grupper.
+- De första 2 sekunderna avgör allt. Den starkaste kroken för oss: en riktigt lerig tass på väg in mot en ljus matta eller ett ljust golv, i närbild från hundens höjd. Minst en av de tre idéerna ska börja så, om inte beställningen bestämmer kroken.
 - Krokar: ge de tre idéerna olika krok-typer (hook_type): "nöjsam start" (t.ex. lera som sköljs bort i närbild, tillfredsställande att se), "känslosam berättelse" (ägaren och hunden, vardagskänsla), "sketch" (en kort rolig situation, t.ex. hunden springer in lerig precis efter städningen), "FOMO" (bara med ett riktigt erbjudande, t.ex. att FORSTA10 bara gäller de 10 första) eller "problem–lösning".
 - Visa produkten i användning av en människa (händer, ägaren med hunden), inte bara produkten på ett bord. Det ger mänsklig kontakt och förtroende.
 - Förtroendesignaler gör annonsen trovärdigare, men bara sanna: Vardagshoppen är ett svenskt UF-företag. Andra (garanti, leveranstid, betyg, antal sålda) bara om de står i produktinfon, ägarens instruktioner eller "Verifierade fakta".
@@ -118,7 +119,7 @@ const RULES = `Regler för en bra annons:
  * Kollar med kod (inte med Claude) att annonsen bara nämner rätt pris, rätt rabattkoder och rätt procent.
  * Returnerar en lista med problem. Tom lista betyder att allt stämmer.
  */
-export function claimProblems(plan, product, offers) {
+export function claimProblems(plan, product, offers, maxWords = 30) {
   const problems = [];
   const texts = [
     ...(plan.overlays ?? []).map((o) => o.text), plan.voiceover,
@@ -139,7 +140,7 @@ export function claimProblems(plan, product, offers) {
     if (n !== price) problems.push(`Priset ${n} kr stämmer inte med produktens pris (${product.price}).`);
   }
   const words = String(plan.voiceover ?? "").split(/\s+/).filter(Boolean).length;
-  if (words > 34) problems.push(`Berättarrösten har ${words} ord, högst 30 får plats.`);
+  if (words > maxWords + 4) problems.push(`Berättarrösten har ${words} ord, högst ${maxWords} får plats.`);
   return [...new Set(problems)];
 }
 
@@ -157,9 +158,30 @@ export function offerMismatches(description, offers) {
   return result;
 }
 
-// Videor görs bara när du har beställt dem på kontrollsidan. Kön sparas per produkt.
-export const queuedVideos = (productId) => getSetting(`video_queue_${productId}`, 0);
-export const setQueuedVideos = (productId, count) => setSetting(`video_queue_${productId}`, Math.max(0, count));
+// Videor görs bara när du har beställt dem på kontrollsidan. Kön sparas per produkt som en lista med jobb:
+// { kind: "normal" }, { kind: "ab", group } (en video i ett A/B-test) eller { kind: "variant", of } (variant av en video).
+const jobsKey = (productId) => `video_jobs_${productId}`;
+export function videoJobs(productId) {
+  // Äldre kö (bara ett antal) blir vanliga jobb.
+  const legacy = getSetting(`video_queue_${productId}`, 0);
+  if (legacy > 0) {
+    setSetting(`video_queue_${productId}`, 0);
+    setSetting(jobsKey(productId), [...getSetting(jobsKey(productId), []), ...Array.from({ length: legacy }, () => ({ kind: "normal" }))]);
+  }
+  return getSetting(jobsKey(productId), []);
+}
+export const setVideoJobs = (productId, jobs) => setSetting(jobsKey(productId), jobs);
+export const addVideoJobs = (productId, jobs) => setVideoJobs(productId, [...videoJobs(productId), ...jobs]);
+export const queuedVideos = (productId) => videoJobs(productId).length;
+/** Sätter kön till så många vanliga videor (0 tömmer den). */
+export const setQueuedVideos = (productId, count) => setVideoJobs(productId, Array.from({ length: Math.max(0, count) }, () => ({ kind: "normal" })));
+
+/** Nästa nummer för ett A/B-test, t.ex. "A/B 3". */
+export function newAbGroup() {
+  const n = getSetting("ab_counter", 0) + 1;
+  setSetting("ab_counter", n);
+  return `A/B ${n}`;
+}
 
 /** Nästa video i kön görs först när den förra är klar, så att högst en video skapas åt gången. */
 export function videoDue(product) {
@@ -173,6 +195,34 @@ function videosThisMonth() {
     .filter((v) => stockholmDate(v.created_at).startsWith(month)).length;
 }
 
+/**
+ * Vad ett A/B- eller variantjobb kräver av idén: en text till Claude och en kodkoll av slutversionen.
+ * A/B-test: samma budskap, men varje video får en egen krok-typ, så att siffrorna visar vilken krok som fungerar.
+ */
+export function jobInstructions(job) {
+  if (job.kind === "ab") {
+    const siblings = db.prepare("SELECT id, idea, hook_type FROM videos WHERE ab_group = ? AND status != 'failed' ORDER BY id").all(job.group);
+    const used = siblings.map((v) => v.hook_type).filter(Boolean);
+    const free = HOOK_TYPES.filter((h) => !used.includes(h));
+    const first = siblings[0];
+    return {
+      text: `Videon ingår i ${job.group}, ett A/B-test med 3 videor. Alla videor i testet har samma budskap, produkt och erbjudande. Bara kroken (de första 3 sekunderna) skiljer sig, så att siffrorna visar vilken krok som fungerar bäst.
+${used.length ? `Krok-typer som redan används i testet: ${used.join(", ")}. Välj någon av: ${free.join(", ")}.` : "Det här är testets första video."}${first ? `
+Behåll budskapet från video #${first.id}: ${first.idea}` : ""}`,
+      check: (plan) => (used.includes(plan.hook_type) ? [`Krok-typen "${plan.hook_type}" används redan i ${job.group}. Välj någon av: ${free.join(", ")}.`] : []),
+    };
+  }
+  if (job.kind === "variant") {
+    const target = db.prepare("SELECT id, idea FROM videos WHERE id = ?").get(job.of);
+    if (!target) return { text: "", check: () => [] };
+    return {
+      text: `Ägaren beställde en variant: alla tre idéer ska vara varianter av video #${target.id} (${target.idea}). Behåll kärnan, men byt kroken (de första 3 sekunderna), miljön eller utseendet så att den känns ny. Sätt variant_of = ${target.id}.`,
+      check: (plan) => (plan.variant_of === target.id ? [] : [`Idén måste vara en variant av video #${target.id} (variant_of = ${target.id}).`]),
+    };
+  }
+  return { text: "", check: () => [] };
+}
+
 export async function createVideo(product) {
   // Kolla nyckeln innan Claude anropas, så att inga pengar går åt i onödan.
   if (!higgsfieldConfigured()) throw new Error("HF_API_KEY saknas i Railway");
@@ -184,7 +234,9 @@ export async function createVideo(product) {
   }
   // Bilden kollas innan Claude anropas, så att inga pengar går åt om den inte går att hämta.
   const imageUrl = await workingProductImage(product);
-  setQueuedVideos(product.id, queuedVideos(product.id) - 1);
+  const [job = { kind: "normal" }, ...rest] = videoJobs(product.id);
+  setVideoJobs(product.id, rest);
+  const { text: jobText, check: jobCheck } = jobInstructions(job);
   await refreshStats(product.id); // gratis: hur våra publicerade videor har gått
   const results = performance(product.id);
   const research = latestResearch(product.id);
@@ -229,7 +281,7 @@ ${earlierText}
 
 Resultat för våra publicerade videor (krokgrad = andel som tittade minst 3 s av dem som fick se videon):
 ${resultsText}
-${feedback ? `\nGranskarens kommentarer på förra försöket, rätta till dem:\n${feedback}\n` : ""}
+${jobText ? `\nDen här beställningen:\n${jobText}\n` : ""}${feedback ? `\nGranskarens kommentarer på förra försöket, rätta till dem:\n${feedback}\n` : ""}
 Skriv tre olika idéer.`,
     });
 
@@ -255,13 +307,13 @@ ${researchText}
 
 Resultat för våra publicerade videor:
 ${resultsText}
-
+${jobText ? `\nDen här beställningen (slutversionen måste följa den):\n${jobText}\n` : ""}
 Idéer att granska:
 ${JSON.stringify(concepts, null, 2)}`,
     });
     log(product.id, "prompt", `Bästa idén fick ${review.score}/10${review.problems ? ` (${review.problems.slice(0, 200)})` : ""}.`);
     // Fel pris, kod eller procent stoppas även om granskaren gav högt betyg.
-    const wrong = claimProblems(review.final, product, offers);
+    const wrong = [...claimProblems(review.final, product, offers), ...jobCheck(review.final)];
     if (wrong.length) log(product.id, "prompt", `Stoppad av faktakollen: ${wrong.join(" ")}`);
     if (review.score >= MIN_SCORE && !wrong.length) plan = { ...review.final, score: review.score };
     else feedback = [...wrong, review.problems, ...review.reviews.map((r) => `${r.idea}: ${r.problems}`)].join("\n");
@@ -276,9 +328,11 @@ ${JSON.stringify(concepts, null, 2)}`,
   const idea = `${plan.idea} · Krok: ${plan.hook_type}${plan.variant_of ? ` (variant av #${plan.variant_of})` : ""} · För: ${plan.audience} · Kvalitet ${plan.score}/10 · Text i bild: ${plan.overlays.map((o) => o.text).join(" / ")} · Röst: "${plan.voiceover}"`;
   const edit = { overlays: plan.overlays, voiceover: plan.voiceover, end_card: plan.end_card };
 
-  const { lastInsertRowid } = db.prepare(
-    "INSERT INTO videos (product_id, created_at, status, idea, prompt, captions, edit) VALUES (?, ?, 'generating', ?, ?, ?, ?)"
-  ).run(product.id, now(), idea, plan.video_prompt, JSON.stringify(plan.captions), JSON.stringify(edit));
+  const { lastInsertRowid } = db.prepare(`INSERT INTO videos
+    (product_id, created_at, status, idea, prompt, captions, edit, hook_type, variant_of, ab_group, source)
+    VALUES (?, ?, 'generating', ?, ?, ?, ?, ?, ?, ?, 'ai')`
+  ).run(product.id, now(), idea, plan.video_prompt, JSON.stringify(plan.captions), JSON.stringify(edit),
+    plan.hook_type, plan.variant_of || null, job.kind === "ab" ? job.group : null);
   const videoId = Number(lastInsertRowid);
 
   progress.stage(product.id, "prompt", "send", `Video #${videoId}`);
@@ -334,7 +388,7 @@ export async function pollVideos() {
 }
 
 /** Lägger på logga, pris, text i bild, slutbild och berättarröst. Returnerar filnamnet på den färdiga annonsen. */
-async function finishAd(video, rawFile, outFile) {
+export async function finishAd(video, rawFile, outFile) {
   const product = db.prepare("SELECT * FROM products WHERE id = ?").get(video.product_id);
   const edit = JSON.parse(video.edit || "{}");
   let voiceFile;

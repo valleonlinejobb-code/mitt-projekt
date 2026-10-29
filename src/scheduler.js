@@ -3,6 +3,7 @@ import { db, now, log, activeProduct, CHANNELS } from "./db.js";
 import { researchDue, runResearch } from "./agents/research.js";
 import { videoDue, createVideo, pollVideos, setQueuedVideos } from "./agents/prompt.js";
 import { postDue, publish, checkInbox } from "./agents/social.js";
+import { nextClip, processClip } from "./agents/clips.js";
 import * as progress from "./progress.js";
 
 const INBOX_EVERY_MS = Number(process.env.INBOX_EVERY_MINUTES || 10) * 60_000;
@@ -47,6 +48,13 @@ export function runNow(productId, kind) {
 
 export async function tick() {
   await runAgent(null, "videopoll", pollVideos);
+
+  // Egna filmer som du har laddat upp bearbetas en i taget (de kostar bara ett Claude-anrop).
+  const clip = nextClip();
+  if (clip) {
+    const clipProduct = db.prepare("SELECT * FROM products WHERE id = ?").get(clip.product_id);
+    await runAgent(clipProduct, "prompt", () => processClip(clip));
+  }
 
   // Agenterna jobbar bara för produkten du har valt på kontrollsidan.
   const product = activeProduct();

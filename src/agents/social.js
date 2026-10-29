@@ -13,12 +13,13 @@ export const channelConfigured = {
 
 const publicUrl = (file) => `${(process.env.PUBLIC_URL || "").replace(/\/$/, "")}/media/${file}`;
 
-function nextVideoFor(product, channel) {
+export function nextVideoFor(product, channel) {
   return db.prepare(`
     SELECT v.* FROM videos v
     WHERE v.product_id = ? AND v.status = 'approved'
+      AND (v.channels IS NULL OR EXISTS (SELECT 1 FROM json_each(v.channels) WHERE value = ?))
       AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.video_id = v.id AND p.channel = ?)
-    ORDER BY v.id LIMIT 1`).get(product.id, channel);
+    ORDER BY v.id LIMIT 1`).get(product.id, channel, channel);
 }
 
 export function postDue(product, channel) {

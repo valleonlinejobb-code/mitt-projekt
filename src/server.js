@@ -5,8 +5,9 @@ import { db, log, getSetting, setSetting, ensureAgents, activeProduct, currentOf
 import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
 import { higgsfieldConfigured } from "./higgsfield.js";
-import { queuedVideos, setQueuedVideos } from "./agents/prompt.js";
-import { statsText } from "./agents/stats.js";
+import { queuedVideos, setQueuedVideos, addVideoJobs, videoJobs, newAbGroup } from "./agents/prompt.js";
+import { statsText, abTests, performance } from "./agents/stats.js";
+import { addClip } from "./agents/clips.js";
 import { researchDue, latestResearch, RESEARCH_EVERY_DAYS } from "./agents/research.js";
 import { importShopifyProducts } from "./shopify.js";
 import { STAGES, progressOf } from "./progress.js";
@@ -15,7 +16,9 @@ import { STAGES, progressOf } from "./progress.js";
 const COST = {
   video: Number(process.env.COST_PER_VIDEO_SEK || 4),
   research: Number(process.env.COST_PER_RESEARCH_SEK || 7),
+  clip: Number(process.env.COST_PER_CLIP_SEK || 1),
 };
+const AB_SIZE = 3;
 const MAX_ORDER = 10;
 
 const app = express();
@@ -63,6 +66,9 @@ app.get("/api/state", (_req, res) => {
     ...p,
     agents: all("SELECT * FROM agents WHERE product_id = ?", p.id),
     queued: queuedVideos(p.id),
+    jobs: videoJobs(p.id),
+    abTests: abTests(p.id),
+    winnerId: performance(p.id).winner?.id ?? null,
     researchDue: researchDue(p),
     research: latestResearch(p.id) ?? null,
   }));
@@ -74,6 +80,7 @@ app.get("/api/state", (_req, res) => {
     videos: all("SELECT * FROM videos ORDER BY id DESC LIMIT 30").map((v) => ({
       ...v,
       captions: v.captions ? JSON.parse(v.captions) : null,
+      channels: v.channels ? JSON.parse(v.channels) : null,
       posts: all("SELECT * FROM posts WHERE video_id = ?", v.id).map((p) => ({ ...p, statsText: p.stats ? statsText(JSON.parse(p.stats)) : "" })),
     })),
     inbox: all("SELECT * FROM inbox WHERE status IN ('drafted', 'failed') ORDER BY id DESC LIMIT 50"),
@@ -151,11 +158,25 @@ app.post("/api/products/:id/order", (req, res) => {
   const product = one("SELECT * FROM products WHERE id = ?", req.params.id);
   if (!product) return res.status(404).json({ error: "Finns inte" });
   if (product.id !== activeProduct()?.id) return res.status(400).json({ error: "Välj produkten överst på sidan först" });
-  const count = Number(req.body.count);
-  if (!Number.isInteger(count) || count < 1 || count > MAX_ORDER) return res.status(400).json({ error: `Välj 1–${MAX_ORDER} videor` });
-  if (queuedVideos(product.id) + count > MAX_ORDER) return res.status(400).json({ error: `Högst ${MAX_ORDER} videor i kön åt gången` });
-  setQueuedVideos(product.id, queuedVideos(product.id) + count);
-  log(product.id, "prompt", `Du beställde ${count} ${count === 1 ? "video" : "videor"}.`);
+  // mode: "normal" (count videor), "ab" (A/B-test med 3 videor och olika krokar) eller "variant" (1 variant av video `of`).
+  const mode = req.body.mode || "normal";
+  let jobs;
+  if (mode === "ab") {
+    const group = newAbGroup();
+    jobs = Array.from({ length: AB_SIZE }, () => ({ kind: "ab", group }));
+  } else if (mode === "variant") {
+    const target = one("SELECT * FROM videos WHERE id = ? AND product_id = ? AND idea IS NOT NULL AND status IN ('pending', 'approved')", Number(req.body.of), product.id);
+    if (!target) return res.status(400).json({ error: "Det går bara att göra varianter av videor som väntar på dig eller är godkända" });
+    jobs = [{ kind: "variant", of: target.id }];
+  } else if (mode === "normal") {
+    const count = Number(req.body.count);
+    if (!Number.isInteger(count) || count < 1 || count > MAX_ORDER) return res.status(400).json({ error: `Välj 1–${MAX_ORDER} videor` });
+    jobs = Array.from({ length: count }, () => ({ kind: "normal" }));
+  } else return res.status(400).json({ error: "Okänd beställning" });
+  if (queuedVideos(product.id) + jobs.length > MAX_ORDER) return res.status(400).json({ error: `Högst ${MAX_ORDER} videor i kön åt gången` });
+  addVideoJobs(product.id, jobs);
+  const what = mode === "ab" ? `ett A/B-test (${jobs[0].group}) med ${AB_SIZE} videor` : mode === "variant" ? `en variant av video #${jobs[0].of}` : `${jobs.length} ${jobs.length === 1 ? "video" : "videor"}`;
+  log(product.id, "prompt", `Du beställde ${what}.`);
   res.json({ ok: true });
 });
 
@@ -165,12 +186,29 @@ app.post("/api/products/:id/order/cancel", (req, res) => {
   res.json({ ok: true });
 });
 
+// Ladda upp en egen mobilfilm. Klippagenten lägger på text, röst och logga (ett Claude-anrop, ca 1 kr).
+app.post("/api/products/:id/clips", express.raw({ type: () => true, limit: "300mb" }), async (req, res) => {
+  const product = one("SELECT * FROM products WHERE id = ?", req.params.id);
+  if (!product) return res.status(404).json({ error: "Finns inte" });
+  if (!Buffer.isBuffer(req.body) || req.body.length < 1000) return res.status(400).json({ error: "Välj en film att ladda upp" });
+  try {
+    const id = await addClip(product.id, req.body, decodeURIComponent(String(req.get("X-Note") || "")).trim());
+    res.json({ ok: true, id });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.post("/api/videos/:id/approve", (req, res) => {
   const video = one("SELECT * FROM videos WHERE id = ? AND status = 'pending'", req.params.id);
   if (!video) return res.status(404).json({ error: "Videon väntar inte på godkännande" });
+  // Kanalerna videon får läggas upp på. Utan val: alla.
+  const channels = Array.isArray(req.body.channels) ? CHANNELS.filter((c) => req.body.channels.includes(c)) : CHANNELS;
+  if (!channels.length) return res.status(400).json({ error: "Välj minst en kanal" });
   const captions = { ...JSON.parse(video.captions), ...(req.body.captions || {}) };
-  db.prepare("UPDATE videos SET status = 'approved', captions = ? WHERE id = ?").run(JSON.stringify(captions), video.id);
-  log(video.product_id, "prompt", `Video #${video.id} godkänd`);
+  db.prepare("UPDATE videos SET status = 'approved', captions = ?, channels = ? WHERE id = ?")
+    .run(JSON.stringify(captions), channels.length === CHANNELS.length ? null : JSON.stringify(channels), video.id);
+  log(video.product_id, "prompt", `Video #${video.id} godkänd för ${channels.join(", ")}`);
   res.json({ ok: true });
 });
 
