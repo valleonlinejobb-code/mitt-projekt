@@ -93,12 +93,24 @@ export async function sendReply(row) {
   db.prepare("UPDATE inbox SET status = 'sent' WHERE id = ?").run(row.id);
 }
 
+const inboxWarned = new Set();
+
 /** Hämtar nya kommentarer/DM, skriver svarsutkast och skickar dem om autosvar är på. */
 export async function checkInbox(channel) {
   if (channel === "tiktok" || !channelConfigured[channel]()) return;
+  // Saknas behörighet för att läsa kommentarer eller DM ska det inte stoppa uppläggningen av videor.
+  const safe = async (what, fetcher) => {
+    try { return await fetcher(); } catch (err) {
+      if (!inboxWarned.has(`${channel}:${what}`)) {
+        inboxWarned.add(`${channel}:${what}`);
+        log(null, channel, `Kan inte läsa ${what} än (${err.message}). Videor läggs ändå upp.`);
+      }
+      return [];
+    }
+  };
   const items = [
-    ...(channel === "instagram" ? await meta.fetchInstagramComments() : await meta.fetchFacebookComments()).map((i) => ({ ...i, kind: "comment" })),
-    ...(await meta.fetchDirectMessages(channel === "instagram" ? "instagram" : "messenger")).map((i) => ({ ...i, kind: "dm" })),
+    ...(await safe("kommentarer", () => channel === "instagram" ? meta.fetchInstagramComments() : meta.fetchFacebookComments())).map((i) => ({ ...i, kind: "comment" })),
+    ...(await safe("DM", () => meta.fetchDirectMessages(channel === "instagram" ? "instagram" : "messenger"))).map((i) => ({ ...i, kind: "dm" })),
   ];
   const exists = db.prepare("SELECT 1 FROM inbox WHERE external_id = ?");
   const autoReply = getSetting(`auto_reply_${channel}`, false);

@@ -4,12 +4,27 @@ const GRAPH = process.env.META_GRAPH_URL || `https://graph.facebook.com/${proces
 
 const pageId = () => process.env.META_PAGE_ID;
 const igId = () => process.env.META_IG_USER_ID;
-const token = () => process.env.META_PAGE_TOKEN;
+const token = () => pageToken ?? process.env.META_PAGE_TOKEN;
+let pageToken;
 
 export const facebookConfigured = () => Boolean(pageId() && token());
 export const instagramConfigured = () => Boolean(pageId() && token() && igId());
 
+/**
+ * Meta kräver en sidnyckel (page token) för att lägga upp på sidan. Om META_PAGE_TOKEN råkar vara
+ * en användarnyckel (den som syns i Graph API Explorer) byter vi den mot sidans egen nyckel.
+ */
+async function ensurePageToken() {
+  if (pageToken) return;
+  const url = new URL(`${GRAPH}/${pageId()}`);
+  url.searchParams.set("fields", "access_token");
+  url.searchParams.set("access_token", process.env.META_PAGE_TOKEN);
+  const body = await fetch(url).then((r) => r.json()).catch(() => ({}));
+  pageToken = body.access_token || process.env.META_PAGE_TOKEN;
+}
+
 async function graph(method, path, params = {}) {
+  await ensurePageToken();
   const url = new URL(`${GRAPH}/${path}`);
   const init = { method };
   if (method === "GET") {
