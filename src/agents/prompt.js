@@ -118,6 +118,7 @@ const RULES = `Regler för en bra annons:
 - Finns en vinnarvideo under "Resultat" ska en av de tre idéerna vara en variant av den (variant_of = dess nummer): behåll kärnan som fungerade, men byt kroken (de första 3 sekunderna), miljön eller utseendet så att tittaren inte tänker "den här har jag sett förut".
 - Prioritera videor som visar hur produkten används som bäst, enligt "Så används produkten bäst" i researchen.
 - Låna greppen från "Annonser som gått bra och varför" – krok, format och känsla – men kopiera aldrig någon annans video.
+- Använd "Kundernas röst" i researchen: bygg krokar och texter på kundernas egna klagomål och ord, och bemöt en vanlig invändning (t.ex. att den passar stora hundar) om produktinfon stöder svaret. Citera aldrig en kund i annonsen.
 - Hundar ska se naturliga och glada ut. Inget som kan uppfattas som djurplågeri.
 - Texterna (captions) skrivs på svenska och slutar med en tydlig uppmaning, priset och erbjudandet. TikTok: lekfull, 3–5 hashtags. Instagram och Facebook: längre, beskriv vem produkten är för och vilket problem den löser (det hjälper annonssystemet att hitta rätt köpare), några hashtags.
 - Rabatter och erbjudanden: nämn bara det som står under "Aktuella erbjudanden", med exakt samma procent och kod. Rabatter som står i produktbeskrivningen kan vara gamla och får inte användas. Står det inga erbjudanden nämns ingen rabatt.

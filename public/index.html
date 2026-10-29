@@ -39,6 +39,16 @@
   td { padding:6px 4px; border-bottom:1px solid var(--line); vertical-align:top; overflow-wrap:anywhere; }
   .empty { color:var(--muted); font-size:14px; padding:6px 0; }
   details summary { cursor:pointer; font-weight:600; margin:28px 0 10px; }
+  /* Researchrapporten: en ruta per rubrik, länkar går att klicka på. */
+  .report { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px; }
+  .report .card.key { grid-column:1 / -1; border-color:var(--ok); }
+  .report .card.struck { grid-column:1 / -1; padding:8px 14px; }
+  .report .card.struck summary { margin:0; }
+  .report ul { margin:6px 0 0; padding-left:18px; }
+  .report li { margin:4px 0; overflow-wrap:anywhere; }
+  .report p { margin:6px 0; overflow-wrap:anywhere; }
+  .report a { color:inherit; font-size:12px; }
+  .report .tag { font-size:11px; padding:1px 6px; border-radius:4px; border:1px solid var(--line); color:var(--muted); margin-right:4px; }
   pre { white-space:pre-wrap; font:13px/1.5 system-ui, sans-serif; margin:0; }
   .badge { font-size:11px; padding:1px 6px; border-radius:4px; border:1px solid var(--line); margin-left:6px; }
   .product { display:flex; gap:14px; align-items:center; }
@@ -158,7 +168,7 @@
   <details><summary>Alla videor</summary>
     <p class="muted">Radera tar bort videon och filen från kontrollsidan och servern. Inlägg som redan ligger ute på TikTok, Instagram eller Facebook ligger kvar där, dem tar du bort i appen.</p>
     <table id="history"></table></details>
-  <details><summary>Senaste research</summary><div class="card"><div class="muted" id="researchInfo" style="margin-bottom:8px"></div><pre id="research"></pre></div></details>
+  <details open><summary>Senaste research</summary><div class="muted" id="researchInfo" style="margin:8px 0"></div><div class="report" id="research"></div></details>
   <details><summary>Produktinfo som agenterna använder</summary><form class="card" id="productForm"></form></details>
   <details open><summary>Logg</summary><table id="log"></table></details>
 </main>
@@ -208,6 +218,30 @@ async function refresh() {
 }
 
 let orderCount = 1;
+// Gör researchrapporten (rubriker med "## " och punkter med "- ") till rutor med klickbara källor.
+function reportHtml(notes) {
+  if (!notes.trim()) return `<div class="empty">Ingen research än.</div>`;
+  const inline = (text) => esc(text)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/^(Bedömning|Klagomål|Invändning|Citat):/, `<span class="tag">$1</span>`)
+    .replace(/https?:\/\/[^\s),]+/g, (url) => `<a href="${url}" target="_blank" rel="noopener">${url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]}</a>`);
+  return notes.split(/^## /m).filter((part) => part.trim()).map((part, i) => {
+    const [first, ...rest] = part.split("\n");
+    const titled = i > 0 || notes.trimStart().startsWith("## ");
+    const title = titled ? first.trim() : "";
+    const lines = (titled ? rest : [first, ...rest]).map((l) => l.trim()).filter(Boolean);
+    let body = "", list = [];
+    const flush = () => { if (list.length) body += `<ul>${list.map((l) => `<li>${inline(l)}</li>`).join("")}</ul>`; list = []; };
+    for (const line of lines) {
+      if (/^[-*] /.test(line)) list.push(line.slice(2));
+      else { flush(); body += `<p>${inline(line)}</p>`; }
+    }
+    flush();
+    if (title === "Struket") return `<div class="card struck"><details><summary class="muted">Struket av faktakollen</summary>${body}</details></div>`;
+    return `<div class="card ${title === "Det här tar vi med oss" ? "key" : ""}">${title ? `<h3>${esc(title)}</h3>` : ""}${body}</div>`;
+  }).join("");
+}
+
 function render() {
   const c = state.connections;
   $("connections").innerHTML = [["claude","Claude"],["gemini","Gemini (gratis research)"],["higgsfield","Higgsfield"],["publicUrl","Publik adress"],["instagram","Instagram"],["facebook","Facebook"],["tiktok","TikTok"]]
@@ -343,7 +377,7 @@ function render() {
     </div>`).join("") || `<div class="empty">Inga A/B-tester än. Beställ ett under Beställ videor.</div>`;
 
   $("researchInfo").textContent = researchText;
-  $("research").textContent = product.research?.notes || "";
+  $("research").innerHTML = reportHtml(product.research?.notes || "");
 
   if (!$("productForm").contains(document.activeElement)) {
     $("productForm").innerHTML = [["name","Namn"],["price","Pris"],["description","Beskrivning"],["audience","Målgrupp"],["image_url","Produktbild (länk, används i videorna)"],["shop_url","Länk till butiken"],["focus","Extra instruktioner till agenterna för just den här produkten (valfritt)"]]
