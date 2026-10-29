@@ -140,10 +140,17 @@ if (!postColumns.includes("stats")) db.exec("ALTER TABLE posts ADD COLUMN stats 
 if (!postColumns.includes("stats_at")) db.exec("ALTER TABLE posts ADD COLUMN stats_at TEXT");
 
 // Det som bara gäller tasstvättkitet (förut inskrivet i agenternas kod).
+const PAW_KIT_FOCUS_OLD_USAGE = "Video: prioritera videor som visar hur kitet används som bäst, i rätt ordning (doppa, vrid, torka med handduken).";
+const PAW_KIT_FOCUS_USAGE = `Video: prioritera videor som visar hur kitet används som bäst, i rätt ordning:
+1) ägaren håller koppen med lite vatten och för ner den leriga tassen,
+2) ägaren vrider koppen fram och tillbaka flera varv så att de mjuka borsten gnuggar och skrubbar runt hela tassen (syns tydligt i 2–3 sekunder, leran löses upp och vattnet blir grumligt),
+3) tassen lyfts upp ren,
+4) tassen torkas med mikrofiberhandduken.
+Att bara doppa tassen och lyfta upp den direkt är fel och får inte visas. Skriv gnuggningen tydligt i videoprompten på engelska, t.ex. "the owner twists the cup back and forth several times so the soft bristles scrub all around the paw, muddy water swirling", och torkningen, t.ex. "then dries the clean paw with the grey microfiber towel".`;
 const PAW_KIT_FOCUS = `Produkten är ett kit: tasstvätt (kopp med mjuka TPR-borst) plus mikrofiberhandduk med tassmönster.
 Research: ta reda på hur kitet används bäst (rätt vattentemperatur och mängd, hur man för in och vrider tassen, hur handduken torkar mellan trampdynor och klor, hur man vänjer en ovan hund, rengöring av kopp och handduk, val av storlek) från tillverkare, veterinärer och djurbutiker.
 Massagekänslan: de mjuka borsten känns som massage för hunden. Sök vad tillverkare, veterinärer och hundägare säger om det och skriv bara det som källorna stöder.
-Video: prioritera videor som visar hur kitet används som bäst, i rätt ordning (doppa, vrid, torka med handduken). Visa massagekänslan lugnt (hunden slappnar av, njuter, kanske blundar) och säg det som en känsla ("som en mjuk tassmassage"). Påstå inga hälsoeffekter som inte finns under "Verifierade fakta".`;
+${PAW_KIT_FOCUS_USAGE} Visa massagekänslan lugnt (hunden slappnar av, njuter, kanske blundar) och säg det som en känsla ("som en mjuk tassmassage"). Påstå inga hälsoeffekter som inte finns under "Verifierade fakta".`;
 
 // Butikens aktuella erbjudanden. Agenterna nämner bara rabatter som står här, så texten måste stämma med rabattkoderna i Shopify.
 export const DEFAULT_OFFERS = "5 % rabatt på första köpet med koden VALKOMMEN5. De 10 första köpen får dessutom 10 % extra rabatt med koden FORSTA10.";
@@ -173,6 +180,9 @@ if (!db.prepare("SELECT 1 FROM products LIMIT 1").get()) {
 
 // Befintliga databaser: tasstvättkitet behåller sina instruktioner och kopplas till sin Shopify-produkt.
 db.prepare("UPDATE products SET focus = ? WHERE focus = '' AND shop_url LIKE '%/products/tasstvattkit-%'").run(PAW_KIT_FOCUS);
+
+// Befintliga databaser: tydligare instruktion om hur tassen tvättas (ägaren 2026-10-29: "den ska ju gnugga runt lite").
+db.prepare("UPDATE products SET focus = replace(focus, ?, ?) WHERE shop_url LIKE '%/products/tasstvattkit-%'").run(PAW_KIT_FOCUS_OLD_USAGE, PAW_KIT_FOCUS_USAGE);
 
 // Sant från butikens produktsida (2026-10-29). Förtroendesignaler som agenterna får använda, och leveransen som de inte får överdriva.
 const PAW_KIT_SHOP_FACTS = `Fakta från butikens produktsida (sanna, får användas som förtroendesignaler):

@@ -14,6 +14,9 @@ import { researchDue, latestResearch, RESEARCH_EVERY_DAYS } from "./agents/resea
 import { importShopifyProducts } from "./shopify.js";
 import { STAGES, progressOf } from "./progress.js";
 import { estimateSek, spendSummary } from "./costs.js";
+import { selfCheck } from "./editor.js";
+import { voiceConfigured, synthesizeVoice } from "./voice.js";
+import { editAndOffer } from "./agents/prompt.js";
 
 const AB_SIZE = 3;
 const MAX_ORDER = 10;
@@ -86,6 +89,8 @@ app.get("/api/state", (_req, res) => {
       claude: Boolean(process.env.ANTHROPIC_API_KEY),
       higgsfield: higgsfieldConfigured(),
       publicUrl: Boolean(process.env.PUBLIC_URL),
+      editor: checks.editor,
+      voice: checks.voice,
       ...Object.fromEntries(CHANNELS.map((c) => [c, channelConfigured[c]()])),
     },
     // Vad ett jobb brukar kosta (snittet av de senaste, annars en uppskattning) och vad Claude faktiskt har kostat.
@@ -216,12 +221,23 @@ app.post("/api/videos/:id/reject", (req, res) => {
   res.json({ ok: true });
 });
 
+// Klipp om en video gratis (ingen ny Higgsfield- eller Claude-kostnad), t.ex. efter att klippningen misslyckades.
+app.post("/api/videos/:id/reedit", async (req, res) => {
+  const video = one("SELECT * FROM videos WHERE id = ?", req.params.id);
+  if (!video?.raw_file || !["failed", "pending"].includes(video.status)) return res.status(400).json({ error: "Den här videon går inte att klippa om" });
+  // Egen status, så att klippagenten inte tar filmen och skriver nya texter (det skulle kosta).
+  db.prepare("UPDATE videos SET status = 'reediting' WHERE id = ?").run(video.id);
+  const ok = await editAndOffer(video);
+  if (!ok) return res.status(500).json({ error: one("SELECT error FROM videos WHERE id = ?", video.id).error });
+  res.json({ ok: true });
+});
+
 // Radera en video: filerna på servern och raden på sidan. Inlägg som redan ligger ute på TikTok, Instagram
 // eller Facebook ligger kvar där (dem tar du bort i appen). En video som håller på att göras kan inte raderas.
 app.delete("/api/videos/:id", (req, res) => {
   const video = one("SELECT * FROM videos WHERE id = ?", req.params.id);
   if (!video) return res.status(404).json({ error: "Videon finns inte" });
-  if (["generating", "editing"].includes(video.status)) return res.status(400).json({ error: "Videon görs just nu. Vänta tills den är klar." });
+  if (["generating", "editing", "reediting"].includes(video.status)) return res.status(400).json({ error: "Videon görs just nu. Vänta tills den är klar." });
   for (const file of [video.local_file, video.raw_file]) {
     if (file) fs.rmSync(path.join(MEDIA_DIR, path.basename(file)), { force: true });
   }
@@ -299,9 +315,21 @@ app.post("/api/products", (req, res) => {
 
 // Om servern startades om mitt i en publicering räknas den som misslyckad.
 db.prepare("UPDATE posts SET status = 'failed', error = 'Avbröts av omstart' WHERE status = 'publishing'").run();
+db.prepare("UPDATE videos SET status = 'failed', error = 'Omklippningen avbröts av en omstart. Tryck Klipp om igen.' WHERE status = 'reediting'").run();
+
+// Provklipp och provröst när servern startar (gratis). Resultatet visas överst på kontrollsidan.
+const checks = { editor: null, voice: null };
+async function runChecks() {
+  checks.editor = await selfCheck(MEDIA_DIR);
+  if (!checks.editor.ok) log(null, "prompt", `Klipparen fungerar inte: ${checks.editor.error}`);
+  if (!voiceConfigured()) checks.voice = { ok: false, error: "GOOGLE_TTS_API_KEY saknas i Railway" };
+  else checks.voice = await synthesizeVoice("Hej").then(() => ({ ok: true }), (err) => ({ ok: false, error: err.message }));
+  if (!checks.voice.ok) log(null, "prompt", `Berättarrösten fungerar inte: ${checks.voice.error}`);
+}
 
 const port = Number(process.env.PORT || 3000);
 app.listen(port, () => {
   console.log(`Kontrollsidan kör på port ${port}`);
   if (process.env.DISABLE_SCHEDULER !== "1") startScheduler();
+  runChecks();
 });

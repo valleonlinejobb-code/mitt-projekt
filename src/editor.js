@@ -55,8 +55,15 @@ const assText = (s) => String(s ?? "").replace(/[{}\\]/g, "").replace(/\s*\n\s*/
 const GREEN = "&H00223307";
 const OFFWHITE = "&H00F0F5F7";
 
-function buildAss({ duration, total, overlays, price, endCard }) {
+// Slutbildens platser (y-led). Med produktbild flyttas texten så att bilden får plats i mitten.
+const LAYOUT = {
+  plain: { logo: { size: 220, y: 250 }, brand: 520, headline: 580, price: 790, offer: 900, cta: 1050, domain: 1125 },
+  product: { logo: { size: 130, y: 70 }, brand: 245, headline: 290, image: { w: 480, h: 400, y: 430 }, price: 935, offer: 1030, cta: 1135, domain: 1200 },
+};
+
+function buildAss({ duration, total, overlays, price, endCard, layout }) {
   const t0 = duration;
+  const L = layout;
   const line = (start, end, style, text, tags = "") => `Dialogue: 1,${assTime(start)},${assTime(end)},${style},,0,0,0,,${tags}${assText(text)}`;
   const events = [
     // Butiksnamnet bredvid loggan och priset uppe till höger, hela videon utom slutbilden.
@@ -67,12 +74,12 @@ function buildAss({ duration, total, overlays, price, endCard }) {
       .map((o) => line(o.from, Math.min(o.to, t0), "Caption", o.text, "{\\fad(120,120)}")),
     // Slutbilden: grön bakgrund, loggan läggs ovanpå av ffmpeg.
     `Dialogue: 0,${assTime(t0)},${assTime(total)},Box,,0,0,0,,{\\an7\\pos(0,0)\\fad(250,0)\\p1}m 0 0 l ${W} 0 ${W} ${H} 0 ${H}{\\p0}`,
-    line(t0, total, "EndBrand", "Vardagshoppen", "{\\an5\\pos(360,520)\\fad(250,0)}"),
-    ...(endCard.headline ? [line(t0, total, "EndText", endCard.headline, "{\\an8\\pos(360,580)\\fad(250,0)}")] : []),
-    ...(price ? [line(t0 + 0.3, total, "EndPrice", price, "{\\an5\\pos(360,790)\\fad(200,0)}")] : []),
-    ...(endCard.offer_lines ?? []).slice(0, 2).map((t, i) => line(t0 + 0.6, total, "EndOffer", t, `{\\an5\\pos(360,${900 + i * 64})\\fad(200,0)}`)),
-    ...(endCard.cta ? [line(t0 + 0.9, total, "EndOffer", endCard.cta, "{\\an5\\pos(360,1050)\\fad(200,0)}")] : []),
-    line(t0 + 0.9, total, "EndCta", STORE_DOMAIN, "{\\an5\\pos(360,1125)\\fad(200,0)}"),
+    line(t0, total, "EndBrand", "Vardagshoppen", `{\\an5\\pos(360,${L.brand})\\fad(250,0)}`),
+    ...(endCard.headline ? [line(t0, total, "EndText", endCard.headline, `{\\an8\\pos(360,${L.headline})\\fad(250,0)}`)] : []),
+    ...(price ? [line(t0 + 0.3, total, "EndPrice", price, `{\\an5\\pos(360,${L.price})\\fad(200,0)}`)] : []),
+    ...(endCard.offer_lines ?? []).slice(0, 2).map((t, i) => line(t0 + 0.6, total, "EndOffer", t, `{\\an5\\pos(360,${L.offer + i * 56})\\fad(200,0)}`)),
+    ...(endCard.cta ? [line(t0 + 0.9, total, "EndOffer", endCard.cta, `{\\an5\\pos(360,${L.cta})\\fad(200,0)}`)] : []),
+    line(t0 + 0.9, total, "EndCta", STORE_DOMAIN, `{\\an5\\pos(360,${L.domain})\\fad(200,0)}`),
   ];
   return `[Script Info]
 ScriptType: v4.00+
@@ -108,8 +115,9 @@ ${events.join("\n")}
  * @param {string} o.price       t.ex. "199 kr"
  * @param {{headline?:string, offer_lines?:string[], cta?:string}} o.endCard
  * @param {string} [o.voiceFile] berättarrösten (MP3)
+ * @param {string} [o.productImage] produktbilden, visas i slutbilden så att man ser vad vi säljer
  */
-export async function editVideo({ input, output, overlays = [], price = "", endCard = {}, voiceFile }) {
+export async function editVideo({ input, output, overlays = [], price = "", endCard = {}, voiceFile, productImage }) {
   const { duration, hasAudio } = await probe(input);
   const voice = voiceFile ? await probe(voiceFile) : null;
   // Slutbilden står kvar 3 s, längre om rösten behöver det (högst 6 s).
@@ -117,10 +125,13 @@ export async function editVideo({ input, output, overlays = [], price = "", endC
   const total = duration + endSeconds;
 
   const assFile = `${output}.ass`;
-  fs.writeFileSync(assFile, buildAss({ duration, total, overlays, price, endCard }));
+  const layout = productImage ? LAYOUT.product : LAYOUT.plain;
+  fs.writeFileSync(assFile, buildAss({ duration, total, overlays, price, endCard, layout }));
 
   const args = ["-y", "-i", input, "-loop", "1", "-i", path.join(ASSETS, "logo.png")];
   let next = 2;
+  const imageIndex = productImage ? next++ : -1;
+  if (productImage) args.push("-loop", "1", "-i", productImage);
   const voiceIndex = voice ? next++ : -1;
   if (voice) args.push("-i", voiceFile);
   const silenceIndex = hasAudio ? -1 : next++;
@@ -128,10 +139,15 @@ export async function editVideo({ input, output, overlays = [], price = "", endC
 
   const filters = [
     `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=30,tpad=stop_mode=clone:stop_duration=${endSeconds.toFixed(2)}[v0]`,
-    "[1:v]split=2[l1][l2]", "[l1]scale=84:84[ls]", "[l2]scale=220:220[lb]",
+    "[1:v]split=2[l1][l2]", "[l1]scale=84:84[ls]", `[l2]scale=${layout.logo.size}:${layout.logo.size}[lb]`,
     `[v0][ls]overlay=28:36[v1]`,
     `[v1]subtitles=filename=${assFile}:fontsdir=${path.join(ASSETS, "fonts")}[v2]`,
-    `[v2][lb]overlay=250:250:enable='gte(t,${duration.toFixed(2)})'[vout]`,
+    `[v2][lb]overlay=${(W - layout.logo.size) / 2}:${layout.logo.y}:enable='gte(t,${duration.toFixed(2)})'[v3]`,
+    // Produktbilden på ett vitt kort mitt i slutbilden.
+    productImage
+      ? `[${imageIndex}:v]scale=${layout.image.w - 40}:${layout.image.h - 40}:force_original_aspect_ratio=decrease,pad=${layout.image.w}:${layout.image.h}:(ow-iw)/2:(oh-ih)/2:white,setsar=1[pi];` +
+        `[v3][pi]overlay=${(W - layout.image.w) / 2}:${layout.image.y}:enable='gte(t,${duration.toFixed(2)})'[vout]`
+      : "[v3]null[vout]",
     // Videomodellens ljud sänks när rösten pratar.
     `[${hasAudio ? 0 : silenceIndex}:a]volume=${voice ? 0.25 : 1},apad[a0]`,
     voice ? `[${voiceIndex}:a]adelay=400:all=1,apad[a1]` : null,
@@ -148,4 +164,28 @@ export async function editVideo({ input, output, overlays = [], price = "", endC
   fs.rmSync(assFile, { force: true });
   if (code !== 0) throw new Error(`ffmpeg misslyckades: ${stderr.slice(-400)}`);
   return { seconds: total };
+}
+
+/**
+ * Provklipper en liten testfilm när servern startar, så att kontrollsidan visar direkt om klipparen
+ * (ffmpeg, typsnitt, logga) inte fungerar, i stället för att det märks först på en betald video.
+ */
+export async function selfCheck(dir) {
+  const input = path.join(dir, ".selfcheck-in.mp4");
+  const output = path.join(dir, ".selfcheck-out.mp4");
+  try {
+    const made = await run(["-y", "-f", "lavfi", "-i", "testsrc=s=360x640:d=1:r=24", "-c:v", "libx264", "-pix_fmt", "yuv420p", input]);
+    if (made.code !== 0) throw new Error(`ffmpeg fungerar inte: ${made.stderr.slice(-300)}`);
+    await editVideo({
+      input, output, price: "199 kr",
+      overlays: [{ from: 0, to: 1, text: "Test" }],
+      endCard: { headline: "Test", offer_lines: ["Test"], cta: "Test" },
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  } finally {
+    fs.rmSync(input, { force: true });
+    fs.rmSync(output, { force: true });
+  }
 }

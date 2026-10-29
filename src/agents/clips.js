@@ -7,7 +7,7 @@ import { db, now, log, currentOffers, MEDIA_DIR } from "../db.js";
 import { askClaude } from "../claude.js";
 import { newRun } from "../costs.js";
 import { extractFrames, probe } from "../editor.js";
-import { HOOK_TYPES, claimProblems, finishAd } from "./prompt.js";
+import { HOOK_TYPES, claimProblems, editAndOffer } from "./prompt.js";
 import * as progress from "../progress.js";
 
 export const MAX_CLIP_SECONDS = 90;
@@ -122,11 +122,8 @@ ${feedback ? `\nRätta det här från förra försöket:\n${feedback}` : ""}`,
     const idea = `Egen film: ${plan.idea} · Krok: ${plan.hook_type} · För: ${plan.audience} · Text i bild: ${plan.overlays.map((o) => o.text).join(" / ")} · Röst: "${plan.voiceover}"`;
     db.prepare("UPDATE videos SET idea = ?, edit = ?, captions = ?, hook_type = ? WHERE id = ?")
       .run(idea, JSON.stringify(edit), JSON.stringify(plan.captions), plan.hook_type, video.id);
-    const outFile = video.raw_file.replace(/-clip\.mp4$/, ".mp4");
-    await finishAd(db.prepare("SELECT * FROM videos WHERE id = ?").get(video.id), video.raw_file, outFile);
-    db.prepare("UPDATE videos SET status = 'pending', local_file = ?, error = NULL WHERE id = ?").run(outFile, video.id);
-    log(product.id, "prompt", `Egen film #${video.id} är klar och väntar på ditt godkännande.`);
-    progress.done(product.id, "prompt", `Egen film #${video.id}`);
+    // Klipps som AI-videorna: utan text och slutbild visas filmen inte för godkännande.
+    await editAndOffer(db.prepare("SELECT * FROM videos WHERE id = ?").get(video.id));
   } catch (err) {
     // Markeras som misslyckad så att den inte försöks igen varje minut (och kostar pengar varje gång).
     db.prepare("UPDATE videos SET status = 'failed', error = ? WHERE id = ?").run(err.message, video.id);
