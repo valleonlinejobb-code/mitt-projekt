@@ -487,7 +487,7 @@ function renderFlow(product) {
       <div class="row">
         <button class="${a.running ? "ghost" : ""}" onclick="toggleAgent('${ch}', ${a.running ? 0 : 1})">${a.running ? "Stoppa" : "Starta"}</button>
         <button class="ghost" onclick="runAgent('${ch}')">Kör nu</button>
-        ${ch === "facebook" ? `<button class="ghost" onclick="checkMeta()">Kontrollera</button>` : ""}
+        ${ch === "facebook" ? `<button class="ghost" onclick="location.href='/meta/connect'">Koppla Facebook</button><button class="ghost" onclick="checkMeta()">Kontrollera</button>` : ""}
       </div>`);
     $(`node-${ch}`).classList.toggle("working", status === "working");
     target[`prompt-${ch}`] = promptWorking ? progressPct("prompt", prompt) : task ? 100 : 0;

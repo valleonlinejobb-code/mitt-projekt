@@ -55,7 +55,8 @@ Kontrollsidan visar under **Vad Claude har kostat** vad varje jobb faktiskt kost
 | `PUBLIC_URL` | ja | Din Railway-adress, t.ex. `https://agent-uf.up.railway.app`. Instagram och Facebook hämtar videorna därifrån. |
 | `ANTHROPIC_API_KEY` | ja | Från console.anthropic.com → API Keys. |
 | `HF_API_KEY` | ja | Från Higgsfield API (open.higgsfield.ai) → Create API key. Klistra in hela nyckeln. (Alternativt `HF_API_KEY_ID` + `HF_API_KEY_SECRET` om du fick två delar.) Fyll på några dollar. |
-| `META_PAGE_ID`, `META_PAGE_TOKEN`, `META_IG_USER_ID` | för IG/FB | Se nedan. |
+| `META_APP_ID`, `META_APP_SECRET` | för IG/FB | Appens id och hemlighet (App settings → Basic). Då kan du trycka **Koppla Facebook** på kontrollsidan i stället för att klistra in nycklar. `META_LOGIN_CONFIG_ID` (valfri) = konfigurationens id om appen använder Facebook-inloggning för företag. Lägg till `<PUBLIC_URL>/meta/callback` som giltig OAuth-omdirigering. |
+| `META_PAGE_ID`, `META_PAGE_TOKEN`, `META_IG_USER_ID` | för IG/FB | Gamla sättet, används om Koppla Facebook inte är gjort. Se nedan. |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN` | för TikTok | Se nedan. |
 | `TIKTOK_PRIVACY` | nej | `SELF_ONLY` tills TikTok har granskat appen, sedan `PUBLIC_TO_EVERYONE`. |
 | `CLAUDE_MODEL` | nej | Standard `claude-opus-5-5`. |

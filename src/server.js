@@ -6,7 +6,7 @@ import path from "node:path";
 import { db, log, getSetting, setSetting, ensureAgents, activeProduct, currentOffers, CHANNELS, MEDIA_DIR } from "./db.js";
 import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
-import { diagnoseMeta } from "./channels/meta.js";
+import { diagnoseMeta, metaLoginConfigured, metaLoginUrl, finishMetaLogin } from "./channels/meta.js";
 import { higgsfieldConfigured, VIDEO_MODELS, videoModel, videoModelSek } from "./higgsfield.js";
 import { geminiConfigured } from "./gemini.js";
 import { queuedVideos, setQueuedVideos, addVideoJobs, videoJobs, newAbGroup } from "./agents/prompt.js";
@@ -259,6 +259,32 @@ app.post("/api/posts/:id/done", (req, res) => {
 });
 
 // Ett misslyckat inlägg tas bort så att agenten försöker igen.
+// "Koppla Facebook": skickar dig till Facebooks godkännanderuta och tar emot svaret.
+const metaRedirect = () => `${(process.env.PUBLIC_URL || "").replace(/\/$/, "")}/meta/callback`;
+let metaState = null;
+app.get("/meta/connect", (_req, res) => {
+  if (!metaLoginConfigured()) return res.status(400).send("Lägg in META_APP_ID och META_APP_SECRET i Railway först.");
+  if (!process.env.PUBLIC_URL) return res.status(400).send("Lägg in PUBLIC_URL i Railway först.");
+  metaState = crypto.randomBytes(16).toString("hex");
+  res.redirect(metaLoginUrl(metaRedirect(), metaState));
+});
+app.get("/meta/callback", async (req, res) => {
+  const page = (title, lines) => res.send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <body style="font-family:system-ui;background:#0b0b0b;color:#eee;padding:24px;max-width:640px;margin:auto"><h2>${title}</h2>
+    <pre style="white-space:pre-wrap;font:inherit">${lines.join("\n").replace(/</g, "&lt;")}</pre><p><a style="color:#fff" href="/">Tillbaka till kontrollsidan</a></p></body>`);
+  if (req.query.error) return page("Facebook avbröts", [String(req.query.error_description || req.query.error)]);
+  if (!metaState || req.query.state !== metaState) return page("Något gick fel", ["Länken var för gammal. Tryck Koppla Facebook igen."]);
+  metaState = null;
+  try {
+    const name = await finishMetaLogin(String(req.query.code), metaRedirect());
+    log(null, "facebook", `Facebook kopplat till sidan ${name}.`);
+    const check = await diagnoseMeta();
+    page(check.ok ? `Klart! Kopplat till ${name}` : `Kopplat till ${name}, men något saknas`, check.lines);
+  } catch (err) {
+    page("Det gick inte att koppla", [err.message]);
+  }
+});
+
 app.get("/api/meta/check", async (_req, res) => {
   try { res.json(await diagnoseMeta()); } catch (err) { res.json({ ok: false, lines: [`✗ ${err.message}`] }); }
 });

@@ -2,9 +2,14 @@
 // Kräver: META_PAGE_ID, META_PAGE_TOKEN (långlivad sidtoken), META_IG_USER_ID (Instagram-företagskontots id).
 const GRAPH = process.env.META_GRAPH_URL || `https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}`;
 
-const pageId = () => process.env.META_PAGE_ID;
-const igId = () => process.env.META_IG_USER_ID;
-const token = () => pageToken ?? process.env.META_PAGE_TOKEN;
+import { getSetting, setSetting } from "../db.js";
+
+// Nyckeln från knappen "Koppla Facebook" (sparad i databasen) går före den i Railway.
+const saved = () => getSetting("meta_connection", null);
+const pageId = () => saved()?.pageId || process.env.META_PAGE_ID;
+const igId = () => saved()?.igUserId || process.env.META_IG_USER_ID;
+const rawToken = () => saved()?.pageToken || process.env.META_PAGE_TOKEN;
+const token = () => pageToken ?? rawToken();
 let pageToken;
 
 export const facebookConfigured = () => Boolean(pageId() && token());
@@ -16,11 +21,12 @@ export const instagramConfigured = () => Boolean(pageId() && token() && igId());
  */
 async function ensurePageToken() {
   if (pageToken) return;
+  if (saved()?.pageToken) { pageToken = saved().pageToken; return; }
   const url = new URL(`${GRAPH}/${pageId()}`);
   url.searchParams.set("fields", "access_token");
-  url.searchParams.set("access_token", process.env.META_PAGE_TOKEN);
+  url.searchParams.set("access_token", rawToken());
   const body = await fetch(url).then((r) => r.json()).catch(() => ({}));
-  pageToken = body.access_token || process.env.META_PAGE_TOKEN;
+  pageToken = body.access_token || rawToken();
 }
 
 async function graph(method, path, params = {}) {
@@ -144,14 +150,14 @@ async function debugToken(t) {
 
 /** Kontrollerar Facebook-kopplingen och säger på svenska vad som saknas. Visar aldrig själva nycklarna. */
 export async function diagnoseMeta() {
-  const raw = process.env.META_PAGE_TOKEN;
-  if (!pageId() || !raw) return { ok: false, lines: ["✗ META_PAGE_ID eller META_PAGE_TOKEN saknas i Railway."] };
+  const raw = rawToken();
+  if (!pageId() || !raw) return { ok: false, lines: ["✗ Facebook är inte kopplat. Tryck Koppla Facebook."] };
   const lines = [];
   const info = await debugToken(raw);
   if (info.error || info.is_valid === false) {
-    return { ok: false, lines: [`✗ Nyckeln i Railway fungerar inte: ${info.error?.message ?? info.error ?? "ogiltig eller utgången"}. Gör en ny nyckel.`] };
+    return { ok: false, lines: [`✗ Nyckeln fungerar inte: ${info.error?.message ?? info.error ?? "ogiltig eller utgången"}. Gör en ny nyckel.`] };
   }
-  lines.push(`Nyckeln i Railway är en ${info.type === "PAGE" ? "sidnyckel" : info.type === "USER" ? "användarnyckel" : info.type}${info.expires_at ? `, gäller till ${new Date(info.expires_at * 1000).toISOString().slice(0, 10)}` : ", går inte ut"}.`);
+  lines.push(`Nyckeln är en ${info.type === "PAGE" ? "sidnyckel" : info.type === "USER" ? "användarnyckel" : info.type}${info.expires_at ? `, gäller till ${new Date(info.expires_at * 1000).toISOString().slice(0, 10)}` : ", går inte ut"}.`);
 
   if (info.type === "USER") {
     const url = new URL(`${GRAPH}/me/accounts`);
@@ -174,8 +180,52 @@ export async function diagnoseMeta() {
   const scopes = pageInfo.scopes ?? info.scopes ?? [];
   for (const s of NEEDED_FOR_FACEBOOK) lines.push(`${scopes.includes(s) ? "✓" : "✗"} ${s}`);
   const missing = NEEDED_FOR_FACEBOOK.filter((s) => !scopes.includes(s));
-  if (missing.length) lines.push(`Lägg till ${missing.join(", ")} i Graph API Explorer, tryck Generate Access Token och lägg den nya nyckeln i META_PAGE_TOKEN.`);
+  if (missing.length) lines.push(`Tryck Koppla Facebook och godkänn allt, så får agenten ${missing.join(", ")}.`);
   const ok = !lines.some((l) => l.startsWith("✗"));
   if (ok) lines.push("Allt ser rätt ut. Tryck Försök igen på videon.");
   return { ok, lines };
+}
+
+// ---------- "Koppla Facebook": egen inloggning, utan Graph API Explorer ----------
+
+const SCOPES = ["pages_show_list", "pages_read_engagement", "pages_manage_posts", "pages_manage_engagement", "business_management",
+  "instagram_basic", "instagram_content_publish", "instagram_manage_comments"];
+
+export const metaLoginConfigured = () => Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET);
+
+/** Länken till Facebooks godkännanderuta. Med META_LOGIN_CONFIG_ID används konfigurationen (Facebook-inloggning för företag). */
+export function metaLoginUrl(redirectUri, state) {
+  const url = new URL(`https://www.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/dialog/oauth`);
+  url.searchParams.set("client_id", process.env.META_APP_ID);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("state", state);
+  url.searchParams.set("response_type", "code");
+  if (process.env.META_LOGIN_CONFIG_ID) url.searchParams.set("config_id", process.env.META_LOGIN_CONFIG_ID);
+  else url.searchParams.set("scope", SCOPES.join(","));
+  return url.toString();
+}
+
+async function graphGet(path, params) {
+  const url = new URL(`${GRAPH}/${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const body = await fetch(url).then((r) => r.json()).catch((e) => ({ error: { message: e.message } }));
+  if (body.error) throw new Error(`Meta: ${body.error.message}`);
+  return body;
+}
+
+/** Byter koden från Facebook mot en sidnyckel som inte går ut, och sparar den. */
+export async function finishMetaLogin(code, redirectUri) {
+  const app = { client_id: process.env.META_APP_ID, client_secret: process.env.META_APP_SECRET };
+  const { access_token: shortToken } = await graphGet("oauth/access_token", { ...app, redirect_uri: redirectUri, code });
+  const { access_token: userToken } = await graphGet("oauth/access_token", { ...app, grant_type: "fb_exchange_token", fb_exchange_token: shortToken });
+  const { data = [] } = await graphGet("me/accounts", { fields: "id,name,access_token,instagram_business_account", access_token: userToken });
+  const page = data.find((p) => p.id === process.env.META_PAGE_ID) ?? data[0];
+  if (!page) throw new Error("Facebook gav ingen sida. Välj sidan Vardagshoppen när du godkänner.");
+  setSetting("meta_connection", {
+    pageId: page.id, pageName: page.name, pageToken: page.access_token,
+    igUserId: page.instagram_business_account?.id ?? null, connectedAt: new Date().toISOString(),
+  });
+  pageToken = page.access_token;
+  igUsername = undefined;
+  return page.name;
 }
