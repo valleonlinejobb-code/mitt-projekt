@@ -64,8 +64,7 @@ const RULES = `Regler för en bra annons:
 - Produkten ska se ut exakt som på produktbilden (form, färg, storlek). Hitta inte på delar, logotyper eller förpackningar.
 - Videoprompten skrivs på engelska och beskriver för varje scen: tid (t.ex. 0–3 s), vad som händer, kameravinkel och rörelse, ljus och miljö. Realistisk stil som en bra mobilvideo, inte reklamfilm i studio.
 - Videomodellen klarar inte text, logotyper eller komplicerade handrörelser. Ingen text i bild i videoprompten; text i bild föreslås separat i overlay_text.
-- Kitet är tasstvätt + mikrofiberhandduk. Prioritera videor som visar hur kitet används som bäst, i rätt ordning (doppa, vrid, torka med handduken), enligt "Så används kitet bäst" i researchen.
-- Ett säljargument ägaren vill ha med: de mjuka silikonborsten känns som en massage för hunden. Visa det snyggt och lugnt (hunden slappnar av, njuter, kanske blundar) och säg det som en känsla ("som en mjuk tassmassage"). Påstå inga hälsoeffekter som inte finns under "Verifierade fakta".
+- Prioritera videor som visar hur produkten används som bäst, enligt "Så används produkten bäst" i researchen.
 - Låna greppen från "Annonser som gått bra och varför" – krok, format och känsla – men kopiera aldrig någon annans video.
 - Hundar ska se naturliga och glada ut. Inget som kan uppfattas som djurplågeri.
 - Texterna skrivs på svenska, är korta och slutar med en tydlig uppmaning. TikTok: lekfull, 3–5 hashtags. Instagram: lite längre, hashtags. Facebook: vänlig, få hashtags.
@@ -102,7 +101,7 @@ export async function createVideo(product) {
   const productInfo = `Produkt: ${product.name}, pris ${product.price}
 Beskrivning: ${product.description}
 Målgrupp: ${product.audience}
-Butik: ${product.shop_url}`;
+Butik: ${product.shop_url}${product.focus ? `\nÄgarens instruktioner för just den här produkten (följ dem):\n${product.focus}` : ""}`;
   const researchText = research?.notes ?? "(ingen research än – använd beprövade grepp: problem–lösning, före/efter, och inga siffror utöver pris)";
   const earlierText = earlier.map((e) => `- [${e.status}] ${e.idea}`).join("\n") || "(inga)";
   const images = product.image_url ? [product.image_url] : [];
