@@ -4,8 +4,8 @@ Fem AI-agenter per produkt som tillsammans gör och publicerar reklamvideor, sty
 
 | Agent | Vad den gör |
 |---|---|
-| Researchagent | Söker på webben efter hur andra företag gör sina annonser och annonsvideor och skriver en rapport till promptagenten. Körs när du beställer videor (högst var tredje dag) eller när du trycker Kör research. |
-| Promptagent | Gör de videor du beställer, en i taget: skriver videoprompt och texter för varje kanal, beställer videon från Higgsfield (med produktbilden som referens) och lägger den på kontrollsidan. |
+| Researchagent | Söker på webben efter hur andra företag gör sina annonser och annonsvideor. En faktakontroll stryker sedan allt som saknar källa, så att promptagenten bara får verifierade fakta (med länk) och tydligt märkta bedömningar. Körs när du beställer videor (högst var tredje dag) eller när du trycker Kör research. |
+| Promptagent | Gör de videor du beställer, en i taget. Den skriver tre idéer utifrån produktbilden, researchen och referensvideon (`src/agents/reference-ad.md`). En granskare betygsätter dem och skriver om den bästa. Bara en idé med minst 8/10 blir en video hos Higgsfield. Annars stoppas kön, så att inga pengar går till en dålig annons. |
 | Instagram | Publicerar godkända videor som Reels (max en per dag) och skriver svar på kommentarer och DM. |
 | Facebook | Publicerar godkända videor på sidan (max en per dag) och skriver svar på kommentarer och Messenger. |
 | TikTok | Publicerar godkända videor (max en per dag). TikTok har inget API för kommentarssvar. |
@@ -50,8 +50,9 @@ Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (stan
 | `HIGGSFIELD_MODEL` | nej | Standard `alibaba/wan-3.0/reference-to-video`. |
 | `VIDEO_SECONDS`, `VIDEO_RESOLUTION` | nej | Standard `10` och `720p`. |
 | `MAX_VIDEOS_PER_MONTH` | nej | Standard `35`. |
+| `MIN_VIDEO_SCORE` | nej | Lägsta betyg (1–10) en idé måste få innan videon beställs. Standard `8`. |
 | `RESEARCH_EVERY_DAYS` | nej | Hur gammal researchen får vara innan en beställning kör ny. Standard `3`. |
-| `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK` | nej | Kostnaderna som visas på knapparna. Standard `3` och `2`. |
+| `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK` | nej | Kostnaderna som visas på knapparna. Standard `4` och `5`. |
 | `INBOX_EVERY_MINUTES` | nej | Hur ofta kommentarer och DM hämtas. Standard `10`. |
 
 ### Instagram och Facebook

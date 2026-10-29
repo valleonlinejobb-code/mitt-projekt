@@ -11,19 +11,25 @@ const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
  * @param {string} opts.prompt
  * @param {object} [opts.schema]     JSON-schema för strukturerat svar
  * @param {boolean} [opts.webSearch] låt Claude söka på webben
+ * @param {number} [opts.maxSearches] hur många webbsökningar Claude får göra
  * @param {"low"|"medium"|"high"} [opts.effort]
+ * @param {string[]} [opts.images]  bild-URL:er som Claude ska titta på
+ * @param {boolean} [opts.withSources] returnera { text, sources } med webbsidorna Claude citerade
  */
-export async function askClaude({ system, prompt, schema, webSearch = false, effort = "medium" }) {
+export async function askClaude({ system, prompt, schema, webSearch = false, maxSearches = 6, effort = "medium", withSources = false, images = [] }) {
   const params = {
     model: MODEL,
     max_tokens: 16000,
     system,
-    messages: [{ role: "user", content: prompt }],
+    messages: [{
+      role: "user",
+      content: [...images.map((url) => ({ type: "image", source: { type: "url", url } })), { type: "text", text: prompt }],
+    }],
     output_config: { effort, ...(schema ? { format: { type: "json_schema", schema } } : {}) },
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
   };
-  if (webSearch) params.tools = [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }];
+  if (webSearch) params.tools = [{ type: "web_search_20260209", name: "web_search", max_uses: maxSearches }];
 
   let messages = params.messages;
   let response;
@@ -41,6 +47,11 @@ export async function askClaude({ system, prompt, schema, webSearch = false, eff
   }
   if (response.stop_reason === "max_tokens") throw new Error("Claudes svar blev för långt och klipptes av");
 
-  const text = (schema ? response.content : content).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-  return schema ? JSON.parse(text) : text;
+  const textBlocks = (schema ? response.content : content).filter((b) => b.type === "text");
+  const text = textBlocks.map((b) => b.text).join("").trim();
+  if (schema) return JSON.parse(text);
+  if (!withSources) return text;
+  const sources = new Map();
+  for (const c of textBlocks.flatMap((b) => b.citations ?? [])) if (c.url) sources.set(c.url, c.title || c.url);
+  return { text, sources: [...sources].map(([url, title]) => ({ url, title })) };
 }

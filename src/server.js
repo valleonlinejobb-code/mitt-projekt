@@ -10,8 +10,8 @@ import { researchDue } from "./agents/research.js";
 
 // Ungefärliga kostnader som visas innan du beställer (kronor).
 const COST = {
-  video: Number(process.env.COST_PER_VIDEO_SEK || 3),
-  research: Number(process.env.COST_PER_RESEARCH_SEK || 2),
+  video: Number(process.env.COST_PER_VIDEO_SEK || 4),
+  research: Number(process.env.COST_PER_RESEARCH_SEK || 5),
 };
 const MAX_ORDER = 10;
 
