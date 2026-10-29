@@ -211,7 +211,12 @@ let orderCount = 1;
 function render() {
   const c = state.connections;
   $("connections").innerHTML = [["claude","Claude"],["higgsfield","Higgsfield"],["publicUrl","Publik adress"],["instagram","Instagram"],["facebook","Facebook"],["tiktok","TikTok"]]
-    .map(([k, n]) => `<span class="chip ${c[k] ? "on" : ""}">${c[k] ? "✓" : "–"} ${n}</span>`).join("");
+    .map(([k, n]) => `<span class="chip ${c[k] ? "on" : ""}">${c[k] ? "✓" : "–"} ${n}</span>`).join("") +
+    // Provklippet och provrösten som görs när servern startar.
+    [["editor", "Klipparen"], ["voice", "Berättarröst"]].filter(([k]) => c[k])
+      .map(([k, n]) => `<span class="chip ${c[k].ok ? "on" : ""}" title="${esc(c[k].error || "")}">${c[k].ok ? "✓" : "✗"} ${n}</span>`).join("") +
+    (c.editor && !c.editor.ok ? `<div class="err" style="flex-basis:100%">Klipparen fungerar inte, så videor får ingen text, pris eller slutbild och visas inte för godkännande: ${esc(c.editor.error)}</div>` : "") +
+    (c.voice && !c.voice.ok ? `<div class="err" style="flex-basis:100%">Berättarrösten fungerar inte, så videorna blir utan röst: ${esc(c.voice.error)}</div>` : "");
 
   const product = state.products.find((p) => p.id === productId);
   const day = (iso) => iso ? new Date(iso).toLocaleDateString("sv-SE", { day: "numeric", month: "long" }) : "";
@@ -258,7 +263,8 @@ function render() {
 
   const videos = state.videos.filter((v) => v.product_id === productId);
   const pending = videos.filter((v) => v.status === "pending");
-  const generating = videos.filter((v) => v.status === "generating" || v.status === "editing");
+  const generating = videos.filter((v) => ["generating", "editing", "reediting"].includes(v.status));
+  const unedited = videos.filter((v) => v.status === "failed" && v.raw_file && Date.now() - new Date(v.created_at) < 7 * 86400000);
   $("pending").innerHTML = (generating.length ? `<p class="muted">${generating.length} ${generating.length === 1 ? "video" : "videor"} görs just nu…</p>` : "") + (pending.map((v) => `
     <div class="card video">
       <video src="/media/${esc(v.local_file)}" controls playsinline preload="metadata"></video>
@@ -279,7 +285,14 @@ function render() {
         </div>
         ${v.prompt ? `<details><summary class="muted" style="margin:10px 0 0;font-weight:400">Prompten till Higgsfield</summary><pre class="muted">${esc(v.prompt)}</pre></details>` : ""}
       </div>
-    </div>`).join("") || (generating.length ? "" : `<div class="empty">Inget att godkänna just nu.</div>`));
+    </div>`).join("") || (generating.length || unedited.length ? "" : `<div class="empty">Inget att godkänna just nu.</div>`)) +
+    // Videor från Higgsfield där text, pris och slutbild inte gick att lägga på. De kan klippas om gratis.
+    unedited.map((v) => `
+    <div class="card" style="margin-bottom:10px">
+      <strong>Video #${v.id}</strong> <span class="badge bad">kunde inte klippas</span>
+      <div class="err">${esc(v.error)}</div>
+      <div class="row"><button onclick="reedit(${v.id})">Klipp om (gratis)</button><button class="danger" onclick="deleteVideo(${v.id}, false)">Radera</button></div>
+    </div>`).join("");
 
   const manual = state.videos.flatMap((v) => v.posts.filter((p) => p.status === "manual" || p.status === "failed").map((p) => ({ v, p })));
   $("manual").innerHTML = manual.map(({ v, p }) => `
@@ -312,11 +325,11 @@ function render() {
       </div>
     </div>`).join("") || `<div class="empty">Inga nya kommentarer eller DM.</div>`;
 
-  const statusText = { generating: "skapas", editing: "bearbetas", pending: "väntar på dig", approved: "godkänd", rejected: "slängd", failed: "misslyckades" };
+  const statusText = { generating: "skapas", editing: "bearbetas", reediting: "klipps om", pending: "väntar på dig", approved: "godkänd", rejected: "slängd", failed: "misslyckades" };
   $("history").innerHTML = videos.map((v) => `
     <tr><td>#${v.id}</td><td>${time(v.created_at)}</td><td>${statusText[v.status] ?? esc(v.status)}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</td>
     <td>${videoBadges(v, product)}${esc(v.idea)}${v.status === "approved" ? `<div class="row" style="margin-top:6px"><button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button></div>` : ""}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}${p.statsText ? `<div class="muted">${esc(p.statsText)}</div>` : ""}`).join("<br>")}</td>
-    <td>${["generating", "editing"].includes(v.status) ? "" : `<button class="danger" onclick="deleteVideo(${v.id}, ${v.posts.some((p) => p.status === "posted")})">Radera</button>`}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
+    <td>${v.status === "failed" && v.raw_file ? `<button class="ghost" onclick="reedit(${v.id})">Klipp om (gratis)</button> ` : ""}${["generating", "editing", "reediting"].includes(v.status) ? "" : `<button class="danger" onclick="deleteVideo(${v.id}, ${v.posts.some((p) => p.status === "posted")})">Radera</button>`}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
 
   $("abtests").innerHTML = product.abTests.map((t) => `
     <div class="card" style="margin-bottom:10px">
@@ -604,6 +617,10 @@ async function approve(id) {
   const channels = Object.keys(CHANNEL_NAMES).filter((ch) => document.querySelector(`[data-key="ch-${id}-${ch}"]`).checked);
   if (!channels.length) return alert("Bocka i minst en kanal.");
   await api("POST", `/api/videos/${id}/approve`, { captions, channels }); refresh();
+}
+async function reedit(id) {
+  await api("POST", `/api/videos/${id}/reedit`);
+  refresh();
 }
 async function deleteVideo(id, published) {
   const note = published ? "\n\nVideon är publicerad. Inläggen på TikTok, Instagram och Facebook ligger kvar, dem tar du bort i appen." : "";

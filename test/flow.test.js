@@ -26,6 +26,16 @@ const sampleVoice = path.join(dataDir, "voice.mp3");
 execFileSync(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "testsrc=s=480x854:d=2:r=24", "-f", "lavfi", "-i", "sine=f=300:d=2",
   "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", sampleVideo]);
 execFileSync(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=f=500:d=4", sampleVoice]);
+// Produktbilden: helröd, så att den syns i slutbilden när vi mäter färgen.
+const sampleImage = path.join(dataDir, "product.jpg");
+execFileSync(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "color=c=red:s=400x400", "-frames:v", "1", sampleImage]);
+
+/** Medelfärgen (r, g, b) i en ruta av en video vid tiden t. */
+function colorAt(file, t, [w, h, x, y]) {
+  const rgb = execFileSync(ffmpeg, ["-v", "error", "-ss", String(t), "-i", file, "-frames:v", "1",
+    "-vf", `crop=${w}:${h}:${x}:${y},scale=1:1`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
+  return [...rgb.subarray(0, 3)];
+}
 
 const calls = [];
 let videoStatus = "queued";
@@ -51,6 +61,7 @@ const CONCEPT = {
 let reviewedConcept = CONCEPT;
 let ignoreOrders = false; // låtsas att granskaren struntar i beställningen (A/B-krok, variant)
 let clipPlan = null;
+let ttsFails = false;
 // Granskaren följer beställningen: väljer en ledig krok i A/B-testet och sätter variant_of.
 function followOrder(concept, prompt) {
   if (ignoreOrders) return concept;
@@ -97,13 +108,14 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url.startsWith("https://cdn.shopify.com/")) {
     if (url.includes("tasskit-med-handduk.jpg")) return new Response(null, { status: 404 }); // gammal, borttagen bild
-    return new Response(null, { status: 200 });
+    return new Response(init.method === "HEAD" ? null : fs.readFileSync(sampleImage), { status: 200 });
   }
   if (url === "https://vardagshoppen.com/products/tasstvattkit-sma-och-mellanstora-hundar.json") {
     return json({ product: { image: { src: "https://cdn.shopify.com/s/files/ny-bild.jpg" } } });
   }
   if (url === "https://cdn.higgsfield.test/video.mp4") return new Response(fs.readFileSync(sampleVideo));
   if (url === "https://texttospeech.googleapis.com/v1/text:synthesize") {
+    if (ttsFails) return json({ error: { code: 403, message: "API key not valid" } }, 403);
     return json({ audioContent: fs.readFileSync(sampleVoice).toString("base64") });
   }
   if (url.startsWith("https://graph.facebook.com/")) {
@@ -173,6 +185,15 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   const finished = await probe(path.join(dataDir, "media", video.local_file));
   assert.ok(finished.duration > 4.5 && finished.duration < 5.5, `längd ${finished.duration}`);
   assert.ok(finished.hasAudio);
+  // Det som saknades i den dåliga annonsen: slutbilden visar produkten (röd provbild) på grön bakgrund med pris.
+  const finalFile = path.join(dataDir, "media", video.local_file);
+  const [r, g, b] = colorAt(finalFile, 4.5, [300, 260, 210, 500]);
+  assert.ok(r > 180 && g < 90 && b < 90, `produktbilden syns mitt i slutbilden (${r},${g},${b})`);
+  const [, bg] = colorAt(finalFile, 4.5, [40, 40, 20, 600]);
+  assert.ok(bg > 30 && bg < 80, "grön bakgrund i slutbilden");
+  // Under själva videon ligger priset uppe till höger (grön ruta) ovanpå videon.
+  const [pr, pg, pb] = colorAt(finalFile, 1.8, [60, 30, 600, 60]);
+  assert.ok(pg > pr && pg > pb, `prisrutan syns uppe till höger (${pr},${pg},${pb})`);
   const tts = calls.find((c) => c.url.startsWith("https://texttospeech.googleapis.com/"));
   assert.equal(tts.body.input.text, CONCEPT.voiceover);
   assert.equal(tts.body.voice.languageCode, "sv-SE");
@@ -390,4 +411,58 @@ test("Månadstaket nått: inga Claude-anrop och kön töms", async () => {
   assert.equal(queuedVideos(product.id), 0);
   assert.match(db.prepare("SELECT last_error FROM agents WHERE product_id = ? AND kind = 'prompt'").get(product.id).last_error, /tak/);
   setSetting("claude_budget_sek", 0);
+});
+
+const { editAndOffer } = await import("../src/agents/prompt.js");
+
+test("Klipparen misslyckas: videon visas inte för godkännande, och kan klippas om gratis", async () => {
+  const product = activeProduct();
+  videoStatus = "completed";
+  // En video utan text och slutbild (som den dåliga annonsen) får inte hamna hos dig för godkännande.
+  const { lastInsertRowid } = db.prepare("INSERT INTO videos (product_id, created_at, status, hf_request_id, idea) VALUES (?, ?, 'generating', 'req-1', 'utan text')")
+    .run(product.id, new Date().toISOString());
+  const id = Number(lastInsertRowid);
+  await pollVideos();
+  let video = db.prepare("SELECT * FROM videos WHERE id = ?").get(id);
+  assert.equal(video.status, "failed");
+  assert.match(video.error, /visas inte för godkännande/);
+  assert.equal(video.local_file, null);
+  assert.ok(fs.existsSync(path.join(dataDir, "media", video.raw_file)), "Higgsfield-videon finns kvar");
+
+  // Klipp om: ingen ny kostnad hos Claude eller Higgsfield.
+  const paid = () => calls.filter((c) => c.url.startsWith("https://api.anthropic.com/") || c.url.includes("higgsfield.ai/alibaba")).length;
+  const before = paid();
+  db.prepare("UPDATE videos SET edit = ? WHERE id = ?").run(JSON.stringify({ overlays: CONCEPT.overlays, voiceover: CONCEPT.voiceover, end_card: CONCEPT.end_card }), id);
+  assert.equal(await editAndOffer(db.prepare("SELECT * FROM videos WHERE id = ?").get(id)), true);
+  video = db.prepare("SELECT * FROM videos WHERE id = ?").get(id);
+  assert.equal(video.status, "pending");
+  assert.equal(paid(), before);
+});
+
+test("Berättarrösten fungerar inte: videon blir klar ändå, med text, pris och slutbild", async () => {
+  const product = activeProduct();
+  ttsFails = true;
+  const { lastInsertRowid } = db.prepare("INSERT INTO videos (product_id, created_at, status, hf_request_id, edit) VALUES (?, ?, 'generating', 'req-1', ?)")
+    .run(product.id, new Date().toISOString(), JSON.stringify({ overlays: CONCEPT.overlays, voiceover: CONCEPT.voiceover, end_card: CONCEPT.end_card }));
+  await pollVideos();
+  ttsFails = false;
+  const video = db.prepare("SELECT * FROM videos WHERE id = ?").get(Number(lastInsertRowid));
+  assert.equal(video.status, "pending");
+  assert.match(video.error, /Utan berättarröst: .*403/);
+  const finished = await probe(path.join(dataDir, "media", video.local_file));
+  assert.ok(finished.duration > 4.5, "slutbilden är med");
+});
+
+test("Promptagenten och granskaren vet att tassen ska gnuggas runt i koppen och torkas", async () => {
+  const product = activeProduct();
+  assert.match(product.focus, /vrider koppen fram och tillbaka flera varv/);
+  assert.match(product.focus, /Att bara doppa tassen/);
+  const review = claudeCalls("Du är en sträng kvalitetsgranskare").at(-1);
+  assert.match(review.body.system, /på rätt sätt enligt ägarens instruktioner/);
+  assert.match(review.body.messages[0].content.at(-1).text, /scrub all around the paw/);
+});
+
+test("Provklippet när servern startar visar att klipparen fungerar", async () => {
+  const { selfCheck } = await import("../src/editor.js");
+  assert.deepEqual(await selfCheck(path.join(dataDir, "media")), { ok: true });
 });

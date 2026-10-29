@@ -17,7 +17,7 @@
 ## Så använder vi det i en 10-sekundersannons
 
 - 0–2 s: krok. Ett problem hundägare känner igen, visat i bild (leriga tassavtryck på ljust golv, i soffan, i bilen). Eller en överraskande bild som väcker nyfikenhet.
-- 2–7 s: lösningen. Produkten i användning, tydligt och ärligt: tass i koppen, några vridningar, ren tass. Produkten ska se ut exakt som på produktbilden.
+- 2–7 s: lösningen. Produkten i användning, tydligt och ärligt: tass i koppen, ägaren vrider koppen fram och tillbaka så att borsten gnuggar runt hela tassen (syns tydligt), ren tass upp, torka med handduken. Bara doppa och lyfta är fel. Produkten ska se ut exakt som på produktbilden.
 - 7–10 s: resultatet. Ren tass, glad hund, rent golv. Lugn slutbild där text och uppmaning får plats.
 - Högst 3 scener på 10 sekunder. Hellre en enkel sak som ser verklig ut än många saker som ser konstiga ut.
 - En stil per video: ett ljus, en färgskala, en miljö. Butikens färg är mörkgrön (#073322) och benvit.
@@ -41,7 +41,7 @@
 ## Annonsens delar (så ser en färdig video ut)
 
 - 0–2 s, FÖRE: problemet i närbild. Lerig, smutsig tass, leriga avtryck på ljust golv. Text i bild med identitetsord, t.ex. "Lerig hund igen?".
-- 2–7 s: produkten används, rätt och lugnt: doppa, vrid, torka med handduken.
+- 2–7 s: produkten används, rätt och lugnt: tassen i koppen, vrid koppen fram och tillbaka så att borsten gnuggar runt tassen, lyft upp den rena tassen, torka med handduken.
 - 7–10 s, EFTER: ren tass, rent golv, glad hund och ägare.
 - 10–13 s: slutbild (läggs på automatiskt): logga, Vardagshoppen, rubrik, pris, erbjudanden, uppmaning, vardagshoppen.com.
 - Hela tiden: logga och butiksnamn uppe till vänster, priset uppe till höger.
@@ -63,7 +63,7 @@
 Dexas MudBuster och Paw Plunger är märken som gjort just tasstvättare kända med korta "lerig tass → ren tass"-videor. Researchagenten tar reda på (med källa) hur deras bästa annonser och videor ser ut. Det vi lånar är formatet, inte deras video eller deras påståenden:
 
 - **De första 2 sekunderna:** en riktigt lerig tass på väg in mot en ljus matta eller ett ljust golv, filmad nära och från hundens höjd. Tittaren hinner tänka "nej, inte på mattan!" och stannar.
-- **Sedan:** tassen i koppen, några vridningar, upp kommer en ren tass. Allt syns i en följd, utan klipp som gör det svårt att tro på.
+- **Sedan:** tassen i koppen, ägaren vrider koppen flera varv så att borsten skrubbar runt tassen och vattnet blir grumligt, upp kommer en ren tass som torkas med handduken. Allt syns i en följd, utan klipp som gör det svårt att tro på.
 - **Bevisa med bild, inte med ord:** det smutsiga vattnet i koppen och den rena tassen bredvid den ljusa mattan.
 
 # A/B-test

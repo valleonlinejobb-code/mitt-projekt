@@ -301,7 +301,7 @@ Skriv tre olika idéer.`,
         "Kolla särskilt: stark krok inom 2 s, tydligt före (smutsigt problem) och efter (rent resultat), att produkten beskrivs som på bilden, " +
         "att videomodellen klarar scenerna, att videon känns som ett vanligt inlägg och inte som en annons, ett tydligt identitetsord för målgruppen, " +
         "att rösten och slutbilden säger pris och erbjudande rätt och lockar till köp, att rubriken matchar produktsidan, " +
-        "att produkten används av en människa, att förtroendesignaler är sanna, och att idéerna bygger på det som gått bra under 'Resultat'. " +
+        "att produkten används av en människa och på rätt sätt enligt ägarens instruktioner (står det hur produkten ska användas, t.ex. att tassen gnuggas runt i koppen och torkas med handduken, ska det stå tydligt i videoprompten), att förtroendesignaler är sanna, och att idéerna bygger på det som gått bra under 'Resultat'. " +
         "och att varje siffra och påstående i texterna stöds av produktinfon, 'Aktuella erbjudanden' eller 'Verifierade fakta'. " +
         "Ta den bästa idén och skriv en förbättrad slutversion där alla problem är rättade.\n\n" + REFERENCE + "\n\n" + RULES,
       prompt: `${productInfo}
@@ -374,45 +374,94 @@ export async function pollVideos() {
     if (!res.ok) throw new Error(`Kunde inte ladda ner video #${video.id} (${res.status})`);
     fs.writeFileSync(path.join(MEDIA_DIR, rawFile), Buffer.from(await res.arrayBuffer()));
 
+    db.prepare("UPDATE videos SET video_url = ?, raw_file = ? WHERE id = ?").run(result.videoUrl, rawFile, video.id);
     progress.stage(video.product_id, "prompt", "edit", `Video #${video.id}`);
-    let file = rawFile;
-    let note = null;
-    try {
-      file = await finishAd(video, rawFile, `${name}.mp4`);
-    } catch (err) {
-      // Hellre en video utan logga än ingen video alls. Felet syns på kontrollsidan.
-      note = `Logga, pris och röst kunde inte läggas på: ${err.message}`;
-      log(video.product_id, "prompt", `Video #${video.id}: ${note}`);
-    }
-    db.prepare("UPDATE videos SET status = 'pending', video_url = ?, local_file = ?, raw_file = ?, error = ? WHERE id = ?")
-      .run(result.videoUrl, file, rawFile, note, video.id);
-    log(video.product_id, "prompt", `Video #${video.id} är klar och väntar på ditt godkännande.`);
-    progress.done(video.product_id, "prompt", `Video #${video.id}`);
+    await editAndOffer({ ...video, raw_file: rawFile });
   }
 }
 
-/** Lägger på logga, pris, text i bild, slutbild och berättarröst. Returnerar filnamnet på den färdiga annonsen. */
+/**
+ * Klipper den färdiga annonsen och lägger den för godkännande. En video utan text, pris och slutbild
+ * visas aldrig för godkännande: misslyckas klippningen markeras videon som misslyckad, och den kan klippas
+ * om gratis med "Klipp om" (Higgsfield-videon finns kvar på servern).
+ */
+export async function editAndOffer(video) {
+  const outFile = `${crypto.randomBytes(12).toString("hex")}.mp4`;
+  try {
+    const { voiceError } = await finishAd(video, video.raw_file, outFile);
+    const note = voiceError ? `Utan berättarröst: ${voiceError}` : null;
+    db.prepare("UPDATE videos SET status = 'pending', local_file = ?, error = ? WHERE id = ?").run(outFile, note, video.id);
+    if (video.local_file && video.local_file !== video.raw_file) fs.rmSync(path.join(MEDIA_DIR, path.basename(video.local_file)), { force: true });
+    log(video.product_id, "prompt", `Video #${video.id} är klar och väntar på ditt godkännande.${note ? ` ${note}` : ""}`);
+    progress.done(video.product_id, "prompt", `Video #${video.id}`);
+    return true;
+  } catch (err) {
+    const error = `Text, pris och slutbild kunde inte läggas på, så videon visas inte för godkännande: ${err.message}`;
+    db.prepare("UPDATE videos SET status = 'failed', error = ? WHERE id = ?").run(error, video.id);
+    log(video.product_id, "prompt", `Video #${video.id}: ${error}`);
+    progress.failed(video.product_id, "prompt", error);
+    return false;
+  }
+}
+
+/** Laddar ner produktbilden till slutbilden. Utan bild blir slutbilden utan den, i stället för att stoppa videon. */
+async function productImageFile(product) {
+  try {
+    const url = await workingProductImage(product);
+    if (!url) return null;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`svarade ${res.status}`);
+    const file = path.join(MEDIA_DIR, `.product-${product.id}-${crypto.randomBytes(6).toString("hex")}.img`);
+    fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+    return file;
+  } catch (err) {
+    log(product.id, "prompt", `Produktbilden kunde inte hämtas till slutbilden: ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Lägger på logga, pris, text i bild, slutbild med produktbild och berättarröst.
+ * Går rösten inte att göra blir videon klar ändå, utan röst, och voiceError säger varför.
+ */
 export async function finishAd(video, rawFile, outFile) {
   const product = db.prepare("SELECT * FROM products WHERE id = ?").get(video.product_id);
   const edit = JSON.parse(video.edit || "{}");
+  if (!edit.overlays?.length && !edit.end_card) throw new Error("Videon saknar text i bild och slutbild, så den kan inte klippas. Beställ en ny video.");
   let voiceFile;
+  let voiceError = null;
   if (edit.voiceover && voiceConfigured()) {
-    voiceFile = path.join(MEDIA_DIR, `${outFile}.voice.mp3`);
-    fs.writeFileSync(voiceFile, await synthesizeVoice(edit.voiceover));
+    try {
+      voiceFile = path.join(MEDIA_DIR, `${outFile}.voice.mp3`);
+      fs.writeFileSync(voiceFile, await synthesizeVoice(edit.voiceover));
+    } catch (err) {
+      voiceFile = undefined;
+      voiceError = err.message;
+    }
   } else if (edit.voiceover) {
-    log(video.product_id, "prompt", "GOOGLE_TTS_API_KEY saknas i Railway, så videon görs utan berättarröst.");
+    voiceError = "GOOGLE_TTS_API_KEY saknas i Railway";
   }
+  const productImage = product ? await productImageFile(product) : null;
+  const options = {
+    input: path.join(MEDIA_DIR, rawFile),
+    output: path.join(MEDIA_DIR, outFile),
+    overlays: edit.overlays ?? [],
+    price: product?.price ?? "",
+    endCard: edit.end_card ?? {},
+    voiceFile,
+  };
   try {
-    await editVideo({
-      input: path.join(MEDIA_DIR, rawFile),
-      output: path.join(MEDIA_DIR, outFile),
-      overlays: edit.overlays ?? [],
-      price: product?.price ?? "",
-      endCard: edit.end_card ?? {},
-      voiceFile,
-    });
+    try {
+      await editVideo({ ...options, productImage });
+    } catch (err) {
+      // En trasig produktbild ska inte stoppa annonsen: då görs slutbilden utan den.
+      if (!productImage) throw err;
+      log(video.product_id, "prompt", `Produktbilden gick inte att lägga i slutbilden, så den görs utan: ${err.message.slice(0, 200)}`);
+      await editVideo(options);
+    }
   } finally {
     if (voiceFile) fs.rmSync(voiceFile, { force: true });
+    if (productImage) fs.rmSync(productImage, { force: true });
   }
-  return outFile;
+  return { file: outFile, voiceError };
 }
