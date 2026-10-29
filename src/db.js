@@ -117,6 +117,10 @@ Research: ta reda på hur kitet används bäst (rätt vattentemperatur och mäng
 Massagekänslan: silikonborsten känns som massage för hunden. Sök vad tillverkare, veterinärer och hundägare säger om det och skriv bara det som källorna stöder.
 Video: prioritera videor som visar hur kitet används som bäst, i rätt ordning (doppa, vrid, torka med handduken). Visa massagekänslan lugnt (hunden slappnar av, njuter, kanske blundar) och säg det som en känsla ("som en mjuk tassmassage"). Påstå inga hälsoeffekter som inte finns under "Verifierade fakta".`;
 
+// Butikens aktuella erbjudanden. Agenterna nämner bara rabatter som står här, så texten måste stämma med rabattkoderna i Shopify.
+export const DEFAULT_OFFERS = "5 % rabatt på första köpet med koden VALKOMMEN5. De 10 första köpen får dessutom 10 % extra rabatt med koden FORSTA10.";
+export const currentOffers = () => String(getSetting("offers", DEFAULT_OFFERS)).trim();
+
 export function ensureAgents(productId) {
   const insert = db.prepare("INSERT OR IGNORE INTO agents (product_id, kind) VALUES (?, ?)");
   for (const kind of AGENT_KINDS) insert.run(productId, kind);

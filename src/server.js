@@ -1,7 +1,7 @@
 // Webbservern: kontrollsidan, dess API och videofilerna som Instagram/Facebook hämtar.
 import express from "express";
 import crypto from "node:crypto";
-import { db, log, getSetting, setSetting, ensureAgents, activeProduct, CHANNELS, MEDIA_DIR } from "./db.js";
+import { db, log, getSetting, setSetting, ensureAgents, activeProduct, currentOffers, CHANNELS, MEDIA_DIR } from "./db.js";
 import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
 import { higgsfieldConfigured } from "./higgsfield.js";
@@ -69,6 +69,7 @@ app.get("/api/state", (_req, res) => {
     settings: {
       auto_reply_instagram: getSetting("auto_reply_instagram", false),
       auto_reply_facebook: getSetting("auto_reply_facebook", false),
+      offers: currentOffers(),
     },
   });
 });
@@ -191,6 +192,10 @@ app.post("/api/inbox/:id/ignore", (req, res) => {
 app.post("/api/settings", (req, res) => {
   for (const key of ["auto_reply_instagram", "auto_reply_facebook"]) {
     if (key in req.body) setSetting(key, Boolean(req.body[key]));
+  }
+  if ("offers" in req.body) {
+    setSetting("offers", String(req.body.offers).trim().slice(0, 1000));
+    log(null, "all", "Erbjudandena ändrades.");
   }
   res.json({ ok: true });
 });
