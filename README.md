@@ -6,6 +6,7 @@ Fem AI-agenter per produkt som tillsammans gör och publicerar reklamvideor, sty
 |---|---|
 | Researchagent | Söker på webben efter hur andra företag gör sina annonser och annonsvideor. En faktakontroll stryker sedan allt som saknar källa, så att promptagenten bara får verifierade fakta (med länk) och tydligt märkta bedömningar. Körs när du beställer videor (högst var tredje dag) eller när du trycker Kör research. |
 | Promptagent | Gör de videor du beställer, en i taget. Den skriver tre idéer utifrån produktbilden, researchen och annonstipsen (`src/agents/reference-ad.md`), med före/efter, text i bild, en berättartext och en slutbild. En granskare betygsätter dem och skriver om den bästa. Bara en idé med minst 8/10, där pris, rabattkoder och procent stämmer med **Aktuella erbjudanden**, blir en video hos Higgsfield. Annars stoppas kön, så att inga pengar går till en dålig annons. |
+| Resultat | Innan promptagenten skriver idéer hämtar den (gratis) hur de publicerade videorna har gått på Facebook och Instagram: visningar, krokgrad (andel som tittar minst 3 s), hur många som tittar klart och snittid. Den bästa videon blir "vinnare", och en av de nya idéerna blir en variant av den med ny krok. Siffrorna syns i videohistoriken. |
 | Klippare | När videon kommer tillbaka lägger servern på (med ffmpeg, gratis) Vardagshoppens logga och namn, priset, text i bild, en slutbild på 3 s med pris, erbjudanden och vardagshoppen.com, och en svensk kvinnoröst (Google Text-to-Speech). Videomodellen kan inte skriva text eller logotyper själv. |
 | Instagram | Publicerar godkända videor som Reels (max en per dag) och skriver svar på kommentarer och DM. |
 | Facebook | Publicerar godkända videor på sidan (max en per dag) och skriver svar på kommentarer och Messenger. |
@@ -68,7 +69,7 @@ Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (stan
 
 1. Gör Instagram-kontot till ett **företagskonto** och koppla det till en **Facebook-sida** för Agent UF.
 2. Skapa en app på developers.facebook.com (typ *Business*) och lägg till **Instagram** och **Messenger**.
-3. Ge appen behörigheterna `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`, `pages_messaging`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments` och `instagram_manage_messages`.
+3. Ge appen behörigheterna `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`, `pages_messaging`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_messages`, `read_insights` och `instagram_manage_insights` (de två sista för resultaten).
 4. Ta fram en **långlivad sidtoken** (Graph API Explorer → välj sidan → förläng i Access Token Debugger) → `META_PAGE_TOKEN`.
 5. `META_PAGE_ID` är sidans id. `META_IG_USER_ID` får du med `GET /{sid-id}?fields=instagram_business_account`.
 

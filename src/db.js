@@ -114,6 +114,10 @@ const videoColumns = db.prepare("PRAGMA table_info(videos)").all().map((c) => c.
 // edit: JSON med text i bild, slutbild och berättarröst som klipparen lägger på. raw_file: videon som den kom från Higgsfield.
 if (!videoColumns.includes("edit")) db.exec("ALTER TABLE videos ADD COLUMN edit TEXT");
 if (!videoColumns.includes("raw_file")) db.exec("ALTER TABLE videos ADD COLUMN raw_file TEXT");
+const postColumns = db.prepare("PRAGMA table_info(posts)").all().map((c) => c.name);
+// stats: JSON med visningar, krokgrad m.m. från Meta. stats_at: när de hämtades senast.
+if (!postColumns.includes("stats")) db.exec("ALTER TABLE posts ADD COLUMN stats TEXT");
+if (!postColumns.includes("stats_at")) db.exec("ALTER TABLE posts ADD COLUMN stats_at TEXT");
 
 // Det som bara gäller tasstvättkitet (förut inskrivet i agenternas kod).
 const PAW_KIT_FOCUS = `Produkten är ett kit: tasstvätt (kopp med mjuka silikonborst) plus mikrofiberhandduk med tassmönster.

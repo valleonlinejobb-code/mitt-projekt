@@ -39,6 +39,8 @@ const CONCEPT = {
   idea: "Lerig tass blir ren på tre sekunder",
   hook: "Lerig tass i närbild",
   video_prompt: "0-3 s: close-up of a muddy dog paw entering a silicone paw washer cup...",
+  hook_type: "problem–lösning",
+  variant_of: 0,
   audience: "ägare till stora hundar",
   overlays: [{ from: 0, to: 1, text: "Lerig hund igen?" }, { from: 1, to: 2, text: "Ren tass på sekunder" }],
   voiceover: "Trött på leriga tassar? Tasstvättkit för 199 kronor på vardagshoppen.com. De tio första får 10 % extra med koden FORSTA10.",
@@ -85,6 +87,11 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url.startsWith("https://graph.facebook.com/")) {
     if (url.includes("/page-1/videos")) return json({ id: "fb-video-1" });
+    if (url.includes("/fb-video-1/video_insights")) {
+      const metric = (name, value) => ({ name, values: [{ value }] });
+      return json({ data: [metric("total_video_impressions", 1000), metric("total_video_views", 340), metric("total_video_10s_views", 200),
+        metric("total_video_complete_views", 120), metric("total_video_avg_time_watched", 6200)] });
+    }
     return json({ data: [] }); // kommentarer och DM: inga nya
   }
   throw new Error(`Oväntat nätverksanrop i testet: ${url}`);
@@ -205,6 +212,14 @@ test("Fel rabatt i annonsen: ingen video beställs, även om granskaren gav 9/10
   assert.equal(progressOf(product.id, "prompt").status, "stopped");
   const logged = db.prepare("SELECT message FROM log WHERE message LIKE 'Stoppad av faktakollen%'").get();
   assert.match(logged.message, /25 % finns inte/);
+
+  // Resultaten från Facebook hämtades (gratis) och promptagenten fick dem, med den publicerade videon som vinnare.
+  const post = db.prepare("SELECT * FROM posts WHERE channel = 'facebook'").get();
+  assert.equal(JSON.parse(post.stats).views, 340);
+  const ideaCall = calls.findLast((c) => c.url.startsWith("https://api.anthropic.com/") && c.body.system.startsWith("Du är promptagent"));
+  const sent = JSON.stringify(ideaCall.body.messages);
+  assert.match(sent, /1 000 visade · krokgrad 34 % · 35 % tittade klart · snitt 6,2 s/);
+  assert.match(sent, new RegExp(`Vinnarvideon just nu: #${post.video_id}`));
 });
 
 test("Produkttexten säger en annan rabatt än erbjudandena: ägaren får veta det", async () => {
