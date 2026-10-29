@@ -95,6 +95,17 @@
   <h2>Beställ videor</h2>
   <div class="card" id="order"></div>
 
+  <h2>Vad Claude har kostat</h2>
+  <div class="card">
+    <div class="muted">Riktiga kostnader, räknade från varje svar från Claude (tokens och webbsökningar). Saldot på console.anthropic.com kan skilja några kronor beroende på växelkursen. Higgsfield betalas separat.</div>
+    <div id="spend" style="margin-top:8px"></div>
+    <form id="budgetForm" class="row">
+      <label for="budget" style="margin:0">Månadstak för Claude (kr, 0 = inget tak)</label>
+      <input id="budget" type="number" min="0" step="10" style="width:110px">
+      <button class="ghost">Spara tak</button>
+    </form>
+  </div>
+
   <h2>Egen mobilfilm</h2>
   <div class="card">
     <div class="muted">Äkta film av en riktig hund slår ofta AI-video. Ladda upp en film på 2–90 sekunder, så lägger agenterna på text i bild, berättarröst, logga, pris och slutbild. Filmen gäller produkten som är vald överst.</div>
@@ -284,6 +295,7 @@ function render() {
   $("auto_reply_instagram").checked = state.settings.auto_reply_instagram;
   $("auto_reply_facebook").checked = state.settings.auto_reply_facebook;
   if (document.activeElement !== $("offers")) $("offers").value = state.settings.offers;
+  renderSpend();
   $("inbox").innerHTML = state.inbox.map((m) => `
     <div class="card" style="margin-bottom:10px">
       <strong>${CHANNEL_NAMES[m.channel]}</strong> · ${m.kind === "dm" ? "DM" : "kommentar"} från ${esc(m.author || "okänd")}
@@ -592,6 +604,27 @@ async function approve(id) {
 }
 async function reject(id) { if (confirm("Släng videon?")) { await api("POST", `/api/videos/${id}/reject`); refresh(); } }
 async function post(action, id) { await api("POST", `/api/posts/${id}/${action}`); refresh(); }
+const TASK_NAMES = { research: "Research", video: "Videoidéer och granskning", clip: "Egen film", reply: "Svar på kommentar/DM" };
+const AGENT_LABELS = { research: "Researchagenten", prompt: "Promptagenten", ...CHANNEL_NAMES };
+function renderSpend() {
+  const s = state.spend;
+  if (document.activeElement !== $("budget")) $("budget").value = s.budgetSek;
+  const over = s.budgetSek > 0 && s.monthSek >= s.budgetSek;
+  $("spend").innerHTML = `
+    <div><strong>Den här månaden: ${s.monthSek} kr</strong>${s.budgetSek ? ` av taket ${s.budgetSek} kr` : ""}
+      ${over ? `<span class="badge bad">taket är nått, inga fler Claude-anrop</span>` : ""}</div>
+    ${s.byAgent.length ? `<div class="muted">${s.byAgent.map((a) => `${esc(AGENT_LABELS[a.agent] ?? a.agent)}: ${a.sek} kr (${a.calls} anrop${a.searches ? `, ${a.searches} sökningar` : ""})`).join(" · ")}</div>` : ""}
+    ${s.recent.length ? `<table style="margin-top:8px"><tr><th>När</th><th>Jobb</th><th>Anrop</th><th>Text in / ut</th><th>Sökningar</th><th>Kostnad</th></tr>
+      ${s.recent.map((r) => `<tr><td>${new Date(r.at).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })}</td><td>${esc(TASK_NAMES[r.task] ?? r.task)}</td><td>${r.calls}</td>
+        <td>${Math.round(r.input_tokens / 1000)}k / ${Math.round(r.output_tokens / 1000)}k tokens</td><td>${r.searches}</td><td><strong>${r.sek} kr</strong></td></tr>`).join("")}</table>`
+      : `<div class="empty">Inga Claude-anrop sparade än. Kostnaderna räknas från och med nu.</div>`}`;
+}
+$("budgetForm").onsubmit = async (e) => {
+  e.preventDefault();
+  await api("POST", "/api/settings", { claude_budget_sek: Number($("budget").value) });
+  document.activeElement.blur(); refresh();
+};
+
 async function sendReply(id) { await api("POST", `/api/inbox/${id}/send`, { draft: document.querySelector(`[data-key="reply-${id}"]`).value }); refresh(); }
 async function ignore(id) { await api("POST", `/api/inbox/${id}/ignore`); refresh(); }
 function copyText(id) { navigator.clipboard.writeText($(id).value); }

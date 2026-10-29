@@ -4,6 +4,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { db, now, log, stockholmDate, getSetting, setSetting, currentOffers, MEDIA_DIR } from "../db.js";
 import { askClaude } from "../claude.js";
+import { newRun } from "../costs.js";
 import { startVideo, checkVideo, higgsfieldConfigured } from "../higgsfield.js";
 import { latestResearch } from "./research.js";
 import * as progress from "../progress.js";
@@ -258,10 +259,12 @@ Aktuella erbjudanden (de enda rabatterna som får nämnas): ${offers || "(inga)"
 
   let plan;
   let feedback = "";
+  const cost = { agent: "prompt", task: "video", run: newRun(), productId: product.id };
   for (let attempt = 1; attempt <= 2 && !plan; attempt++) {
     log(product.id, "prompt", attempt === 1 ? "Skriver tre videoidéer…" : "Försöker igen med granskarens kommentarer…");
     progress.stage(product.id, "prompt", "ideas", attempt === 1 ? "" : "försök 2");
     const { concepts } = await askClaude({
+      ...cost,
       schema: CONCEPTS_SCHEMA,
       effort: "high",
       images,
@@ -288,6 +291,7 @@ Skriv tre olika idéer.`,
     log(product.id, "prompt", "Granskar idéerna mot referensvideon…");
     progress.stage(product.id, "prompt", "review", attempt === 1 ? "" : "försök 2");
     const review = await askClaude({
+      ...cost,
       schema: REVIEW_SCHEMA,
       effort: "high",
       images,

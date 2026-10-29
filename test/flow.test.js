@@ -30,10 +30,11 @@ execFileSync(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=f=500:d=4", samp
 const calls = [];
 let videoStatus = "queued";
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-const claudeText = (text, citations) => json({
+const claudeText = (text, citations, extra = {}) => json({
   id: "msg_test", type: "message", role: "assistant", model: "claude-test", stop_reason: "end_turn",
   content: [{ type: "text", text, ...(citations ? { citations } : {}) }],
   usage: { input_tokens: 1, output_tokens: 1 },
+  ...extra,
 });
 const CONCEPT = {
   idea: "Lerig tass blir ren på tre sekunder",
@@ -74,7 +75,9 @@ globalThis.fetch = async (input, init = {}) => {
   if (url.startsWith("https://api.anthropic.com/")) {
     const system = body.system;
     if (system.startsWith("Du är researchagent")) {
-      return claudeText("Utkast", [{ type: "web_search_result_location", url: "https://example.com/a", title: "Källa A", cited_text: "x", encrypted_index: "e" }]);
+      // Som en riktig research: mycket text från webbsökningarna.
+      return claudeText("Utkast", [{ type: "web_search_result_location", url: "https://example.com/a", title: "Källa A", cited_text: "x", encrypted_index: "e" }],
+        { model: body.model, usage: { input_tokens: 200_000, output_tokens: 10_000, server_tool_use: { web_search_requests: 12 } } });
     }
     if (system.startsWith("Du är faktagranskare")) return claudeText("## Så används produkten bäst\n- Doppa och vrid (källa: https://example.com/a)");
     if (system.startsWith("Du är promptagent")) return claudeText(JSON.stringify({ concepts: [CONCEPT, CONCEPT, CONCEPT] }));
@@ -359,4 +362,32 @@ test("Egen mobilfilm med fel rabatt: markeras som misslyckad och försöks inte 
   assert.equal(clip.status, "failed");
   assert.match(clip.error, /faktakollen/);
   assert.equal(claudeCalls("Du är klippagent").length, before, "inget nytt försök");
+});
+
+test("Kostnaden för varje Claude-anrop sparas och visas per jobb", async () => {
+  const { spendSummary, estimateSek } = await import("../src/costs.js");
+  const research = db.prepare("SELECT * FROM costs WHERE agent = 'research' ORDER BY id").all();
+  assert.ok(research.length >= 2, "båda researchanropen räknas");
+  assert.equal(new Set(research.slice(0, 2).map((r) => r.run)).size, 1, "utkast och faktakoll hör till samma jobb");
+  // Researchen körs med Sonnet 5.5: 200 000 tokens in à 2 $ + 10 000 ut à 10 $ per miljon + 12 sökningar à 0,01 $ = 0,62 $
+  assert.equal(research[0].model, "claude-sonnet-5-5");
+  assert.equal(research[0].searches, 12);
+  assert.ok(Math.abs(research[0].usd - 0.62) < 1e-9);
+  const summary = spendSummary();
+  assert.ok(summary.monthSek > 6, "månadens kostnad räknas i kronor");
+  assert.ok(summary.byAgent.some((a) => a.agent === "prompt"), "promptagentens anrop räknas också");
+  assert.ok(estimateSek("research") >= 6, "uppskattningen bygger på riktiga jobb");
+});
+
+test("Månadstaket nått: inga Claude-anrop och kön töms", async () => {
+  const { setSetting } = await import("../src/db.js");
+  const product = activeProduct();
+  setSetting("claude_budget_sek", 1);
+  const before = calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length;
+  setQueuedVideos(product.id, 1);
+  await tick();
+  assert.equal(calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length, before, "inget anrop till Claude");
+  assert.equal(queuedVideos(product.id), 0);
+  assert.match(db.prepare("SELECT last_error FROM agents WHERE product_id = ? AND kind = 'prompt'").get(product.id).last_error, /tak/);
+  setSetting("claude_budget_sek", 0);
 });

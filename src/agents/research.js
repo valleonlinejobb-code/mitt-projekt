@@ -1,9 +1,13 @@
 // Researchagenten: studerar hur andra företag gör sina annonser och annonsvideor.
 import { db, now, log } from "../db.js";
 import { askClaude } from "../claude.js";
+import { newRun } from "../costs.js";
 import * as progress from "../progress.js";
 
 // Researchen sparas per produkt och återanvänds för alla videor tills den är äldre än så här.
+// Researchen är mest sökning och sammanfattning, så den körs med den billigare Sonnet-modellen (ägarens val 2026-10-29).
+const RESEARCH_MODEL = process.env.RESEARCH_MODEL || "claude-sonnet-5-5";
+
 export const RESEARCH_EVERY_DAYS = Number(process.env.RESEARCH_EVERY_DAYS || 3);
 
 export function latestResearch(productId) {
@@ -22,7 +26,9 @@ export async function runResearch(product) {
   log(product.id, "research", "Undersöker andra företags annonser…");
   progress.stage(product.id, "research", "search");
   const previous = latestResearch(product.id);
+  const cost = { agent: "research", task: "research", run: newRun(), productId: product.id, model: RESEARCH_MODEL };
   const draft = await askClaude({
+    ...cost,
     webSearch: true,
     maxSearches: 15,
     effort: "high",
@@ -54,6 +60,7 @@ ${previous ? `\nFörra rapporten (bygg vidare, upprepa inte):\n${previous.notes.
   log(product.id, "research", `Faktakollar rapporten (${draft.sources.length} källor)…`);
   progress.stage(product.id, "research", "check", `${draft.sources.length} källor`);
   const notes = await askClaude({
+    ...cost,
     webSearch: true,
     maxSearches: 5,
     effort: "high",

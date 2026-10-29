@@ -11,13 +11,8 @@ import { addClip } from "./agents/clips.js";
 import { researchDue, latestResearch, RESEARCH_EVERY_DAYS } from "./agents/research.js";
 import { importShopifyProducts } from "./shopify.js";
 import { STAGES, progressOf } from "./progress.js";
+import { estimateSek, spendSummary } from "./costs.js";
 
-// Ungefärliga kostnader som visas innan du beställer (kronor).
-const COST = {
-  video: Number(process.env.COST_PER_VIDEO_SEK || 4),
-  research: Number(process.env.COST_PER_RESEARCH_SEK || 7),
-  clip: Number(process.env.COST_PER_CLIP_SEK || 1),
-};
 const AB_SIZE = 3;
 const MAX_ORDER = 10;
 
@@ -91,7 +86,9 @@ app.get("/api/state", (_req, res) => {
       publicUrl: Boolean(process.env.PUBLIC_URL),
       ...Object.fromEntries(CHANNELS.map((c) => [c, channelConfigured[c]()])),
     },
-    cost: COST,
+    // Vad ett jobb brukar kosta (snittet av de senaste, annars en uppskattning) och vad Claude faktiskt har kostat.
+    cost: { video: estimateSek("video"), research: estimateSek("research"), clip: estimateSek("clip") },
+    spend: spendSummary(),
     maxOrder: MAX_ORDER,
     settings: {
       auto_reply_instagram: getSetting("auto_reply_instagram", false),
@@ -250,6 +247,11 @@ app.post("/api/inbox/:id/ignore", (req, res) => {
 app.post("/api/settings", (req, res) => {
   for (const key of ["auto_reply_instagram", "auto_reply_facebook"]) {
     if (key in req.body) setSetting(key, Boolean(req.body[key]));
+  }
+  if ("claude_budget_sek" in req.body) {
+    const budget = Math.max(0, Math.round(Number(req.body.claude_budget_sek) || 0));
+    setSetting("claude_budget_sek", budget);
+    log(null, "all", budget ? `Månadstaket för Claude är nu ${budget} kr.` : "Månadstaket för Claude är borttaget.");
   }
   if ("offers" in req.body) {
     setSetting("offers", String(req.body.offers).trim().slice(0, 1000));
