@@ -55,7 +55,8 @@ const CONCEPT = {
   audience: "ägare till stora hundar",
   overlays: [{ from: 0, to: 1, text: "Lerig hund igen?" }, { from: 1, to: 2, text: "Ren tass på sekunder" }],
   voiceover: "Trött på leriga tassar? Tasstvättkit för 199 kronor på vardagshoppen.com. De tio första får 10 % extra med koden FORSTA10.",
-  end_card: { headline: "Rena tassar på sekunder", offer_lines: ["−5 % med koden VALKOMMEN5", "+10 % för de 10 första: FORSTA10"], cta: "Beställ idag" },
+  info_bar: "Tasstvättkit · kopp + handduk · 199 kr",
+  end_card: { headline: "Rena tassar på sekunder", features: ["Mjuka borst", "Handduk ingår"], offer_lines: ["−5 % med koden VALKOMMEN5", "+10 % för de 10 första: FORSTA10"], cta: "Beställ idag" },
   captions: { instagram: "IG-text", facebook: "FB-text", tiktok: "TT-text" },
 };
 let reviewedConcept = CONCEPT;
@@ -73,7 +74,8 @@ const CLIP_PLAN = {
   idea: "Bella får rena tassar efter promenaden", hook_type: "nöjsam start", audience: "hundägare med ljust golv",
   overlays: [{ from: 0, to: 1.5, text: "Lerig efter promenaden?" }],
   voiceover: "Leriga tassar efter promenaden? Tasstvättkit för 199 kronor på vardagshoppen.com.",
-  end_card: { headline: "Rena tassar på sekunder", offer_lines: ["−5 % med koden VALKOMMEN5"], cta: "Beställ idag" },
+  info_bar: "Tasstvättkit · 199 kr",
+  end_card: { headline: "Rena tassar på sekunder", features: ["Mjuka borst"], offer_lines: ["−5 % med koden VALKOMMEN5"], cta: "Beställ idag" },
   captions: { instagram: "IG-film", facebook: "FB-film", tiktok: "TT-film" },
 };
 
@@ -208,6 +210,10 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   // Under själva videon ligger priset uppe till höger (grön ruta) ovanpå videon.
   const [pr, pg, pb] = colorAt(finalFile, 1.8, [60, 30, 600, 60]);
   assert.ok(pg > pr && pg > pb, `prisrutan syns uppe till höger (${pr},${pg},${pb})`);
+  // Produktraden längst ner (grön ruta med vit text) under hela videon.
+  const [ir, ig, ib] = colorAt(finalFile, 1.8, [500, 50, 110, 1190]);
+  assert.ok(ig > ir && ig > ib, `produktraden syns längst ner (${ir},${ig},${ib})`);
+  assert.equal(JSON.parse(video.edit).info_bar, CONCEPT.info_bar);
   const tts = calls.find((c) => c.url.startsWith("https://texttospeech.googleapis.com/"));
   assert.equal(tts.body.input.text, CONCEPT.voiceover);
   assert.equal(tts.body.voice.languageCode, "sv-SE");
@@ -446,7 +452,7 @@ test("Klipparen misslyckas: videon visas inte för godkännande, och kan klippas
   // Klipp om: ingen ny kostnad hos Claude eller Higgsfield.
   const paid = () => calls.filter((c) => c.url.startsWith("https://api.anthropic.com/") || c.url.includes("higgsfield.ai/alibaba")).length;
   const before = paid();
-  db.prepare("UPDATE videos SET edit = ? WHERE id = ?").run(JSON.stringify({ overlays: CONCEPT.overlays, voiceover: CONCEPT.voiceover, end_card: CONCEPT.end_card }), id);
+  db.prepare("UPDATE videos SET edit = ? WHERE id = ?").run(JSON.stringify({ overlays: CONCEPT.overlays, voiceover: CONCEPT.voiceover, info_bar: CONCEPT.info_bar, end_card: CONCEPT.end_card }), id);
   assert.equal(await editAndOffer(db.prepare("SELECT * FROM videos WHERE id = ?").get(id)), true);
   video = db.prepare("SELECT * FROM videos WHERE id = ?").get(id);
   assert.equal(video.status, "pending");
@@ -457,7 +463,7 @@ test("Berättarrösten fungerar inte: videon blir klar ändå, med text, pris oc
   const product = activeProduct();
   ttsFails = true;
   const { lastInsertRowid } = db.prepare("INSERT INTO videos (product_id, created_at, status, hf_request_id, edit) VALUES (?, ?, 'generating', 'req-1', ?)")
-    .run(product.id, new Date().toISOString(), JSON.stringify({ overlays: CONCEPT.overlays, voiceover: CONCEPT.voiceover, end_card: CONCEPT.end_card }));
+    .run(product.id, new Date().toISOString(), JSON.stringify({ overlays: CONCEPT.overlays, voiceover: CONCEPT.voiceover, info_bar: CONCEPT.info_bar, end_card: CONCEPT.end_card }));
   await pollVideos();
   ttsFails = false;
   const video = db.prepare("SELECT * FROM videos WHERE id = ?").get(Number(lastInsertRowid));
@@ -469,10 +475,14 @@ test("Berättarrösten fungerar inte: videon blir klar ändå, med text, pris oc
 
 test("Promptagenten och granskaren vet att tassen ska gnuggas runt i koppen och torkas", async () => {
   const product = activeProduct();
-  assert.match(product.focus, /vrider koppen fram och tillbaka flera varv/);
+  assert.match(product.focus, /pumpar koppen upp och ner och vrider den flera gånger/);
+  assert.match(product.focus, /lindas in i mikrofiberhandduken/);
   assert.match(product.focus, /Att bara doppa tassen/);
   const review = claudeCalls("Du är en sträng kvalitetsgranskare").at(-1);
   assert.match(review.body.system, /på rätt sätt enligt ägarens instruktioner/);
+  assert.match(review.body.system, /användning visas tydligt i minst 4 sekunder/);
+  assert.match(review.body.system, /Ägarens användningsvideo/);
+  assert.match(review.body.system, /snygg och ren reklam/);
   assert.match(review.body.messages[0].content.at(-1).text, /scrub all around the paw/);
 });
 
@@ -504,3 +514,4 @@ test("Med GEMINI_API_KEY görs researchen gratis med Gemini, och källorna får 
   assert.equal(calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length, claudeBefore, "Claude anropades inte");
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM costs").get().n, costsBefore, "ingen kostnad");
 });
+
