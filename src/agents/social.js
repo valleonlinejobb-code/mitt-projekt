@@ -72,6 +72,8 @@ const REPLY_SCHEMA = {
 async function draftReply(channel, item) {
   const products = db.prepare("SELECT name, price, description, shop_url FROM products").all();
   return askClaude({
+    agent: channel,
+    task: "reply",
     schema: REPLY_SCHEMA,
     effort: "low",
     system:

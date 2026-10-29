@@ -72,6 +72,21 @@ CREATE TABLE IF NOT EXISTS inbox (
   error TEXT
 );
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+-- Vad varje Claude-anrop faktiskt kostade, räknat från svaret (tokens och webbsökningar).
+-- run: alla anrop i samma jobb (en research, en video, en egen film) har samma run, så att jobbets totala kostnad syns.
+CREATE TABLE IF NOT EXISTS costs (
+  id INTEGER PRIMARY KEY,
+  at TEXT NOT NULL,
+  product_id INTEGER,
+  agent TEXT NOT NULL,
+  task TEXT NOT NULL,            -- research | video | clip | reply
+  run TEXT,
+  model TEXT,
+  input_tokens INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  searches INTEGER NOT NULL,
+  usd REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS log (
   id INTEGER PRIMARY KEY,
   at TEXT NOT NULL,

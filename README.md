@@ -8,7 +8,7 @@ Fem AI-agenter per produkt som tillsammans gör och publicerar reklamvideor, sty
 | Promptagent | Gör de videor du beställer, en i taget. Den skriver tre idéer utifrån produktbilden, researchen och annonstipsen (`src/agents/reference-ad.md`), med före/efter, text i bild, en berättartext och en slutbild. En granskare betygsätter dem och skriver om den bästa. Bara en idé med minst 8/10, där pris, rabattkoder och procent stämmer med **Aktuella erbjudanden**, blir en video hos Higgsfield. Annars stoppas kön, så att inga pengar går till en dålig annons. |
 | Resultat | Innan promptagenten skriver idéer hämtar den (gratis) hur de publicerade videorna har gått på Facebook och Instagram: visningar, krokgrad (andel som tittar minst 3 s), hur många som tittar klart och snittid. Den bästa videon blir "vinnare", och en av de nya idéerna blir en variant av den med ny krok. Siffrorna syns i videohistoriken. |
 | A/B-test och varianter | **A/B-test** gör 3 videor med samma budskap men olika krok-typer. När de är publicerade visar kontrollsidan krokgrad per video och utser en vinnare (minst 300 visningar var). **Beställ variant** gör en ny version av en video med ny krok eller miljö. Vid godkännandet väljer du vilka kanaler videon ska läggas upp på. |
-| Egen mobilfilm | Ladda upp en egen film (2–90 s) på kontrollsidan. Klippagenten tittar på bilder ur filmen och skriver text i bild, berättarröst, slutbild och inläggstexter (ett Claude-anrop, ca 1 kr). Ingen Higgsfield-kostnad. |
+| Egen mobilfilm | Ladda upp en egen film (2–90 s) på kontrollsidan. Klippagenten tittar på bilder ur filmen och skriver text i bild, berättarröst, slutbild och inläggstexter (1–2 Claude-anrop, ca 3 kr). Ingen Higgsfield-kostnad. |
 | Klippare | När videon kommer tillbaka lägger servern på (med ffmpeg, gratis) Vardagshoppens logga och namn, priset, text i bild, en slutbild på 3 s med pris, erbjudanden och vardagshoppen.com, och en svensk kvinnoröst (Google Text-to-Speech). Videomodellen kan inte skriva text eller logotyper själv. |
 | Instagram | Publicerar godkända videor som Reels (max en per dag) och skriver svar på kommentarer och DM. |
 | Facebook | Publicerar godkända videor på sidan (max en per dag) och skriver svar på kommentarer och Messenger. |
@@ -29,11 +29,13 @@ Kanalagenterna (Instagram, Facebook, TikTok) startas och stoppas med **Starta**/
 | Vad | Ungefär |
 |---|---|
 | Railway (Hobby) | 55 kr |
-| Claude API | 100–200 kr |
+| Claude API (Opus 5.5): en research ca 15–30 kr, en video ca 5–10 kr | 100–300 kr |
 | Higgsfield, en video om 10 s per dag (Wan 3.0) | ca 2 kr per video, 60–100 kr |
 | Google Text-to-Speech (berättarrösten) | 0 kr: 1 miljon tecken per månad är gratis, en video använder ca 200 |
 
 Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (standard 35) är ett extra skydd.
+
+Kontrollsidan visar under **Vad Claude har kostat** vad varje jobb faktiskt kostade, räknat från Claudes svar (tokens och webbsökningar), och vad månaden har kostat per agent. Knapparnas priser är snittet av de tre senaste jobben av samma sort. Där finns också ett **månadstak** (standard 300 kr): när det är nått görs inga fler Claude-anrop förrän du höjer det.
 
 ## Sätta upp på Railway
 
@@ -61,7 +63,9 @@ Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (stan
 | `MAX_VIDEOS_PER_MONTH` | nej | Standard `35`. |
 | `MIN_VIDEO_SCORE` | nej | Lägsta betyg (1–10) en idé måste få innan videon beställs. Standard `8`. |
 | `RESEARCH_EVERY_DAYS` | nej | Hur gammal researchen får vara innan en beställning kör ny. Standard `3`. |
-| `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK`, `COST_PER_CLIP_SEK` | nej | Kostnaderna som visas på knapparna. Standard `4`, `7` och `1`. |
+| `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK`, `COST_PER_CLIP_SEK` | nej | Kostnaderna som visas på knapparna innan det finns riktiga siffror. Standard `8`, `25` och `3`. |
+| `CLAUDE_BUDGET_SEK` | nej | Månadstaket för Claude innan du har ändrat det på sidan. Standard `300`. |
+| `USD_TO_SEK` | nej | Växelkursen för kostnaderna. Standard `10.5`. |
 | `GOOGLE_TTS_API_KEY` | för rösten | API-nyckel från Google Cloud med **Cloud Text-to-Speech API** påslaget. Utan den görs videorna utan berättarröst. |
 | `TTS_VOICE` | nej | Rösten. Standard `sv-SE-Chirp3-HD-Aoede` (svensk kvinnoröst). Andra kvinnoröster: `sv-SE-Chirp3-HD-Kore`, `sv-SE-Chirp3-HD-Leda`. |
 | `SHOPIFY_STORE_URL` | nej | Butikens adress för att hämta produkter. Standard `https://vardagshoppen.com`. |

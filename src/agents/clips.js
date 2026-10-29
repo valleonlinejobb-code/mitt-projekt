@@ -5,6 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { db, now, log, currentOffers, MEDIA_DIR } from "../db.js";
 import { askClaude } from "../claude.js";
+import { newRun } from "../costs.js";
 import { extractFrames, probe } from "../editor.js";
 import { HOOK_TYPES, claimProblems, finishAd } from "./prompt.js";
 import * as progress from "../progress.js";
@@ -82,8 +83,10 @@ export async function processClip(video) {
     const maxWords = Math.max(12, Math.min(40, Math.round(duration * 2.3)));
     let plan;
     let feedback = "";
+    const cost = { agent: "prompt", task: "clip", run: newRun(), productId: product.id };
     for (let attempt = 1; attempt <= 2 && !plan; attempt++) {
       const draft = await askClaude({
+        ...cost,
         schema: CLIP_PLAN,
         effort: "high",
         images: frames.map(({ data, media_type }) => ({ data, media_type })),

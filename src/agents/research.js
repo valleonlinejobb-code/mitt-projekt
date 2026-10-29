@@ -1,6 +1,7 @@
 // Researchagenten: studerar hur andra företag gör sina annonser och annonsvideor.
 import { db, now, log } from "../db.js";
 import { askClaude } from "../claude.js";
+import { newRun } from "../costs.js";
 import * as progress from "../progress.js";
 
 // Researchen sparas per produkt och återanvänds för alla videor tills den är äldre än så här.
@@ -22,7 +23,9 @@ export async function runResearch(product) {
   log(product.id, "research", "Undersöker andra företags annonser…");
   progress.stage(product.id, "research", "search");
   const previous = latestResearch(product.id);
+  const cost = { agent: "research", task: "research", run: newRun(), productId: product.id };
   const draft = await askClaude({
+    ...cost,
     webSearch: true,
     maxSearches: 15,
     effort: "high",
@@ -54,6 +57,7 @@ ${previous ? `\nFörra rapporten (bygg vidare, upprepa inte):\n${previous.notes.
   log(product.id, "research", `Faktakollar rapporten (${draft.sources.length} källor)…`);
   progress.stage(product.id, "research", "check", `${draft.sources.length} källor`);
   const notes = await askClaude({
+    ...cost,
     webSearch: true,
     maxSearches: 5,
     effort: "high",
