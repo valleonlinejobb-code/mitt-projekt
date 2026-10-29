@@ -5,7 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
-    "check": "node --check src/server.js"
+    "check": "node --check src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
   },
   "license": "ISC",
   "dependencies": {

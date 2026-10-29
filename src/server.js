@@ -8,6 +8,7 @@ import { higgsfieldConfigured } from "./higgsfield.js";
 import { queuedVideos, setQueuedVideos } from "./agents/prompt.js";
 import { researchDue, latestResearch, RESEARCH_EVERY_DAYS } from "./agents/research.js";
 import { importShopifyProducts } from "./shopify.js";
+import { STAGES, progressOf } from "./progress.js";
 
 // Ungefärliga kostnader som visas innan du beställer (kronor).
 const COST = {
@@ -39,6 +40,23 @@ app.use(express.static("public"));
 const one = (sql, ...args) => db.prepare(sql).get(...args);
 const all = (sql, ...args) => db.prepare(sql).all(...args);
 
+// Vad research- och promptagenten gör just nu. Kontrollsidan fyller pilarna mellan agenterna utifrån det.
+function flowFor(product) {
+  if (!product) return null;
+  const research = latestResearch(product.id);
+  let prompt = progressOf(product.id, "prompt");
+  // Efter en omstart finns bara databasen kvar: en video som Higgsfield håller på med visas ändå.
+  const generating = one("SELECT * FROM videos WHERE product_id = ? AND status = 'generating' ORDER BY id DESC LIMIT 1", product.id);
+  if (generating && prompt?.status !== "working") {
+    prompt = { status: "working", stage: STAGES.prompt.findIndex(([k]) => k === "render"), stageStartedAt: generating.created_at, runStartedAt: generating.created_at, detail: `Video #${generating.id}` };
+  }
+  return {
+    stages: Object.fromEntries(Object.entries(STAGES).map(([agent, list]) => [agent, list.map(([, label, seconds]) => ({ label, seconds }))])),
+    research: progressOf(product.id, "research") ?? (research ? { status: "done", at: research.created_at, detail: "" } : null),
+    prompt,
+  };
+}
+
 app.get("/api/state", (_req, res) => {
   const products = all("SELECT * FROM products ORDER BY id").map((p) => ({
     ...p,
@@ -50,6 +68,7 @@ app.get("/api/state", (_req, res) => {
   res.json({
     products,
     activeProductId: activeProduct()?.id ?? null,
+    flow: flowFor(activeProduct()),
     researchEveryDays: RESEARCH_EVERY_DAYS,
     videos: all("SELECT * FROM videos ORDER BY id DESC LIMIT 30").map((v) => ({
       ...v,

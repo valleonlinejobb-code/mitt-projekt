@@ -1,6 +1,7 @@
 // Researchagenten: studerar hur andra företag gör sina annonser och annonsvideor.
 import { db, now, log } from "../db.js";
 import { askClaude } from "../claude.js";
+import * as progress from "../progress.js";
 
 // Researchen sparas per produkt och återanvänds för alla videor tills den är äldre än så här.
 export const RESEARCH_EVERY_DAYS = Number(process.env.RESEARCH_EVERY_DAYS || 3);
@@ -19,6 +20,7 @@ export function researchDue(product) {
 // och stryker allt som saknar källa innan den skickas till promptagenten.
 export async function runResearch(product) {
   log(product.id, "research", "Undersöker andra företags annonser…");
+  progress.stage(product.id, "research", "search");
   const previous = latestResearch(product.id);
   const draft = await askClaude({
     webSearch: true,
@@ -48,6 +50,7 @@ ${previous ? `\nFörra rapporten (bygg vidare, upprepa inte):\n${previous.notes.
   });
 
   log(product.id, "research", `Faktakollar rapporten (${draft.sources.length} källor)…`);
+  progress.stage(product.id, "research", "check", `${draft.sources.length} källor`);
   const notes = await askClaude({
     webSearch: true,
     maxSearches: 4,
@@ -80,4 +83,5 @@ Kort lista över vad du tog bort och varför, så att ägaren kan se att granskn
   });
   db.prepare("INSERT INTO research (product_id, created_at, notes) VALUES (?, ?, ?)").run(product.id, now(), notes);
   log(product.id, "research", "Ny faktakollad research klar och skickad till promptagenten.");
+  progress.done(product.id, "research");
 }

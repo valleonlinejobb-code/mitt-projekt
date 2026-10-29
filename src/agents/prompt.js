@@ -6,6 +6,7 @@ import { db, now, log, stockholmDate, getSetting, setSetting, currentOffers, MED
 import { askClaude } from "../claude.js";
 import { startVideo, checkVideo, higgsfieldConfigured } from "../higgsfield.js";
 import { latestResearch } from "./research.js";
+import * as progress from "../progress.js";
 
 const MAX_PER_MONTH = Number(process.env.MAX_VIDEOS_PER_MONTH || 35);
 
@@ -93,6 +94,7 @@ export async function createVideo(product) {
   if (videosThisMonth() >= MAX_PER_MONTH) {
     setQueuedVideos(product.id, 0);
     log(product.id, "prompt", `Månadens tak på ${MAX_PER_MONTH} videor är nått. Kön är tömd.`);
+    progress.stopped(product.id, "prompt", `Månadens tak på ${MAX_PER_MONTH} videor är nått`);
     return;
   }
   setQueuedVideos(product.id, queuedVideos(product.id) - 1);
@@ -112,6 +114,7 @@ Aktuella erbjudanden: ${currentOffers() || "(inga)"}${product.focus ? `\nÄgaren
   let feedback = "";
   for (let attempt = 1; attempt <= 2 && !plan; attempt++) {
     log(product.id, "prompt", attempt === 1 ? "Skriver tre videoidéer…" : "Försöker igen med granskarens kommentarer…");
+    progress.stage(product.id, "prompt", "ideas", attempt === 1 ? "" : "försök 2");
     const { concepts } = await askClaude({
       schema: CONCEPTS_SCHEMA,
       effort: "high",
@@ -134,6 +137,7 @@ Skriv tre olika idéer.`,
     });
 
     log(product.id, "prompt", "Granskar idéerna mot referensvideon…");
+    progress.stage(product.id, "prompt", "review", attempt === 1 ? "" : "försök 2");
     const review = await askClaude({
       schema: REVIEW_SCHEMA,
       effort: "high",
@@ -160,6 +164,7 @@ ${JSON.stringify(concepts, null, 2)}`,
   if (!plan) {
     setQueuedVideos(product.id, 0);
     log(product.id, "prompt", `Ingen idé nådde ${MIN_SCORE}/10, så ingen video beställdes och kön är stoppad. Prova igen efter ny research, eller ge feedback genom att godkänna och avvisa videor.`);
+    progress.stopped(product.id, "prompt", `Ingen idé nådde ${MIN_SCORE}/10, så ingen video beställdes`);
     return;
   }
   const idea = `${plan.idea} · Kvalitet ${plan.score}/10 · Text i bild: ${plan.overlay_text}`;
@@ -169,12 +174,14 @@ ${JSON.stringify(concepts, null, 2)}`,
   ).run(product.id, now(), idea, plan.video_prompt, JSON.stringify(plan.captions));
   const videoId = Number(lastInsertRowid);
 
+  progress.stage(product.id, "prompt", "send", `Video #${videoId}`);
   try {
     const requestId = await startVideo({
       prompt: plan.video_prompt, imageUrl: product.image_url, idempotencyKey: `agent-uf-video-${videoId}`,
     });
     db.prepare("UPDATE videos SET hf_request_id = ? WHERE id = ?").run(requestId, videoId);
     log(product.id, "prompt", `Video #${videoId} beställd (${plan.score}/10): ${plan.idea}`);
+    progress.stage(product.id, "prompt", "render", `Video #${videoId}`);
   } catch (err) {
     db.prepare("UPDATE videos SET status = 'failed', error = ? WHERE id = ?").run(err.message, videoId);
     throw err;
@@ -187,17 +194,21 @@ export async function pollVideos() {
   for (const video of generating) {
     const result = await checkVideo(video.hf_request_id);
     if (result.status === "waiting") continue;
+    if (result.status === "completed" && !result.videoUrl) Object.assign(result, { status: "failed", error: "Higgsfield skickade ingen videolänk" });
     if (result.status === "failed") {
       db.prepare("UPDATE videos SET status = 'failed', error = ? WHERE id = ?").run(result.error, video.id);
       log(video.product_id, "prompt", `Video #${video.id} misslyckades och kön är tömd: ${result.error}`);
+      progress.failed(video.product_id, "prompt", result.error);
       setQueuedVideos(video.product_id, 0);
       continue;
     }
+    progress.stage(video.product_id, "prompt", "download", `Video #${video.id}`);
     const file = `${crypto.randomBytes(12).toString("hex")}.mp4`;
     const res = await fetch(result.videoUrl);
     if (!res.ok) throw new Error(`Kunde inte ladda ner video #${video.id} (${res.status})`);
     fs.writeFileSync(path.join(MEDIA_DIR, file), Buffer.from(await res.arrayBuffer()));
     db.prepare("UPDATE videos SET status = 'pending', video_url = ?, local_file = ? WHERE id = ?").run(result.videoUrl, file, video.id);
     log(video.product_id, "prompt", `Video #${video.id} är klar och väntar på ditt godkännande.`);
+    progress.done(video.product_id, "prompt", `Video #${video.id}`);
   }
 }
