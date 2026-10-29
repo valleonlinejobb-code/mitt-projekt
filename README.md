@@ -5,7 +5,8 @@ Fem AI-agenter per produkt som tillsammans gör och publicerar reklamvideor, sty
 | Agent | Vad den gör |
 |---|---|
 | Researchagent | Söker på webben efter hur andra företag gör sina annonser och annonsvideor. En faktakontroll stryker sedan allt som saknar källa, så att promptagenten bara får verifierade fakta (med länk) och tydligt märkta bedömningar. Körs när du beställer videor (högst var tredje dag) eller när du trycker Kör research. |
-| Promptagent | Gör de videor du beställer, en i taget. Den skriver tre idéer utifrån produktbilden, researchen och referensvideon (`src/agents/reference-ad.md`). En granskare betygsätter dem och skriver om den bästa. Bara en idé med minst 8/10 blir en video hos Higgsfield. Annars stoppas kön, så att inga pengar går till en dålig annons. |
+| Promptagent | Gör de videor du beställer, en i taget. Den skriver tre idéer utifrån produktbilden, researchen och annonstipsen (`src/agents/reference-ad.md`), med före/efter, text i bild, en berättartext och en slutbild. En granskare betygsätter dem och skriver om den bästa. Bara en idé med minst 8/10, där pris, rabattkoder och procent stämmer med **Aktuella erbjudanden**, blir en video hos Higgsfield. Annars stoppas kön, så att inga pengar går till en dålig annons. |
+| Klippare | När videon kommer tillbaka lägger servern på (med ffmpeg, gratis) Vardagshoppens logga och namn, priset, text i bild, en slutbild på 3 s med pris, erbjudanden och vardagshoppen.com, och en svensk kvinnoröst (Google Text-to-Speech). Videomodellen kan inte skriva text eller logotyper själv. |
 | Instagram | Publicerar godkända videor som Reels (max en per dag) och skriver svar på kommentarer och DM. |
 | Facebook | Publicerar godkända videor på sidan (max en per dag) och skriver svar på kommentarer och Messenger. |
 | TikTok | Publicerar godkända videor (max en per dag). TikTok har inget API för kommentarssvar. |
@@ -27,6 +28,7 @@ Kanalagenterna (Instagram, Facebook, TikTok) startas och stoppas med **Starta**/
 | Railway (Hobby) | 55 kr |
 | Claude API | 100–200 kr |
 | Higgsfield, en video om 10 s per dag (Wan 3.0) | ca 2 kr per video, 60–100 kr |
+| Google Text-to-Speech (berättarrösten) | 0 kr: 1 miljon tecken per månad är gratis, en video använder ca 200 |
 
 Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (standard 35) är ett extra skydd.
 
@@ -56,7 +58,9 @@ Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (stan
 | `MAX_VIDEOS_PER_MONTH` | nej | Standard `35`. |
 | `MIN_VIDEO_SCORE` | nej | Lägsta betyg (1–10) en idé måste få innan videon beställs. Standard `8`. |
 | `RESEARCH_EVERY_DAYS` | nej | Hur gammal researchen får vara innan en beställning kör ny. Standard `3`. |
-| `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK` | nej | Kostnaderna som visas på knapparna. Standard `4` och `5`. |
+| `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK` | nej | Kostnaderna som visas på knapparna. Standard `4` och `7`. |
+| `GOOGLE_TTS_API_KEY` | för rösten | API-nyckel från Google Cloud med **Cloud Text-to-Speech API** påslaget. Utan den görs videorna utan berättarröst. |
+| `TTS_VOICE` | nej | Rösten. Standard `sv-SE-Chirp3-HD-Aoede` (svensk kvinnoröst). Andra kvinnoröster: `sv-SE-Chirp3-HD-Kore`, `sv-SE-Chirp3-HD-Leda`. |
 | `SHOPIFY_STORE_URL` | nej | Butikens adress för att hämta produkter. Standard `https://vardagshoppen.com`. |
 | `INBOX_EVERY_MINUTES` | nej | Hur ofta kommentarer och DM hämtas. Standard `10`. |
 

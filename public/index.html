@@ -226,6 +226,7 @@ function render() {
       <div>
         <strong>Video #${v.id}</strong> <span class="muted">${time(v.created_at)}</span>
         <p style="margin:6px 0">${esc(v.idea)}</p>
+        ${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}
         ${Object.keys(CHANNEL_NAMES).map((ch) => `
           <label>Text för ${CHANNEL_NAMES[ch]}</label>
           <textarea data-key="cap-${v.id}-${ch}">${esc(v.captions?.[ch])}</textarea>`).join("")}
