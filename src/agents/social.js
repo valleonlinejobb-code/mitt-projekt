@@ -48,7 +48,7 @@ export async function publish(product, channel) {
   try {
     let externalId;
     if (channel === "instagram") externalId = await meta.publishInstagramReel(publicUrl(video.local_file), caption);
-    if (channel === "facebook") externalId = await meta.publishFacebookVideo(publicUrl(video.local_file), caption);
+    if (channel === "facebook") externalId = await meta.publishFacebookVideo(path.join(MEDIA_DIR, video.local_file), caption);
     if (channel === "tiktok") externalId = await publishTikTokVideo(path.join(MEDIA_DIR, video.local_file), caption);
     db.prepare("UPDATE posts SET status = 'posted', external_id = ? WHERE id = ?").run(externalId, postId);
     log(product.id, channel, `Video #${video.id} publicerad.`);

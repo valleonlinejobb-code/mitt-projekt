@@ -2,6 +2,7 @@
 // Kräver: META_PAGE_ID, META_PAGE_TOKEN (långlivad sidtoken), META_IG_USER_ID (Instagram-företagskontots id).
 const GRAPH = process.env.META_GRAPH_URL || `https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}`;
 
+import { readFile } from "node:fs/promises";
 import { getSetting, setSetting } from "../db.js";
 
 // Nyckeln från knappen "Koppla Facebook" (sparad i databasen) går före den i Railway.
@@ -63,9 +64,18 @@ export async function publishInstagramReel(videoUrl, caption) {
   return id;
 }
 
-export async function publishFacebookVideo(videoUrl, description) {
-  const { id } = await graph("POST", `${pageId()}/videos`, { file_url: videoUrl, description });
-  return id;
+/** Laddar upp själva videofilen till sidan, så att Facebook inte behöver hämta den från vår adress. */
+export async function publishFacebookVideo(filePath, description) {
+  await ensurePageToken();
+  const form = new FormData();
+  form.set("access_token", token());
+  form.set("description", description);
+  form.set("source", new Blob([await readFile(filePath)], { type: "video/mp4" }), "video.mp4");
+  const url = `${GRAPH.replace("graph.facebook.com", "graph-video.facebook.com")}/${pageId()}/videos`;
+  const res = await fetch(url, { method: "POST", body: form });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.error) throw new Error(`Meta: ${body.error?.message ?? res.status}`);
+  return body.id;
 }
 
 let igUsername;
