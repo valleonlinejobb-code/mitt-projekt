@@ -55,6 +55,13 @@
   <h2>Produkt som agenterna gör reklam för</h2>
   <div class="card" id="activeProduct"></div>
 
+  <h2>Aktuella erbjudanden</h2>
+  <form class="card" id="offersForm">
+    <div class="muted">Agenterna nämner bara de rabatter som står här, i videotexter och svar. Skriv exakt som rabattkoderna i Shopify. Töm rutan om ni inte har några erbjudanden.</div>
+    <textarea id="offers" style="margin-top:8px"></textarea>
+    <div class="row"><button>Spara erbjudanden</button></div>
+  </form>
+
   <h2>Beställ videor</h2>
   <div class="card" id="order"></div>
 
@@ -223,6 +230,7 @@ function render() {
 
   $("auto_reply_instagram").checked = state.settings.auto_reply_instagram;
   $("auto_reply_facebook").checked = state.settings.auto_reply_facebook;
+  if (document.activeElement !== $("offers")) $("offers").value = state.settings.offers;
   $("inbox").innerHTML = state.inbox.map((m) => `
     <div class="card" style="margin-bottom:10px">
       <strong>${CHANNEL_NAMES[m.channel]}</strong> · ${m.kind === "dm" ? "DM" : "kommentar"} från ${esc(m.author || "okänd")}
@@ -292,6 +300,11 @@ $("stopAll").onclick = () => toggleAgent("all", 0);
 for (const key of ["auto_reply_instagram", "auto_reply_facebook"]) {
   $(key).onchange = (e) => api("POST", "/api/settings", { [key]: e.target.checked });
 }
+$("offersForm").onsubmit = async (e) => {
+  e.preventDefault();
+  await api("POST", "/api/settings", { offers: $("offers").value });
+  document.activeElement.blur(); refresh();
+};
 $("productForm").onsubmit = async (e) => {
   e.preventDefault();
   await api("PUT", `/api/products/${productId}`, Object.fromEntries(new FormData(e.target)));

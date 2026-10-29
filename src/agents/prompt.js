@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { db, now, log, stockholmDate, getSetting, setSetting, MEDIA_DIR } from "../db.js";
+import { db, now, log, stockholmDate, getSetting, setSetting, currentOffers, MEDIA_DIR } from "../db.js";
 import { askClaude } from "../claude.js";
 import { startVideo, checkVideo, higgsfieldConfigured } from "../higgsfield.js";
 import { latestResearch } from "./research.js";
@@ -68,6 +68,7 @@ const RULES = `Regler för en bra annons:
 - Låna greppen från "Annonser som gått bra och varför" – krok, format och känsla – men kopiera aldrig någon annans video.
 - Hundar ska se naturliga och glada ut. Inget som kan uppfattas som djurplågeri.
 - Texterna skrivs på svenska, är korta och slutar med en tydlig uppmaning. TikTok: lekfull, 3–5 hashtags. Instagram: lite längre, hashtags. Facebook: vänlig, få hashtags.
+- Rabatter och erbjudanden: nämn bara det som står under "Aktuella erbjudanden", med exakt samma procent och kod. Ett erbjudande gör gärna uppmaningen starkare (t.ex. sist i texterna eller i text i bild). Står det inga erbjudanden nämns ingen rabatt.
 - Alla siffror och påståenden måste vara sanna: pris och innehåll från produktinfon, övriga fakta bara från "Verifierade fakta" i researchen. Annars ingen siffra.`;
 
 // Videor görs bara när du har beställt dem på kontrollsidan. Kön sparas per produkt.
@@ -101,7 +102,8 @@ export async function createVideo(product) {
   const productInfo = `Produkt: ${product.name}, pris ${product.price}
 Beskrivning: ${product.description}
 Målgrupp: ${product.audience}
-Butik: ${product.shop_url}${product.focus ? `\nÄgarens instruktioner för just den här produkten (följ dem):\n${product.focus}` : ""}`;
+Butik: ${product.shop_url}
+Aktuella erbjudanden: ${currentOffers() || "(inga)"}${product.focus ? `\nÄgarens instruktioner för just den här produkten (följ dem):\n${product.focus}` : ""}`;
   const researchText = research?.notes ?? "(ingen research än – använd beprövade grepp: problem–lösning, före/efter, och inga siffror utöver pris)";
   const earlierText = earlier.map((e) => `- [${e.status}] ${e.idea}`).join("\n") || "(inga)";
   const images = product.image_url ? [product.image_url] : [];
