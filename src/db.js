@@ -120,9 +120,9 @@ if (!postColumns.includes("stats")) db.exec("ALTER TABLE posts ADD COLUMN stats 
 if (!postColumns.includes("stats_at")) db.exec("ALTER TABLE posts ADD COLUMN stats_at TEXT");
 
 // Det som bara gäller tasstvättkitet (förut inskrivet i agenternas kod).
-const PAW_KIT_FOCUS = `Produkten är ett kit: tasstvätt (kopp med mjuka silikonborst) plus mikrofiberhandduk med tassmönster.
+const PAW_KIT_FOCUS = `Produkten är ett kit: tasstvätt (kopp med mjuka TPR-borst) plus mikrofiberhandduk med tassmönster.
 Research: ta reda på hur kitet används bäst (rätt vattentemperatur och mängd, hur man för in och vrider tassen, hur handduken torkar mellan trampdynor och klor, hur man vänjer en ovan hund, rengöring av kopp och handduk, val av storlek) från tillverkare, veterinärer och djurbutiker.
-Massagekänslan: silikonborsten känns som massage för hunden. Sök vad tillverkare, veterinärer och hundägare säger om det och skriv bara det som källorna stöder.
+Massagekänslan: de mjuka borsten känns som massage för hunden. Sök vad tillverkare, veterinärer och hundägare säger om det och skriv bara det som källorna stöder.
 Video: prioritera videor som visar hur kitet används som bäst, i rätt ordning (doppa, vrid, torka med handduken). Visa massagekänslan lugnt (hunden slappnar av, njuter, kanske blundar) och säg det som en känsla ("som en mjuk tassmassage"). Påstå inga hälsoeffekter som inte finns under "Verifierade fakta".`;
 
 // Butikens aktuella erbjudanden. Agenterna nämner bara rabatter som står här, så texten måste stämma med rabattkoderna i Shopify.
@@ -140,7 +140,7 @@ if (!db.prepare("SELECT 1 FROM products LIMIT 1").get()) {
     "INSERT INTO products (name, description, price, image_url, shop_url, audience, shopify_handle, focus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
     "Tasstvättkit",
-    "Tasstvätt (kopp med mjuka silikonborst) för små, mellanstora och stora hundar plus mikrofiberhandduk med tassmönster. Doppa tassen, vrid lätt, torka av – inga leriga tassar inne.",
+    "Tasstvätt (kopp med mjuka TPR-borst) för små, mellanstora och stora hundar plus mikrofiberhandduk med tassmönster. Doppa tassen, vrid lätt, torka av – inga leriga tassar inne.",
     "199 kr",
     "https://cdn.shopify.com/s/files/1/1073/2290/0744/files/tasskit-med-handduk.jpg?v=1793199480",
     "https://frostskrapa.myshopify.com/products/tasstvattkit-sma-och-mellanstora-hundar",
@@ -153,6 +153,17 @@ if (!db.prepare("SELECT 1 FROM products LIMIT 1").get()) {
 
 // Befintliga databaser: tasstvättkitet behåller sina instruktioner och kopplas till sin Shopify-produkt.
 db.prepare("UPDATE products SET focus = ? WHERE focus = '' AND shop_url LIKE '%/products/tasstvattkit-%'").run(PAW_KIT_FOCUS);
+
+// Sant från butikens produktsida (2026-10-29). Förtroendesignaler som agenterna får använda, och leveransen som de inte får överdriva.
+const PAW_KIT_SHOP_FACTS = `Fakta från butikens produktsida (sanna, får användas som förtroendesignaler):
+- 14 dagars ångerrätt.
+- Storleksgaranti: passar inte koppen byter vi till en annan storlek, så länge den finns i lager.
+- Mikrofiberhandduk ingår i varje kit (grå, med broderad tass). Mjuka TPR-borst (inte silikon) och avtagbar borstinsats. Finns i S, M och L.
+- Förbeställning: första leveransen väntas i början av december och skickas direkt när den har kommit. Lova aldrig snabb leverans eller "skickas idag". Den som beställer nu kan avbeställa innan paketet har skickats.
+- Skickas med PostNord inom Sverige. Frakt 29 kr, fri frakt från 349 kr.
+- I annonserna nämns bara priset 199 kr (Hallkit). Tvåpack och frakt hör till produktsidan.`;
+db.prepare("UPDATE products SET focus = focus || char(10) || char(10) || ? WHERE shop_url LIKE '%/products/tasstvattkit-%' AND focus NOT LIKE '%Fakta från butikens produktsida%'").run(PAW_KIT_SHOP_FACTS);
+db.prepare("UPDATE products SET description = replace(description, 'mjuka silikonborst', 'mjuka TPR-borst'), focus = replace(replace(focus, 'mjuka silikonborst', 'mjuka TPR-borst'), 'silikonborsten känns', 'de mjuka borsten känns') WHERE shop_url LIKE '%/products/tasstvattkit-%'").run();
 db.prepare("UPDATE products SET shopify_handle = substr(shop_url, instr(shop_url, '/products/') + 10) WHERE shopify_handle IS NULL AND shop_url LIKE '%/products/%'").run();
 
 // Produkten som agenterna gör reklam för just nu. Standard: den första.
