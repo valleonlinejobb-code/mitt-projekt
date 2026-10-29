@@ -1,5 +1,5 @@
 // Motorn: varje minut kollar den om det finns beställda videor att göra och vilka kanalagenter som är påslagna.
-import { db, now, log, CHANNELS } from "./db.js";
+import { db, now, log, activeProduct, CHANNELS } from "./db.js";
 import { researchDue, runResearch } from "./agents/research.js";
 import { videoDue, createVideo, pollVideos, setQueuedVideos } from "./agents/prompt.js";
 import { postDue, publish, checkInbox } from "./agents/social.js";
@@ -46,7 +46,9 @@ export function runNow(productId, kind) {
 export async function tick() {
   await runAgent(null, "videopoll", pollVideos);
 
-  for (const product of db.prepare("SELECT * FROM products").all()) {
+  // Agenterna jobbar bara för produkten du har valt på kontrollsidan.
+  const product = activeProduct();
+  if (product) {
     // Research och video körs bara när du har beställt videor. Vid fel töms kön så att inga fler pengar går åt.
     if (videoDue(product)) {
       const researched = researchDue(product) ? await runAgent(product, "research", () => runResearch(product)) : true;

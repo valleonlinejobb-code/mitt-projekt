@@ -106,6 +106,17 @@ export function setSetting(key, value) {
     .run(key, JSON.stringify(value));
 }
 
+// Nya kolumner läggs till i en befintlig databas.
+const productColumns = db.prepare("PRAGMA table_info(products)").all().map((c) => c.name);
+if (!productColumns.includes("shopify_handle")) db.exec("ALTER TABLE products ADD COLUMN shopify_handle TEXT");
+if (!productColumns.includes("focus")) db.exec("ALTER TABLE products ADD COLUMN focus TEXT NOT NULL DEFAULT ''");
+
+// Det som bara gäller tasstvättkitet (förut inskrivet i agenternas kod).
+const PAW_KIT_FOCUS = `Produkten är ett kit: tasstvätt (kopp med mjuka silikonborst) plus mikrofiberhandduk med tassmönster.
+Research: ta reda på hur kitet används bäst (rätt vattentemperatur och mängd, hur man för in och vrider tassen, hur handduken torkar mellan trampdynor och klor, hur man vänjer en ovan hund, rengöring av kopp och handduk, val av storlek) från tillverkare, veterinärer och djurbutiker.
+Massagekänslan: silikonborsten känns som massage för hunden. Sök vad tillverkare, veterinärer och hundägare säger om det och skriv bara det som källorna stöder.
+Video: prioritera videor som visar hur kitet används som bäst, i rätt ordning (doppa, vrid, torka med handduken). Visa massagekänslan lugnt (hunden slappnar av, njuter, kanske blundar) och säg det som en känsla ("som en mjuk tassmassage"). Påstå inga hälsoeffekter som inte finns under "Verifierade fakta".`;
+
 export function ensureAgents(productId) {
   const insert = db.prepare("INSERT OR IGNORE INTO agents (product_id, kind) VALUES (?, ?)");
   for (const kind of AGENT_KINDS) insert.run(productId, kind);
@@ -114,14 +125,26 @@ export function ensureAgents(productId) {
 // Första produkten läggs in automatiskt.
 if (!db.prepare("SELECT 1 FROM products LIMIT 1").get()) {
   const { lastInsertRowid } = db.prepare(
-    "INSERT INTO products (name, description, price, image_url, shop_url, audience) VALUES (?, ?, ?, ?, ?, ?)"
+    "INSERT INTO products (name, description, price, image_url, shop_url, audience, shopify_handle, focus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
     "Tasstvättkit",
     "Tasstvätt (kopp med mjuka silikonborst) för små, mellanstora och stora hundar plus mikrofiberhandduk med tassmönster. Doppa tassen, vrid lätt, torka av – inga leriga tassar inne.",
     "199 kr",
     "https://cdn.shopify.com/s/files/1/1073/2290/0744/files/tasskit-med-handduk.jpg?v=1793199480",
     "https://frostskrapa.myshopify.com/products/tasstvattkit-sma-och-mellanstora-hundar",
-    "Medelålders hundägare i Sverige med hundar i alla storlekar, särskilt under höst och vinter med lera, slask och grus."
+    "Medelålders hundägare i Sverige med hundar i alla storlekar, särskilt under höst och vinter med lera, slask och grus.",
+    "tasstvattkit-sma-och-mellanstora-hundar",
+    PAW_KIT_FOCUS
   );
   ensureAgents(Number(lastInsertRowid));
+}
+
+// Befintliga databaser: tasstvättkitet behåller sina instruktioner och kopplas till sin Shopify-produkt.
+db.prepare("UPDATE products SET focus = ? WHERE focus = '' AND shop_url LIKE '%/products/tasstvattkit-%'").run(PAW_KIT_FOCUS);
+db.prepare("UPDATE products SET shopify_handle = substr(shop_url, instr(shop_url, '/products/') + 10) WHERE shopify_handle IS NULL AND shop_url LIKE '%/products/%'").run();
+
+// Produkten som agenterna gör reklam för just nu. Standard: den första.
+export function activeProduct() {
+  const id = getSetting("active_product_id", null);
+  return db.prepare("SELECT * FROM products WHERE id = ?").get(id) ?? db.prepare("SELECT * FROM products ORDER BY id LIMIT 1").get();
 }

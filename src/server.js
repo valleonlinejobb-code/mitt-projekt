@@ -1,12 +1,13 @@
 // Webbservern: kontrollsidan, dess API och videofilerna som Instagram/Facebook hämtar.
 import express from "express";
 import crypto from "node:crypto";
-import { db, log, getSetting, setSetting, ensureAgents, CHANNELS, MEDIA_DIR } from "./db.js";
+import { db, log, getSetting, setSetting, ensureAgents, activeProduct, CHANNELS, MEDIA_DIR } from "./db.js";
 import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
 import { higgsfieldConfigured } from "./higgsfield.js";
 import { queuedVideos, setQueuedVideos } from "./agents/prompt.js";
-import { researchDue } from "./agents/research.js";
+import { researchDue, latestResearch, RESEARCH_EVERY_DAYS } from "./agents/research.js";
+import { importShopifyProducts } from "./shopify.js";
 
 // Ungefärliga kostnader som visas innan du beställer (kronor).
 const COST = {
@@ -44,9 +45,12 @@ app.get("/api/state", (_req, res) => {
     agents: all("SELECT * FROM agents WHERE product_id = ?", p.id),
     queued: queuedVideos(p.id),
     researchDue: researchDue(p),
+    research: latestResearch(p.id) ?? null,
   }));
   res.json({
     products,
+    activeProductId: activeProduct()?.id ?? null,
+    researchEveryDays: RESEARCH_EVERY_DAYS,
     videos: all("SELECT * FROM videos ORDER BY id DESC LIMIT 30").map((v) => ({
       ...v,
       captions: v.captions ? JSON.parse(v.captions) : null,
@@ -54,7 +58,6 @@ app.get("/api/state", (_req, res) => {
     })),
     inbox: all("SELECT * FROM inbox WHERE status IN ('drafted', 'failed') ORDER BY id DESC LIMIT 50"),
     log: all("SELECT * FROM log ORDER BY id DESC LIMIT 60"),
-    research: all("SELECT * FROM research ORDER BY id DESC LIMIT 3"),
     connections: {
       claude: Boolean(process.env.ANTHROPIC_API_KEY),
       higgsfield: higgsfieldConfigured(),
@@ -91,10 +94,42 @@ app.post("/api/agents/:productId/:kind/run", (req, res) => {
   }
 });
 
+// Välj vilken produkt agenterna gör reklam för. Kön för den förra produkten töms så att inga pengar går åt till den,
+// och kanalagenterna fortsätter som de var (på eller av) för den nya produkten.
+app.post("/api/active-product", (req, res) => {
+  const next = one("SELECT * FROM products WHERE id = ?", Number(req.body.id));
+  if (!next) return res.status(404).json({ error: "Finns inte" });
+  const previous = activeProduct();
+  if (previous && previous.id !== next.id) {
+    if (queuedVideos(previous.id) > 0) {
+      setQueuedVideos(previous.id, 0);
+      log(previous.id, "prompt", "Kön tömdes eftersom du bytte produkt.");
+    }
+    ensureAgents(next.id);
+    const copy = db.prepare("UPDATE agents SET running = ? WHERE product_id = ? AND kind = ?");
+    for (const a of all("SELECT kind, running FROM agents WHERE product_id = ?", previous.id)) {
+      if (CHANNELS.includes(a.kind)) copy.run(a.running, next.id, a.kind);
+    }
+    db.prepare(`UPDATE agents SET running = 0 WHERE product_id = ?`).run(previous.id);
+  }
+  setSetting("active_product_id", next.id);
+  log(next.id, "all", `Agenterna gör nu reklam för ${next.name}.`);
+  res.json({ ok: true });
+});
+
+app.post("/api/products/import", async (_req, res) => {
+  try {
+    res.json({ ok: true, ...(await importShopifyProducts()) });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // Beställ videor: det enda sättet att få agenterna att göra videor (och spendera pengar på dem).
 app.post("/api/products/:id/order", (req, res) => {
   const product = one("SELECT * FROM products WHERE id = ?", req.params.id);
   if (!product) return res.status(404).json({ error: "Finns inte" });
+  if (product.id !== activeProduct()?.id) return res.status(400).json({ error: "Välj produkten överst på sidan först" });
   const count = Number(req.body.count);
   if (!Number.isInteger(count) || count < 1 || count > MAX_ORDER) return res.status(400).json({ error: `Välj 1–${MAX_ORDER} videor` });
   if (queuedVideos(product.id) + count > MAX_ORDER) return res.status(400).json({ error: `Högst ${MAX_ORDER} videor i kön åt gången` });
@@ -161,11 +196,11 @@ app.post("/api/settings", (req, res) => {
 });
 
 app.put("/api/products/:id", (req, res) => {
-  const fields = ["name", "description", "price", "image_url", "shop_url", "audience"];
+  const fields = ["name", "description", "price", "image_url", "shop_url", "audience", "focus"];
   const current = one("SELECT * FROM products WHERE id = ?", req.params.id);
   if (!current) return res.status(404).json({ error: "Finns inte" });
   const next = { ...current, ...Object.fromEntries(fields.filter((f) => f in req.body).map((f) => [f, String(req.body[f])])) };
-  db.prepare("UPDATE products SET name = ?, description = ?, price = ?, image_url = ?, shop_url = ?, audience = ? WHERE id = ?")
+  db.prepare("UPDATE products SET name = ?, description = ?, price = ?, image_url = ?, shop_url = ?, audience = ?, focus = ? WHERE id = ?")
     .run(...fields.map((f) => next[f]), current.id);
   res.json({ ok: true });
 });

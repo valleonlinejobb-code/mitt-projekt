@@ -41,6 +41,8 @@
   details summary { cursor:pointer; font-weight:600; margin:28px 0 10px; }
   pre { white-space:pre-wrap; font:13px/1.5 system-ui, sans-serif; margin:0; }
   .badge { font-size:11px; padding:1px 6px; border-radius:4px; border:1px solid var(--line); margin-left:6px; }
+  .product { display:flex; gap:14px; align-items:center; }
+  .product img { width:72px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--line); background:#fff; flex:none; }
   .badge.bad { color:var(--bad); border-color:var(--bad); }
 </style>
 </head>
@@ -50,9 +52,8 @@
   <div class="chips" id="connections"></div>
 </header>
 <main>
-  <div class="row" style="margin-top:16px">
-    <select id="product"></select>
-  </div>
+  <h2>Produkt som agenterna gör reklam för</h2>
+  <div class="card" id="activeProduct"></div>
 
   <h2>Beställ videor</h2>
   <div class="card" id="order"></div>
@@ -81,24 +82,23 @@
   <div id="inbox"></div>
 
   <details><summary>Alla videor</summary><table id="history"></table></details>
-  <details><summary>Senaste research</summary><div class="card"><pre id="research"></pre></div></details>
+  <details><summary>Senaste research</summary><div class="card"><div class="muted" id="researchInfo" style="margin-bottom:8px"></div><pre id="research"></pre></div></details>
   <details><summary>Produktinfo som agenterna använder</summary><form class="card" id="productForm"></form></details>
   <details open><summary>Logg</summary><table id="log"></table></details>
 </main>
 
 <script>
 const AGENTS = {
-  research: ["Researchagent", "Studerar andras annonser när du beställer videor (högst var tredje dag)"],
+  research: ["Researchagent", "Studerar andras annonser. Researchen sparas per produkt och återanvänds till alla videor"],
   prompt: ["Promptagent", "Gör de videor du beställer, en i taget"],
   instagram: ["Instagram", "Lägger upp Reels och svarar"],
   facebook: ["Facebook", "Lägger upp video och svarar"],
   tiktok: ["TikTok", "Lägger upp video"],
 };
 const CHANNEL_NAMES = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
-const LOG_NAMES = { "inbox-instagram": "Instagram (inkorg)", "inbox-facebook": "Facebook (inkorg)", videopoll: "Promptagent", all: "Alla agenter" };
+const LOG_NAMES = { shopify: "Butiken", "inbox-instagram": "Instagram (inkorg)", "inbox-facebook": "Facebook (inkorg)", videopoll: "Promptagent", all: "Alla agenter" };
 let state = null;
 let productId = 0;
-try { productId = Number(localStorage.getItem("productId") || 0); } catch {}
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -123,7 +123,7 @@ function keepDrafts(render) {
 
 async function refresh() {
   state = await api("GET", "/api/state");
-  if (!state.products.some((p) => p.id === productId)) productId = state.products[0]?.id;
+  productId = state.activeProductId;
   keepDrafts(render);
 }
 
@@ -133,14 +133,33 @@ function render() {
   $("connections").innerHTML = [["claude","Claude"],["higgsfield","Higgsfield"],["publicUrl","Publik adress"],["instagram","Instagram"],["facebook","Facebook"],["tiktok","TikTok"]]
     .map(([k, n]) => `<span class="chip ${c[k] ? "on" : ""}">${c[k] ? "✓" : "–"} ${n}</span>`).join("");
 
-  $("product").innerHTML = state.products.map((p) => `<option value="${p.id}" ${p.id === productId ? "selected" : ""}>${esc(p.name)}</option>`).join("");
   const product = state.products.find((p) => p.id === productId);
+  const day = (iso) => iso ? new Date(iso).toLocaleDateString("sv-SE", { day: "numeric", month: "long" }) : "";
+  const researchUntil = product.research && new Date(new Date(product.research.created_at).getTime() + state.researchEveryDays * 86400000);
+  const researchText = product.research
+    ? (product.researchDue ? `Researchen från ${day(product.research.created_at)} är äldre än ${state.researchEveryDays} dagar, så nästa beställning gör ny research.` : `Research gjord ${day(product.research.created_at)}. Den återanvänds för alla videor till ${day(researchUntil)}.`)
+    : "Ingen research än. Den görs automatiskt vid första beställningen.";
+  if (document.activeElement?.id !== "productSelect") $("activeProduct").innerHTML = `
+    <div class="product">
+      ${product.image_url ? `<img src="${esc(product.image_url)}" alt="">` : ""}
+      <div style="min-width:0;flex:1">
+        <select id="productSelect" style="max-width:100%" onchange="chooseProduct(Number(this.value))">
+          ${state.products.map((p) => `<option value="${p.id}" ${p.id === productId ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+        </select>
+        <div class="muted" style="margin-top:4px">${esc(product.price)}${product.shop_url ? ` · <a href="${esc(product.shop_url)}" target="_blank" rel="noopener" style="color:inherit">Visa i butiken</a>` : ""}</div>
+        <div class="muted">${researchText}</div>
+      </div>
+    </div>
+    <div class="row">
+      <button class="ghost" onclick="importProducts()">Hämta nya produkter från butiken</button>
+    </div>
+    ${product.audience ? "" : `<div class="err" style="margin-top:8px">Fyll i målgrupp under "Produktinfo som agenterna använder" längst ner innan du beställer videor.</div>`}`;
 
   const generatingNow = state.videos.some((v) => v.product_id === productId && v.status === "generating");
   const ordered = product.queued > 0 || generatingNow;
   const orderCost = (n) => n * state.cost.video + (product.researchDue ? state.cost.research : 0);
   $("order").innerHTML = `
-    <div class="muted">Agenterna gör inga videor förrän du beställer. En video kostar ungefär ${state.cost.video} kr${product.researchDue ? `, plus ungefär ${state.cost.research} kr för ny research` : ""}.</div>
+    <div class="muted">Videorna görs för <strong>${esc(product.name)}</strong>. Agenterna gör inga videor förrän du beställer. En video kostar ungefär ${state.cost.video} kr${product.researchDue ? `, plus ungefär ${state.cost.research} kr för ny research` : " (researchen finns redan och är gratis att återanvända)"}.</div>
     <div class="row">
       <select onchange="orderCount = Number(this.value); render()">
         ${Array.from({ length: 10 }, (_, i) => i + 1).map((n) => `<option value="${n}" ${n === orderCount ? "selected" : ""}>${n} ${n === 1 ? "video" : "videor"}</option>`).join("")}
@@ -223,17 +242,28 @@ function render() {
     <tr><td>#${v.id}</td><td>${time(v.created_at)}</td><td>${statusText[v.status]}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</td>
     <td>${esc(v.idea)}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}`).join("<br>")}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
 
-  $("research").textContent = state.research.find((r) => r.product_id === productId)?.notes || "Ingen research än. Starta researchagenten.";
+  $("researchInfo").textContent = researchText;
+  $("research").textContent = product.research?.notes || "";
 
   if (!$("productForm").contains(document.activeElement)) {
-    $("productForm").innerHTML = [["name","Namn"],["price","Pris"],["description","Beskrivning"],["audience","Målgrupp"],["image_url","Produktbild (länk, används i videorna)"],["shop_url","Länk till butiken"]]
-      .map(([k, n]) => `<label>${n}</label>${k === "description" || k === "audience" ? `<textarea name="${k}">${esc(product[k])}</textarea>` : `<input name="${k}" value="${esc(product[k])}">`}`).join("")
+    $("productForm").innerHTML = [["name","Namn"],["price","Pris"],["description","Beskrivning"],["audience","Målgrupp"],["image_url","Produktbild (länk, används i videorna)"],["shop_url","Länk till butiken"],["focus","Extra instruktioner till agenterna för just den här produkten (valfritt)"]]
+      .map(([k, n]) => `<label>${n}</label>${["description", "audience", "focus"].includes(k) ? `<textarea name="${k}">${esc(product[k])}</textarea>` : `<input name="${k}" value="${esc(product[k])}">`}`).join("")
       + `<div class="row"><button>Spara</button></div>`;
   }
 
   $("log").innerHTML = state.log.map((l) => `<tr><td style="white-space:nowrap">${time(l.at)}</td><td>${esc(AGENTS[l.agent]?.[0] || LOG_NAMES[l.agent] || l.agent)}</td><td>${esc(l.message)}</td></tr>`).join("");
 }
 
+async function chooseProduct(id) {
+  const current = state.products.find((p) => p.id === productId);
+  if (current.queued > 0 && !confirm(`Du har ${current.queued} videor i kön för ${current.name}. Kön töms om du byter. Byta ändå?`)) { render(); return; }
+  await api("POST", "/api/active-product", { id }); refresh();
+}
+async function importProducts() {
+  const { added, total } = await api("POST", "/api/products/import");
+  alert(added.length ? `La till: ${added.join(", ")}` : `Inga nya produkter (${total} i butiken).`);
+  refresh();
+}
 async function toggleAgent(kind, running) { await api("POST", `/api/agents/${productId}/${kind}`, { running }); refresh(); }
 async function order(n) {
   const product = state.products.find((p) => p.id === productId);
@@ -257,7 +287,6 @@ async function sendReply(id) { await api("POST", `/api/inbox/${id}/send`, { draf
 async function ignore(id) { await api("POST", `/api/inbox/${id}/ignore`); refresh(); }
 function copyText(id) { navigator.clipboard.writeText($(id).value); }
 
-$("product").onchange = (e) => { productId = Number(e.target.value); try { localStorage.setItem("productId", productId); } catch {} keepDrafts(render); };
 $("startAll").onclick = () => toggleAgent("all", 1);
 $("stopAll").onclick = () => toggleAgent("all", 0);
 for (const key of ["auto_reply_instagram", "auto_reply_facebook"]) {

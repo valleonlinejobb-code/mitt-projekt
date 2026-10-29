@@ -14,6 +14,10 @@ Ingenting publiceras innan du har tryckt **Godkänn** på kontrollsidan. Kanaler
 
 **Inga pengar spenderas utan att du har bett om det.** Videor och research görs bara när du trycker **Beställ videor** och väljer hur många videor (1–10). Sidan visar ungefärlig kostnad och frågar en gång till innan beställningen läggs. Högst 10 videor kan ligga i kön, och om något går fel töms kön så att inga fler försök kostar pengar.
 
+**Välj produkt.** Överst på kontrollsidan väljer du vilken produkt agenterna gör reklam för. Bara den produkten får videor och inlägg. **Hämta nya produkter från butiken** lägger till butikens publicerade produkter (från `SHOPIFY_STORE_URL/products.json`, ingen nyckel behövs). Det du redan har skrivit om en produkt skrivs aldrig över. Byter du produkt töms kön för den förra, och kanalagenterna fortsätter som de var. Research och videor sparas per produkt. Under **Produktinfo** kan du skriva extra instruktioner till agenterna för just den produkten.
+
+**Research återanvänds.** Researchen sparas per produkt och används till alla videor du beställer. Ny research görs bara automatiskt när den är äldre än `RESEARCH_EVERY_DAYS` (standard 3 dagar), eller när du trycker **Kör research**.
+
 Kanalagenterna (Instagram, Facebook, TikTok) startas och stoppas med **Starta**/**Stoppa**. De publicerar bara videor du har godkänt. När Instagram- eller Facebook-agenten är på läser den kommentarer och DM var tionde minut och skriver svarsutkast med Claude, vilket kostar några öre per meddelande.
 
 ## Kostnad per månad (uppskattning)
@@ -53,6 +57,7 @@ Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (stan
 | `MIN_VIDEO_SCORE` | nej | Lägsta betyg (1–10) en idé måste få innan videon beställs. Standard `8`. |
 | `RESEARCH_EVERY_DAYS` | nej | Hur gammal researchen får vara innan en beställning kör ny. Standard `3`. |
 | `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK` | nej | Kostnaderna som visas på knapparna. Standard `4` och `5`. |
+| `SHOPIFY_STORE_URL` | nej | Butikens adress för att hämta produkter. Standard `https://vardagshoppen.com`. |
 | `INBOX_EVERY_MINUTES` | nej | Hur ofta kommentarer och DM hämtas. Standard `10`. |
 
 ### Instagram och Facebook
