@@ -15,9 +15,10 @@ import { addClip } from "./agents/clips.js";
 import { researchDue, latestResearch, RESEARCH_EVERY_DAYS } from "./agents/research.js";
 import { importShopifyProducts } from "./shopify.js";
 import { STAGES, progressOf } from "./progress.js";
+import { polishEnabled } from "./polish.js";
 import { estimateSek, spendSummary } from "./costs.js";
 import { selfCheck } from "./editor.js";
-import { voiceConfigured, synthesizeVoice, VOICES, chosenVoice } from "./voice.js";
+import { voiceConfigured, synthesizeVoice, VOICES, chosenVoice, SPEEDS, SPEED_LIST, chosenSpeed } from "./voice.js";
 import { editAndOffer } from "./agents/prompt.js";
 
 const AB_SIZE = 3;
@@ -60,6 +61,7 @@ function flowFor(product) {
     stages: Object.fromEntries(Object.entries(STAGES).map(([agent, list]) => [agent, list.map(([, label, seconds]) => ({ label, seconds }))])),
     research: progressOf(product.id, "research") ?? (research ? { status: "done", at: research.created_at, detail: "" } : null),
     prompt,
+    polish: progressOf(product.id, "polish"),
   };
 }
 
@@ -103,10 +105,12 @@ app.get("/api/state", (_req, res) => {
     spend: spendSummary(),
     videoModels: Object.entries(VIDEO_MODELS).map(([id, m]) => ({ id, ...m, chosen: id === videoModel() })),
     voices: Object.entries(VOICES).map(([id, name]) => ({ id, name, chosen: id === chosenVoice() })),
+    voiceSpeeds: SPEED_LIST.map(([id, name]) => ({ id, name, chosen: id === chosenSpeed() })),
     maxOrder: MAX_ORDER,
     settings: {
       auto_reply_instagram: getSetting("auto_reply_instagram", false),
       auto_reply_facebook: getSetting("auto_reply_facebook", false),
+      polish: polishEnabled(),
       offers: currentOffers(),
     },
   });
@@ -233,7 +237,8 @@ app.post("/api/videos/:id/reject", (req, res) => {
 app.get("/api/voices/:id/preview", async (req, res) => {
   if (!VOICES[req.params.id]) return res.status(404).json({ error: "Okänd röst" });
   if (!voiceConfigured()) return res.status(400).json({ error: "GOOGLE_TTS_API_KEY saknas i Railway" });
-  const file = path.join(MEDIA_DIR, `voice-preview-${req.params.id}.mp3`);
+  // Provlyssningen görs i den valda takten, så att du hör hur videon kommer att låta.
+  const file = path.join(MEDIA_DIR, `voice-preview-${req.params.id}-${chosenSpeed()}.mp3`);
   try {
     if (!fs.existsSync(file)) {
       fs.writeFileSync(file, await synthesizeVoice("Leriga tassar efter promenaden? Med tasstvättkitet från Vardagshoppen blir tassen ren på några sekunder. Finns i S, M och L.", req.params.id));
@@ -348,13 +353,19 @@ app.post("/api/inbox/:id/ignore", (req, res) => {
 });
 
 app.post("/api/settings", (req, res) => {
-  for (const key of ["auto_reply_instagram", "auto_reply_facebook"]) {
+  for (const key of ["auto_reply_instagram", "auto_reply_facebook", "polish"]) {
     if (key in req.body) setSetting(key, Boolean(req.body[key]));
   }
+  if ("polish" in req.body) log(null, "prompt", `Redigeringsagenten är ${req.body.polish ? "på" : "av"}.`);
   if ("video_model" in req.body) {
     if (!VIDEO_MODELS[req.body.video_model]) return res.status(400).json({ error: "Okänd videomodell" });
     setSetting("video_model", req.body.video_model);
     log(null, "prompt", `Videomodellen är nu ${VIDEO_MODELS[req.body.video_model].name} (ca ${VIDEO_MODELS[req.body.video_model].sek} kr per video hos Higgsfield).`);
+  }
+  if ("tts_speed" in req.body) {
+    if (!SPEEDS[req.body.tts_speed]) return res.status(400).json({ error: "Okänd takt" });
+    setSetting("tts_speed", req.body.tts_speed);
+    log(null, "prompt", `Rösten pratar nu i takten "${SPEEDS[req.body.tts_speed]}". Nya videor får den, och "Klipp om" ger en befintlig video den gratis.`);
   }
   if ("tts_voice" in req.body) {
     if (!VOICES[req.body.tts_voice]) return res.status(400).json({ error: "Okänd röst" });
