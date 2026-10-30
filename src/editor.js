@@ -136,8 +136,8 @@ ${events.join("\n")}
 export async function editVideo({ input, output, overlays = [], price = "", endCard = {}, voiceFile, productImage, infoBar = "" }) {
   const { duration, hasAudio } = await probe(input);
   const voice = voiceFile ? await probe(voiceFile) : null;
-  // Slutbilden står kvar 3 s, längre om rösten behöver det (högst 6 s).
-  const endSeconds = Math.min(6, Math.max(3, (voice?.duration ?? 0) + 0.9 - duration));
+  // Slutbilden står kvar minst 4 s, och 1,5 s efter att rösten har pratat klart (högst 8 s), så att slutet inte känns avhugget.
+  const endSeconds = Math.min(8, Math.max(4, (voice?.duration ?? 0) + 0.4 + 1.5 - duration));
   const total = duration + endSeconds;
 
   const assFile = `${output}.ass`;
@@ -170,7 +170,9 @@ export async function editVideo({ input, output, overlays = [], price = "", endC
     // Videomodellens ljud sänks när rösten pratar.
     `[${hasAudio ? 0 : silenceIndex}:a]volume=${voice ? 0.25 : 1},apad[a0]`,
     voice ? `[${voiceIndex}:a]adelay=400:all=1,apad[a1]` : null,
-    voice ? "[a0][a1]amix=inputs=2:duration=first:normalize=0[aout]" : "[a0]anull[aout]",
+    voice ? "[a0][a1]amix=inputs=2:duration=first:normalize=0[amix]" : "[a0]anull[amix]",
+    // Ljudet tonas ut den sista sekunden i stället för att klippas av.
+    `[amix]afade=t=out:st=${(total - 1).toFixed(2)}:d=1[aout]`,
   ].filter(Boolean);
 
   args.push(

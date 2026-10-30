@@ -44,6 +44,26 @@ export async function importShopifyProducts() {
 }
 
 /**
+ * Produktens val i butiken, t.ex. [{ name: "Storlek", values: ["S", "M", "L"] }], så att annonsen nämner alla storlekar
+ * och inte bara en. Går de inte att hämta blir listan tom.
+ */
+export async function productOptions(product) {
+  if (!product.shopify_handle) return [];
+  try {
+    const res = await fetch(`${STORE_URL}/products/${product.shopify_handle}.json`);
+    if (!res.ok) return [];
+    return ((await res.json()).product?.options ?? [])
+      .filter((o) => o.values?.length > 1 || !/^title$/i.test(o.name))
+      .map((o) => ({ name: o.name, values: o.values ?? [] }));
+  } catch {
+    return [];
+  }
+}
+
+/** Storlekarna bland produktens val (t.ex. ["S", "M", "L"]), annars en tom lista. */
+export const sizesOf = (options) => options.find((o) => /storlek|size/i.test(o.name))?.values ?? [];
+
+/**
  * Alla produktens bilder från butiken (huvudbilden först, högst 4), så att videomodellen ser produkten från flera håll,
  * t.ex. koppen, borsten inuti och handduken. Går de inte att hämta används bara huvudbilden.
  */
