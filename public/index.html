@@ -326,6 +326,7 @@ function render() {
       <div>
         <video src="/media/${esc(v.local_file)}" controls playsinline preload="metadata"></video>
         <a href="/media/${esc(v.local_file)}" target="_blank" rel="noopener" class="muted">Öppna i helskärm</a>
+        <div class="row"><a href="/download/${esc(v.local_file)}" download="vardagshoppen-annons-${v.id}.mp4"><button class="ghost" type="button">Ladda ner video</button></a></div>
       </div>
       <div>
         <strong>Video #${v.id}</strong> <span class="muted">${time(v.created_at)}</span>
@@ -342,10 +343,13 @@ function render() {
           <button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button>
           <button class="danger" onclick="reject(${v.id})">Släng</button>
         </div>
-        <details><summary class="muted" style="margin:10px 0 0;font-weight:400">Ändra rösten (gratis, samma video)</summary>
+        <details><summary class="muted" style="margin:10px 0 0;font-weight:400">Ändra rösten och texten i bild (gratis, samma video)</summary>
+          <p class="muted">Säger hon ett ord fel? Skriv ordet som det låter i den första rutan, och som det ska stavas i den andra.</p>
           <label>Det rösten säger</label>
           <textarea data-key="voice-${v.id}">${esc(v.edit ? JSON.parse(v.edit).voiceover ?? "" : "")}</textarea>
-          <div class="row"><button class="ghost" onclick="reeditVoice(${v.id})">Klipp om med ${esc(state.voices.find((x) => x.chosen)?.name.split(" ·")[0] ?? "vald röst")} och den här texten (gratis)</button></div>
+          <label>Det som står i bild</label>
+          <textarea data-key="text-${v.id}">${esc(v.edit ? JSON.parse(v.edit).caption_text || JSON.parse(v.edit).voiceover || "" : "")}</textarea>
+          <div class="row"><button class="ghost" onclick="reeditVoice(${v.id})">Klipp om med ${esc(state.voices.find((x) => x.chosen)?.name.split(" ·")[0] ?? "vald röst")} och de här texterna (gratis)</button></div>
         </details>
         ${v.prompt ? `<details><summary class="muted" style="margin:10px 0 0;font-weight:400">Prompten till Higgsfield</summary><pre class="muted">${esc(v.prompt)}</pre></details>` : ""}
       </div>
@@ -365,7 +369,7 @@ function render() {
       ${p.status === "failed" ? `<span class="badge bad">misslyckades</span><div class="err">${esc(p.error)}</div>` : ""}
       <textarea readonly id="mcap-${p.id}">${esc(v.captions?.[p.channel])}</textarea>
       <div class="row">
-        <a href="/media/${esc(v.local_file)}" download="agent-uf-video-${v.id}.mp4"><button class="ghost" type="button">Ladda ner video</button></a>
+        <a href="/download/${esc(v.local_file)}" download="vardagshoppen-annons-${v.id}.mp4"><button class="ghost" type="button">Ladda ner video</button></a>
         <button class="ghost" onclick="copyText('mcap-${p.id}')">Kopiera text</button>
         ${p.status === "manual" ? `<button onclick="post('done', ${p.id})">Klar, jag har lagt upp den</button>` : `<button onclick="post('retry', ${p.id})">Försök igen</button>`}
       </div>
@@ -719,9 +723,10 @@ async function reedit(id) {
 }
 async function reeditVoice(id) {
   const voiceover = document.querySelector(`[data-key="voice-${id}"]`).value;
+  const caption_text = document.querySelector(`[data-key="text-${id}"]`).value;
   const button = event.target;
   button.disabled = true; button.textContent = "Klipper om…";
-  try { await api("POST", `/api/videos/${id}/reedit`, { voiceover }); } finally { refresh(); }
+  try { await api("POST", `/api/videos/${id}/reedit`, { voiceover, caption_text }); } finally { refresh(); }
 }
 async function chooseSpeed(id) {
   await api("POST", "/api/settings", { tts_speed: id });

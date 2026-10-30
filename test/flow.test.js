@@ -176,6 +176,7 @@ const { setQueuedVideos, queuedVideos, pollVideos } = await import("../src/agent
 const progress = await import("../src/progress.js");
 const { progressOf, STAGES } = progress;
 const { probe } = await import("../src/editor.js");
+const { speakable } = await import("../src/voice.js");
 
 test("research → prompt → Higgsfield → video tillbaka → kanalagenterna", async () => {
   const product = activeProduct();
@@ -243,7 +244,9 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   assert.ok(ig > ir && ig > ib, `produktraden syns längst ner (${ir},${ig},${ib})`);
   assert.equal(JSON.parse(video.edit).info_bar, CONCEPT.info_bar);
   const tts = calls.find((c) => c.url.startsWith("https://texttospeech.googleapis.com/"));
-  assert.equal(tts.body.input.text, CONCEPT.voiceover);
+  // Rösten får webbadress och procent utskrivna så att de uttalas rätt.
+  assert.equal(tts.body.input.text, speakable(CONCEPT.voiceover));
+  assert.match(tts.body.input.text, /vardagshoppen punkt com/);
   assert.equal(tts.body.voice.languageCode, "sv-SE");
   assert.equal(tts.body.audioConfig.speakingRate, 1, "vanlig takt tills du väljer en annan");
   assert.match(video.idea, /Röst: "Trött på leriga tassar/);
@@ -421,7 +424,7 @@ test("Egen mobilfilm: klippagenten lägger på text, röst och logga utan Higgsf
   const call = claudeCalls("Du är klippagent").at(-1);
   assert.equal(call.body.messages[0].content[0].source.type, "base64");
   assert.match(call.body.messages[0].content.at(-1).text, /Bella efter promenaden/);
-  assert.equal(calls.findLast((c) => c.url.startsWith("https://texttospeech")).body.input.text, CLIP_PLAN.voiceover);
+  assert.equal(calls.findLast((c) => c.url.startsWith("https://texttospeech")).body.input.text, speakable(CLIP_PLAN.voiceover));
 });
 
 test("Egen mobilfilm med fel rabatt: markeras som misslyckad och försöks inte igen", async () => {
@@ -485,10 +488,12 @@ test("Klipparen misslyckas: videon visas inte för godkännande, och kan klippas
   // Klipp om: ingen ny kostnad hos Claude eller Higgsfield.
   const paid = () => calls.filter((c) => c.url.startsWith("https://api.anthropic.com/") || c.url.includes("higgsfield.ai/alibaba")).length;
   const before = paid();
-  db.prepare("UPDATE videos SET edit = ? WHERE id = ?").run(JSON.stringify({ overlays: CONCEPT.overlays, voiceover: CONCEPT.voiceover, info_bar: CONCEPT.info_bar, end_card: CONCEPT.end_card }), id);
+  // Egen text i bild (ägaren rättar ett uttal i rösten): rösten läser fortfarande rösttexten.
+  db.prepare("UPDATE videos SET edit = ? WHERE id = ?").run(JSON.stringify({ overlays: CONCEPT.overlays, voiceover: CONCEPT.voiceover, caption_text: "Leriga tassar? Kolla FORSTA10.", info_bar: CONCEPT.info_bar, end_card: CONCEPT.end_card }), id);
   assert.equal(await editAndOffer(db.prepare("SELECT * FROM videos WHERE id = ?").get(id)), true);
   video = db.prepare("SELECT * FROM videos WHERE id = ?").get(id);
   assert.equal(video.status, "pending");
+  assert.equal(calls.findLast((c) => c.url.startsWith("https://texttospeech")).body.input.text, speakable(CONCEPT.voiceover));
   assert.equal(paid(), before);
 });
 
