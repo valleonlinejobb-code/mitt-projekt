@@ -245,6 +245,7 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   const tts = calls.find((c) => c.url.startsWith("https://texttospeech.googleapis.com/"));
   assert.equal(tts.body.input.text, CONCEPT.voiceover);
   assert.equal(tts.body.voice.languageCode, "sv-SE");
+  assert.equal(tts.body.audioConfig.speakingRate, 1, "vanlig takt tills du väljer en annan");
   assert.match(video.idea, /Röst: "Trött på leriga tassar/);
   assert.equal(progressOf(product.id, "prompt").status, "done");
   // Redigeringsagenten har gett videon sin sista touch.
@@ -538,6 +539,13 @@ test("Redigeringsagenten: skarpare bild i 720×1280 och jämn ljudnivå, gratis,
   assert.ok(lufs(quiet) < -30, `före: ${lufs(quiet)}`);
   await polishSound(quiet);
   assert.ok(Math.abs(lufs(quiet) + 14) < 2.5, `efter: ${lufs(quiet)} LUFS`);
+  // Med övergången: ett whoosh läggs in där slutbilden sveper in, och ljudet är fortfarande runt −14 LUFS.
+  const swoosh = path.join(media, "polish-swoosh.mp4");
+  // En längre film (8 s), som en riktig annons: på bara 2 s hinner ljudnivån inte mätas ut ordentligt.
+  execFileSync(ffmpeg, ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=s=360x640:d=8:r=24", "-f", "lavfi", "-i", "sine=f=300:d=8",
+    "-af", "volume=-25dB", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", swoosh]);
+  await polishSound(swoosh, { transitionAt: 5 });
+  assert.ok(Math.abs(lufs(swoosh) + 14) < 2.5, `med whoosh: ${lufs(swoosh)} LUFS`);
 
   // Avstängd: videon klipps utan sista touch, och redigeringsagenten rör den inte.
   const product = activeProduct();

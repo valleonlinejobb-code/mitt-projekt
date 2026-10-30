@@ -568,12 +568,13 @@ export async function finishAd(video, rawFile, outFile) {
   let input = path.join(MEDIA_DIR, rawFile);
   let polished = null;
   let polishError = null;
+  let transitionAt;
   const polish = polishEnabled();
   if (polish) {
     progress.stage(video.product_id, "polish", "look", `Video #${video.id}`);
     polished = path.join(MEDIA_DIR, `${outFile}.polished.mp4`);
     try {
-      await polishLook(input, polished);
+      transitionAt = (await polishLook(input, polished)).duration;
       input = polished;
     } catch (err) {
       polishError = err.message.slice(0, 300);
@@ -609,7 +610,7 @@ export async function finishAd(video, rawFile, outFile) {
   if (polish) {
     progress.stage(video.product_id, "polish", "sound", `Video #${video.id}`);
     try {
-      await polishSound(options.output);
+      await polishSound(options.output, { transitionAt });
     } catch (err) {
       polishError = [polishError, err.message.slice(0, 300)].filter(Boolean).join(" ");
     }

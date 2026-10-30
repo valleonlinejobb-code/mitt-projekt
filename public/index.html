@@ -114,6 +114,7 @@
   <h2>Berättarröst</h2>
   <div class="card">
     <div class="muted">Vilken svensk röst som läser texten i videorna. Gratis. Lyssna och välj; en video som väntar på godkännande får den nya rösten med "Ändra rösten".</div>
+    <div class="row" id="voiceSpeeds" style="align-items:center"></div>
     <div id="voices" style="margin-top:8px"></div>
   </div>
 
@@ -377,10 +378,12 @@ function render() {
   $("videoModels").innerHTML = state.videoModels.map((m) => `
     <label class="check" style="display:block;margin:6px 0"><input type="radio" name="videoModel" ${m.chosen ? "checked" : ""} onchange="chooseModel('${esc(m.id)}', ${m.sek}, '${esc(m.name)}')">
       <strong>${esc(m.name)}</strong> · ca ${m.sek} kr per video <span class="muted">${esc(m.note)}</span></label>`).join("");
+  $("voiceSpeeds").innerHTML = `<strong style="margin-right:8px">Takt:</strong>` + state.voiceSpeeds.map((s) => `
+    <label class="check"><input type="radio" name="voiceSpeed" ${s.chosen ? "checked" : ""} onchange="chooseSpeed('${esc(s.id)}')"> ${esc(s.name)}</label>`).join("");
   $("voices").innerHTML = state.voices.map((v) => `
     <div class="row" style="align-items:center;margin:6px 0">
       <label class="check" style="min-width:220px"><input type="radio" name="voice" ${v.chosen ? "checked" : ""} onchange="chooseVoice('${esc(v.id)}')"> <strong>${esc(v.name)}</strong></label>
-      <audio src="/api/voices/${esc(v.id)}/preview" controls preload="none" style="height:32px"></audio>
+      <audio src="/api/voices/${esc(v.id)}/preview?takt=${esc(state.voiceSpeeds.find((x) => x.chosen)?.id ?? "1")}" controls preload="none" style="height:32px"></audio>
     </div>`).join("");
   $("inbox").innerHTML = state.inbox.map((m) => `
     <div class="card" style="margin-bottom:10px">
@@ -719,6 +722,10 @@ async function reeditVoice(id) {
   const button = event.target;
   button.disabled = true; button.textContent = "Klipper om…";
   try { await api("POST", `/api/videos/${id}/reedit`, { voiceover }); } finally { refresh(); }
+}
+async function chooseSpeed(id) {
+  await api("POST", "/api/settings", { tts_speed: id });
+  refresh();
 }
 async function chooseVoice(id) {
   await api("POST", "/api/settings", { tts_voice: id });

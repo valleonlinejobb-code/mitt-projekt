@@ -18,7 +18,7 @@ import { STAGES, progressOf } from "./progress.js";
 import { polishEnabled } from "./polish.js";
 import { estimateSek, spendSummary } from "./costs.js";
 import { selfCheck } from "./editor.js";
-import { voiceConfigured, synthesizeVoice, VOICES, chosenVoice } from "./voice.js";
+import { voiceConfigured, synthesizeVoice, VOICES, chosenVoice, SPEEDS, SPEED_LIST, chosenSpeed } from "./voice.js";
 import { editAndOffer } from "./agents/prompt.js";
 
 const AB_SIZE = 3;
@@ -105,6 +105,7 @@ app.get("/api/state", (_req, res) => {
     spend: spendSummary(),
     videoModels: Object.entries(VIDEO_MODELS).map(([id, m]) => ({ id, ...m, chosen: id === videoModel() })),
     voices: Object.entries(VOICES).map(([id, name]) => ({ id, name, chosen: id === chosenVoice() })),
+    voiceSpeeds: SPEED_LIST.map(([id, name]) => ({ id, name, chosen: id === chosenSpeed() })),
     maxOrder: MAX_ORDER,
     settings: {
       auto_reply_instagram: getSetting("auto_reply_instagram", false),
@@ -236,7 +237,8 @@ app.post("/api/videos/:id/reject", (req, res) => {
 app.get("/api/voices/:id/preview", async (req, res) => {
   if (!VOICES[req.params.id]) return res.status(404).json({ error: "Okänd röst" });
   if (!voiceConfigured()) return res.status(400).json({ error: "GOOGLE_TTS_API_KEY saknas i Railway" });
-  const file = path.join(MEDIA_DIR, `voice-preview-${req.params.id}.mp3`);
+  // Provlyssningen görs i den valda takten, så att du hör hur videon kommer att låta.
+  const file = path.join(MEDIA_DIR, `voice-preview-${req.params.id}-${chosenSpeed()}.mp3`);
   try {
     if (!fs.existsSync(file)) {
       fs.writeFileSync(file, await synthesizeVoice("Leriga tassar efter promenaden? Med tasstvättkitet från Vardagshoppen blir tassen ren på några sekunder. Finns i S, M och L.", req.params.id));
@@ -359,6 +361,11 @@ app.post("/api/settings", (req, res) => {
     if (!VIDEO_MODELS[req.body.video_model]) return res.status(400).json({ error: "Okänd videomodell" });
     setSetting("video_model", req.body.video_model);
     log(null, "prompt", `Videomodellen är nu ${VIDEO_MODELS[req.body.video_model].name} (ca ${VIDEO_MODELS[req.body.video_model].sek} kr per video hos Higgsfield).`);
+  }
+  if ("tts_speed" in req.body) {
+    if (!SPEEDS[req.body.tts_speed]) return res.status(400).json({ error: "Okänd takt" });
+    setSetting("tts_speed", req.body.tts_speed);
+    log(null, "prompt", `Rösten pratar nu i takten "${SPEEDS[req.body.tts_speed]}". Nya videor får den, och "Klipp om" ger en befintlig video den gratis.`);
   }
   if ("tts_voice" in req.body) {
     if (!VOICES[req.body.tts_voice]) return res.status(400).json({ error: "Okänd röst" });
