@@ -69,6 +69,7 @@ Kontrollsidan visar under **Vad Claude har kostat** vad varje jobb faktiskt kost
 | `GEMINI_API_KEY` | nej, men gör researchen gratis | Från aistudio.google.com → Get API key → Create API key. Inget kort behövs. Med nyckeln görs researchen med Gemini i stället för Claude (sökningen görs med Tavily, se nästa rad). Videoidéer, granskning och kundsvar använder fortfarande Claude. |
 | `TAVILY_API_KEY` | för gratis research | Från app.tavily.com (logga in, kopiera nyckeln som börjar med `tvly-`). Inget kort behövs, 1 000 gratis sökningar per månad, en research använder ca 20. Google-sökningen ingår inte i Geminis gratisnivå, så utan Tavily fungerar Gemini-researchen bara om betalning är påslagen hos Google. |
 | `GEMINI_MODEL` | nej | Standard `gemini-3.8-flash`. Byt här om Google stänger modellen. |
+| `GEMINI_FALLBACK_MODEL` | nej | Används om `GEMINI_MODEL` är överbelastad (fel 503) efter tre försök. Standard `gemini-3.5-flash-lite`. |
 | `RESEARCH_MODEL` | nej | Claude-modellen för researchen när `GEMINI_API_KEY` saknas. Standard `claude-sonnet-5-5` (billigare). Videoidéer och granskning använder `CLAUDE_MODEL`. |
 | `CLAUDE_BUDGET_SEK` | nej | Månadstaket för Claude innan du har ändrat det på sidan. Standard `300`. |
 | `USD_TO_SEK` | nej | Växelkursen för kostnaderna. Standard `10.5`. |

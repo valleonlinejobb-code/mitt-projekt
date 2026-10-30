@@ -9,13 +9,27 @@ export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 export const geminiConfigured = () => Boolean(process.env.GEMINI_API_KEY);
 export const tavilyConfigured = () => Boolean(process.env.TAVILY_API_KEY);
 
+// Om modellen är överbelastad (t.ex. 503 "high demand") försöker vi igen efter en stund, och sedan med en mindre modell.
+export const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash-lite";
+const BUSY = new Set([429, 500, 503, 504]);
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function generate(model, body) {
-  const res = await fetch(`${API}/${model}:generateContent`, {
-    method: "POST",
-    headers: { "x-goog-api-key": process.env.GEMINI_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json().catch(() => ({}));
+  const retryMs = Number(process.env.GEMINI_RETRY_MS ?? 5000);
+  const models = [...new Set([model, GEMINI_FALLBACK_MODEL])];
+  let res, json;
+  attempts: for (const m of models) {
+    for (const delay of [0, retryMs, 3 * retryMs]) {
+      if (delay) await wait(delay);
+      res = await fetch(`${API}/${m}:generateContent`, {
+        method: "POST",
+        headers: { "x-goog-api-key": process.env.GEMINI_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      json = await res.json().catch(() => ({}));
+      if (!BUSY.has(res.status)) break attempts;
+    }
+  }
   if (!res.ok) {
     const hint = body.tools && !tavilyConfigured()
       ? " Google-sökning ingår inte i Geminis gratisnivå. Lägg in TAVILY_API_KEY i Railway, så söker researchen gratis med Tavily."
