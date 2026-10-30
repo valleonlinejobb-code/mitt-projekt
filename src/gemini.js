@@ -37,7 +37,8 @@ async function tavilySearch(query) {
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.TAVILY_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query, search_depth: "basic", max_results: 5 }),
+    // Sidans text följer med (samma pris, 1 sökning), så att Gemini läser källan och inte bara ett kort utdrag.
+    body: JSON.stringify({ query, search_depth: "basic", max_results: 5, include_raw_content: "text" }),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`Tavily svarade ${res.status}: ${json.detail?.error ?? json.error ?? JSON.stringify(json).slice(0, 200)}`);
@@ -53,17 +54,24 @@ async function askWithTavily({ model, system, prompt, maxSearches }) {
       type: "OBJECT", properties: { queries: { type: "ARRAY", items: { type: "STRING" } } }, required: ["queries"],
     } } });
   const queries = (JSON.parse(plan).queries ?? []).slice(0, maxSearches);
-  // En sökning som misslyckas stoppar inte de andra, men om alla misslyckas visas felet.
+  // En sökning som misslyckas stoppar inte de andra.
   const settled = await Promise.allSettled(queries.map(tavilySearch));
-  if (settled.length && settled.every((s) => s.status === "rejected")) throw settled[0].reason;
   const results = [...new Map(settled.flatMap((s) => (s.status === "fulfilled" ? s.value : []))
-    .filter((r) => r.url).map((r) => [r.url, r])).values()];
-  const found = results.map((r) => `### ${r.title || r.url}\nURL: ${r.url}\n${(r.content ?? "").slice(0, 1500)}`).join("\n\n");
+    .filter((r) => r.url).map((r) => [r.url, { ...r, text: (r.raw_content || r.content || "").replace(/\s+/g, " ").trim() }])).values()]
+    .filter((r) => r.text);
+  // Utan träffar blir rapporten tom gissning, så då stoppas researchen med ett tydligt fel.
+  if (!results.length) {
+    const failed = settled.find((s) => s.status === "rejected");
+    throw new Error(`Sökningen gav inga träffar (${queries.length} sökningar)${failed ? `: ${failed.reason.message}` : ""}`);
+  }
+  const found = results.map((r) => `### ${r.title || r.url}\nURL: ${r.url}\n${r.text.slice(0, 2500)}`).join("\n\n");
   const { text } = await ask(model,
     `${system}\nDu har bara de här sökträffarna att gå på. Skriv (källa: URL) direkt efter varje påstående som bygger på en träff, med träffens exakta URL.`,
     `${prompt}\n\nSökträffar (${queries.length} sökningar):\n\n${found || "(inga träffar)"}`);
-  const sources = results.filter((r) => text.includes(r.url)).map((r) => ({ url: r.url, title: r.title || r.url }));
-  return { text, sources };
+  // Alla sidor som lästes är källor, med ett utdrag så att faktakollen kan jämföra påståendena med vad sidan säger.
+  // Citerade sidor får ett längre utdrag, så att siffrorna i rapporten går att hitta i det.
+  const sources = results.map((r) => ({ url: r.url, title: r.title || r.url, excerpt: r.text.slice(0, text.includes(r.url) ? 2000 : 400) }));
+  return { text, sources, searches: queries.length };
 }
 
 // ---------- Sökning med Google (kräver betalning påslagen) ----------

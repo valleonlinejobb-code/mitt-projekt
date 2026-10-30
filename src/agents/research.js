@@ -59,7 +59,7 @@ Målgrupp: ${product.audience}
 
 ${product.focus ? `Ägarens instruktioner för just den här produkten:\n${product.focus}\n` : ""}
 Ägaren vill göra annonser som visar hur produkten används som bäst, och som har chans att gå viralt. Sök och skriv en rapport med:
-1. Så används produkten bäst: steg, tips och vanliga misstag, från tillverkare, experter och butiker – med källa.
+1. Så används VÅR produkt bäst (beskrivningen ovan, inte en konkurrents): steg, tips och vanliga misstag. Utgå från vår produktbeskrivning och leta efter källor om samma typ av produkt (tasstvättkopp och mikrofiberhandduk) från tillverkare, veterinärer, hundskötare och butiker – med källa. Skriv inte en konkurrentprodukts bruksanvisning som om den vore vår.
 2. Konkurrenternas bästa annonser: hitta konkreta annonser och korta videor för den här typen av produkt som gått bra – med siffror som visningar, gillningar eller hur länge annonsen körts (en annons som körts länge i Metas annonsbibliotek tjänar oftast pengar), och källa. Sök på flera ställen: Metas annonsbibliotek, TikTok Creative Center (Top Ads), TikTok, Instagram och YouTube Shorts. Leta både efter stora märken för produkttypen och efter svenska och nordiska butiker för husdjur, och efter små e-handlare som säljer samma typ av produkt. Börja med de märken som gjort tasstvättare kända med korta videor, till exempel Dexas MudBuster och Paw Plunger: sök deras annonser i Metas annonsbibliotek och deras mest sedda videor på TikTok, Instagram och YouTube, och beskriv exakt hur de första 2 sekunderna ser ut. De får vara förebilder (format, krok, tempo), men vi kopierar aldrig deras video eller påstår något om vår produkt som bara gäller deras.
 3. Så gör konkurrenterna sina annonser, steg för steg: hur de visar problemet (före) och resultatet (efter), när och hur de visar märke och logga, hur och när de visar pris och rabatt (i bild, i rösten, i slutet), om de har berättarröst eller text (och vilken ton), hur de slutar (uppmaning, slutbild), hur lång videon är, om annonsen ser ut som ett vanligt inlägg eller som reklam, vilken sorts krok de använder (nöjsam start, känslosam berättelse, sketch, FOMO, problem–lösning), om produkten används av en människa, och vilka förtroendesignaler de visar (garanti, betyg, recensioner, certifiering, leverans).
 4. Varför just de gick bra för just de företagen: krok, format (demo, före/efter, UGC, ASMR, humor), känsla, ljud, längd, målgrupp och timing. Skilj på vad källan säger och din bedömning.
@@ -75,7 +75,10 @@ ${product.focus ? `Ägarens instruktioner för just den här produkten:\n${produ
 ${previous ? `\nFörra rapporten (bygg vidare, upprepa inte):\n${previous.notes.slice(0, 4000)}` : ""}`,
   });
 
-  log(product.id, "research", `Faktakollar rapporten (${draft.sources.length} källor)…`);
+  // Utan lästa källor finns inget att faktakolla, och då ska den gamla researchen ligga kvar i stället för en tom rapport.
+  if (!draft.sources.length) throw new Error("Researchen hittade inga källor att läsa, så ingen ny rapport sparades. Den förra researchen används tills vidare.");
+  const searchedWith = geminiConfigured() ? (tavilyConfigured() ? "Tavily" : "Google") : "Claude";
+  log(product.id, "research", `Läste ${draft.sources.length} källor (sökning med ${searchedWith}). Faktakollar rapporten…`);
   progress.stage(product.id, "research", "check", `${draft.sources.length} källor`);
   const notes = await ask({
     ...cost,
@@ -85,13 +88,14 @@ ${previous ? `\nFörra rapporten (bygg vidare, upprepa inte):\n${previous.notes.
     system:
       "Du är faktagranskare för Vardagshoppen. Du får ett researchutkast och listan med källor som faktiskt lästes. " +
       "Din uppgift är att bara släppa igenom det som går att lita på. Stryk varje påstående och siffra som saknar en källa ur listan, " +
-      "som källan inte säger, eller som verkar föråldrat. Du får göra några egna sökningar för att dubbelkolla de viktigaste siffrorna. " +
+      "som källan inte säger, eller som verkar föråldrat, och varje siffra som inte syns i källans utdrag när det finns ett utdrag. " +
+      "Ett påstående med en källa ur listan som utdraget stöder eller inte motsäger får stå kvar. Du får göra några egna sökningar för att dubbelkolla de viktigaste siffrorna. " +
       "Lägg aldrig till nya fakta utan källa. Skriv på svenska.",
     prompt: `Researchutkast:
 ${draft.text}
 
 Källor som lästes:
-${draft.sources.map((s) => `- ${s.title}: ${s.url}`).join("\n") || "(inga)"}
+${draft.sources.map((s) => `- ${s.title}: ${s.url}${s.excerpt ? `\n  Utdrag: ${s.excerpt}` : ""}`).join("\n")}
 
 Skriv den slutliga rapporten till promptagenten med exakt dessa rubriker, i den här ordningen. Ägaren läser också rapporten, så skriv kort och enkelt: en punkt per rad som börjar med "- ".
 ## Det här tar vi med oss
@@ -116,7 +120,9 @@ De bästa idéerna (högst tre), justerade så att de bara bygger på verifierad
 ## Struket
 Kort lista över vad du tog bort och varför, så att ägaren kan se att granskningen gjordes.`,
   });
-  db.prepare("INSERT INTO research (product_id, created_at, notes) VALUES (?, ?, ?)").run(product.id, now(), notes);
+  // Första raden visar hur mycket som lästes, så att ägaren ser att agenten faktiskt har letat.
+  const header = `Lästa källor: ${draft.sources.length} (sökning med ${searchedWith}${draft.searches ? `, ${draft.searches} sökningar` : ""}).`;
+  db.prepare("INSERT INTO research (product_id, created_at, notes) VALUES (?, ?, ?)").run(product.id, now(), `${header}\n\n${notes}`);
   log(product.id, "research", "Ny faktakollad research klar och skickad till promptagenten.");
   progress.done(product.id, "research");
 }

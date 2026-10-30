@@ -79,5 +79,9 @@ export async function askClaude({ system, prompt, schema, webSearch = false, max
   if (!withSources) return text;
   const sources = new Map();
   for (const c of textBlocks.flatMap((b) => b.citations ?? [])) if (c.url) sources.set(c.url, c.title || c.url);
+  // Alla sidor som webbsökningen gav räknas som lästa, även om Claude inte citerade dem i texten.
+  for (const r of content.filter((b) => b.type === "web_search_tool_result").flatMap((b) => (Array.isArray(b.content) ? b.content : []))) {
+    if (r.url && !sources.has(r.url)) sources.set(r.url, r.title || r.url);
+  }
   return { text, sources: [...sources].map(([url, title]) => ({ url, title })) };
 }
