@@ -60,7 +60,7 @@
   .check { display:inline-flex; align-items:center; gap:6px; margin:0 12px 0 0; font-size:14px; color:var(--fg); }
   .check input { width:auto; }
 
-  /* Agentflödet: research → prompt → kanalerna. Pilarna fylls med grönt medan agenten före jobbar. */
+  /* Agentflödet: research → prompt → redigering → kanalerna. Pilarna fylls med grönt medan agenten före jobbar. */
   .flow { position:relative; display:grid; gap:40px; }
   .flow .channels { display:grid; gap:12px; padding-left:30px; }
   .wires { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
@@ -80,7 +80,7 @@
   .pill.error { color:var(--bad); border-color:var(--bad); }
   .status { font-size:14px; margin:6px 0 2px; }
   @media (min-width:900px) {
-    .flow { grid-template-columns:1fr 1fr 1fr; column-gap:80px; align-items:center; }
+    .flow { grid-template-columns:1fr 1fr 1fr 1fr; column-gap:48px; align-items:center; }
     .flow .channels { padding-left:0; }
   }
   @media (prefers-reduced-motion: reduce) { .node.receive, .dot.working { animation:none; } }
@@ -114,6 +114,7 @@
   <h2>Berättarröst</h2>
   <div class="card">
     <div class="muted">Vilken svensk röst som läser texten i videorna. Gratis. Lyssna och välj; en video som väntar på godkännande får den nya rösten med "Ändra rösten".</div>
+    <div class="row" id="voiceSpeeds" style="align-items:center"></div>
     <div id="voices" style="margin-top:8px"></div>
   </div>
 
@@ -151,6 +152,7 @@
     </svg>
     <div class="card node" id="node-research"></div>
     <div class="card node" id="node-prompt"></div>
+    <div class="card node" id="node-polish"></div>
     <div class="channels">
       <div class="card node" id="node-tiktok"></div>
       <div class="card node" id="node-instagram"></div>
@@ -189,6 +191,7 @@
 const AGENTS = {
   research: ["Researchagent", "Studerar andras annonser. Researchen sparas per produkt och återanvänds till alla videor"],
   prompt: ["Promptagent", "Gör de videor du beställer, en i taget"],
+  polish: ["Redigeringsagent", "Ger varje video en sista touch: skärpa, jämna kanter, friskare färger och jämn ljudnivå. Gratis"],
   instagram: ["Instagram", "Lägger upp Reels och svarar"],
   facebook: ["Facebook", "Lägger upp video och svarar"],
   tiktok: ["TikTok", "Lägger upp video"],
@@ -379,10 +382,12 @@ function render() {
   $("videoModels").innerHTML = state.videoModels.map((m) => `
     <label class="check" style="display:block;margin:6px 0"><input type="radio" name="videoModel" ${m.chosen ? "checked" : ""} onchange="chooseModel('${esc(m.id)}', ${m.sek}, '${esc(m.name)}')">
       <strong>${esc(m.name)}</strong> · ca ${m.sek} kr per video <span class="muted">${esc(m.note)}</span></label>`).join("");
+  $("voiceSpeeds").innerHTML = `<strong style="margin-right:8px">Takt:</strong>` + state.voiceSpeeds.map((s) => `
+    <label class="check"><input type="radio" name="voiceSpeed" ${s.chosen ? "checked" : ""} onchange="chooseSpeed('${esc(s.id)}')"> ${esc(s.name)}</label>`).join("");
   $("voices").innerHTML = state.voices.map((v) => `
     <div class="row" style="align-items:center;margin:6px 0">
       <label class="check" style="min-width:220px"><input type="radio" name="voice" ${v.chosen ? "checked" : ""} onchange="chooseVoice('${esc(v.id)}')"> <strong>${esc(v.name)}</strong></label>
-      <audio src="/api/voices/${esc(v.id)}/preview" controls preload="none" style="height:32px"></audio>
+      <audio src="/api/voices/${esc(v.id)}/preview?takt=${esc(state.voiceSpeeds.find((x) => x.chosen)?.id ?? "1")}" controls preload="none" style="height:32px"></audio>
     </div>`).join("");
   $("inbox").innerHTML = state.inbox.map((m) => `
     <div class="card" style="margin-bottom:10px">
@@ -429,7 +434,7 @@ function render() {
 
 // ---------- Agentflödet med pilarna ----------
 // En pil fylls med grönt medan agenten före den jobbar. När pilen är full är agenten klar och uppgiften går vidare.
-const WIRES = [["research", "prompt"], ["prompt", "tiktok"], ["prompt", "instagram"], ["prompt", "facebook"]];
+const WIRES = [["research", "prompt"], ["prompt", "polish"], ["polish", "tiktok"], ["polish", "instagram"], ["polish", "facebook"]];
 const wires = {}; // "från-till" → { target, shown, live, el }
 const STATUS_PILL = { working: "Arbetar", done: "Klar", error: "Fel", stopped: "Stoppad", idle: "Vilar", waiting: "Väntar", on: "På", off: "Av" };
 
@@ -471,7 +476,7 @@ function channelTask(channel) {
 }
 
 function renderFlow(product) {
-  const { research, prompt } = state.flow;
+  const { research, prompt, polish } = state.flow;
   const agent = (kind) => product.agents.find((a) => a.kind === kind);
   const researchWorking = research?.status === "working";
   const promptWorking = prompt?.status === "working";
@@ -500,8 +505,22 @@ function renderFlow(product) {
   $("node-research").classList.toggle("working", researchWorking);
   $("node-prompt").classList.toggle("working", promptWorking);
 
+  // Redigeringsagenten
+  const polishWorking = polish?.status === "working";
+  let eStatus = state.settings.polish ? "on" : "off", eText = state.settings.polish ? "Väntar på nästa video från promptagenten." : "Avstängd. Videorna klipps utan sista touch.";
+  if (polishWorking) { eStatus = "working"; eText = stageText("polish", polish); }
+  else if (polish?.status === "error") { eStatus = "error"; eText = `Sista touchen gick inte helt, så videon visas utan den: ${esc(polish.detail)}`; }
+  else if (polish?.status === "done") { eStatus = "done"; eText = `${esc(polish.detail)} fick sin sista touch ${time(polish.at)}. Skickad till kanalagenterna.`; }
+  $("node-polish").innerHTML = nodeHtml({ kind: "polish" }, eStatus, eText,
+    `<div class="row"><label class="check"><input type="checkbox" ${state.settings.polish ? "checked" : ""} onchange="togglePolish(this.checked)"> Sista touch på</label></div>`);
+  $("node-polish").classList.toggle("working", polishWorking);
+
   // Kanalagenterna
-  const target = { "research-prompt": progressPct("research", research) };
+  const anyTask = Object.keys(CHANNEL_NAMES).some((ch) => channelTask(ch));
+  const target = {
+    "research-prompt": progressPct("research", research),
+    "prompt-polish": promptWorking ? progressPct("prompt", prompt) : polishWorking || anyTask ? 100 : 0,
+  };
   for (const ch of Object.keys(CHANNEL_NAMES)) {
     const a = agent(ch);
     const task = channelTask(ch);
@@ -520,14 +539,14 @@ function renderFlow(product) {
         ${ch === "facebook" ? `<button class="ghost" onclick="location.href='/meta/connect'">Koppla Facebook</button><button class="ghost" onclick="checkMeta()">Kontrollera</button>` : ""}
       </div>`);
     $(`node-${ch}`).classList.toggle("working", status === "working");
-    target[`prompt-${ch}`] = promptWorking ? progressPct("prompt", prompt) : task ? 100 : 0;
+    target[`polish-${ch}`] = polishWorking ? progressPct("polish", polish) : task ? 100 : 0;
   }
 
   for (const [from, to] of WIRES) {
     const id = `${from}-${to}`;
     wires[id] ??= { shown: target[id] };
     wires[id].target = target[id];
-    wires[id].live = from === "research" ? researchWorking : promptWorking;
+    wires[id].live = { research: researchWorking, prompt: promptWorking, polish: polishWorking }[from];
   }
   drawWires();
 }
@@ -549,7 +568,7 @@ function drawWires() {
     if (wide) {
       const x1 = a.right, y1 = a.midY, x2 = b.left - 3, y2 = b.midY, dx = (x2 - x1) / 2;
       d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
-    } else if (from === "research") {
+    } else if (from !== "polish") {
       d = `M${a.midX},${a.bottom} L${b.midX},${b.top - 3}`;
     } else {
       // Mobil: en stam längs vänsterkanten som grenar av in till varje kanal.
@@ -709,6 +728,10 @@ async function reeditVoice(id) {
   button.disabled = true; button.textContent = "Klipper om…";
   try { await api("POST", `/api/videos/${id}/reedit`, { voiceover, caption_text }); } finally { refresh(); }
 }
+async function chooseSpeed(id) {
+  await api("POST", "/api/settings", { tts_speed: id });
+  refresh();
+}
 async function chooseVoice(id) {
   await api("POST", "/api/settings", { tts_voice: id });
   refresh();
@@ -748,6 +771,7 @@ function copyText(id) { navigator.clipboard.writeText($(id).value); }
 
 $("startAll").onclick = () => toggleAgent("all", 1);
 $("stopAll").onclick = () => toggleAgent("all", 0);
+async function togglePolish(on) { await api("POST", "/api/settings", { polish: on }); refresh(); }
 for (const key of ["auto_reply_instagram", "auto_reply_facebook"]) {
   $(key).onchange = (e) => api("POST", "/api/settings", { [key]: e.target.checked });
 }

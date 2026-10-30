@@ -25,7 +25,7 @@ fs.writeFileSync(FONTCONFIG_FILE, `<?xml version="1.0"?>
 </fontconfig>
 `);
 
-function run(args) {
+export function run(args) {
   return new Promise((resolve, reject) => {
     const child = spawn(FFMPEG, ["-hide_banner", ...args], { env: { ...process.env, FONTCONFIG_FILE } });
     let stderr = "";

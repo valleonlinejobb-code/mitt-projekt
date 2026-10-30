@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import ffmpeg from "ffmpeg-static";
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-uf-test-"));
@@ -173,7 +173,8 @@ globalThis.fetch = async (input, init = {}) => {
 const { db, activeProduct } = await import("../src/db.js");
 const { tick } = await import("../src/scheduler.js");
 const { setQueuedVideos, queuedVideos, pollVideos } = await import("../src/agents/prompt.js");
-const { progressOf, STAGES } = await import("../src/progress.js");
+const progress = await import("../src/progress.js");
+const { progressOf, STAGES } = progress;
 const { probe } = await import("../src/editor.js");
 const { speakable } = await import("../src/voice.js");
 
@@ -247,8 +248,11 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   assert.equal(tts.body.input.text, speakable(CONCEPT.voiceover));
   assert.match(tts.body.input.text, /vardagshoppen punkt com/);
   assert.equal(tts.body.voice.languageCode, "sv-SE");
+  assert.equal(tts.body.audioConfig.speakingRate, 1, "vanlig takt tills du väljer en annan");
   assert.match(video.idea, /Röst: "Trött på leriga tassar/);
   assert.equal(progressOf(product.id, "prompt").status, "done");
+  // Redigeringsagenten har gett videon sin sista touch.
+  assert.equal(progressOf(product.id, "polish").status, "done");
 
   // Inget läggs upp innan du har godkänt.
   db.prepare("UPDATE agents SET running = 1 WHERE product_id = ? AND kind IN ('facebook', 'instagram')").run(product.id);
@@ -518,6 +522,45 @@ test("Promptagenten och granskaren vet att tassen ska gnuggas runt i koppen och 
   assert.match(review.body.system, /Ägarens användningsvideo/);
   assert.match(review.body.system, /snygg och ren reklam/);
   assert.match(review.body.messages[0].content.at(-1).text, /scrub all around the paw/);
+});
+
+/** Det ffmpeg skriver om en fil (på stderr), t.ex. storlek och ljudnivå. */
+const ffmpegInfo = (...args) => spawnSync(ffmpeg, ["-hide_banner", "-nostats", ...args], { encoding: "utf8" }).stderr;
+/** Ljudnivån i LUFS, som TikTok och Instagram mäter den. */
+const lufs = (file) => Number(ffmpegInfo("-i", file, "-af", "ebur128", "-f", "null", "-").match(/Integrated loudness:\s+I:\s+(-?[\d.]+)/)[1]);
+
+test("Redigeringsagenten: skarpare bild i 720×1280 och jämn ljudnivå, gratis, och kan stängas av", async () => {
+  const { polishLook, polishSound } = await import("../src/polish.js");
+  const { setSetting } = await import("../src/db.js");
+  const media = path.join(dataDir, "media");
+  // Bilden: den lilla provfilmen (480×854) skalas upp mjukt till 720×1280, och ljudet följer med.
+  const looked = path.join(media, "polish-look.mp4");
+  await polishLook(sampleVideo, looked);
+  assert.match(ffmpegInfo("-i", looked), /Video: h264.*720x1280/);
+  assert.ok((await probe(looked)).hasAudio);
+  // Ljudet: en svag ton lyfts till ungefär −14 LUFS, samma nivå som sociala medier använder.
+  const quiet = path.join(media, "polish-quiet.mp4");
+  execFileSync(ffmpeg, ["-v", "error", "-y", "-i", sampleVideo, "-af", "volume=-25dB", "-c:v", "copy", "-c:a", "aac", quiet]);
+  assert.ok(lufs(quiet) < -30, `före: ${lufs(quiet)}`);
+  await polishSound(quiet);
+  assert.ok(Math.abs(lufs(quiet) + 14) < 2.5, `efter: ${lufs(quiet)} LUFS`);
+  // Med övergången: ett whoosh läggs in där slutbilden sveper in, och ljudet är fortfarande runt −14 LUFS.
+  const swoosh = path.join(media, "polish-swoosh.mp4");
+  // En längre film (8 s), som en riktig annons: på bara 2 s hinner ljudnivån inte mätas ut ordentligt.
+  execFileSync(ffmpeg, ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=s=360x640:d=8:r=24", "-f", "lavfi", "-i", "sine=f=300:d=8",
+    "-af", "volume=-25dB", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", swoosh]);
+  await polishSound(swoosh, { transitionAt: 5 });
+  assert.ok(Math.abs(lufs(swoosh) + 14) < 2.5, `med whoosh: ${lufs(swoosh)} LUFS`);
+
+  // Avstängd: videon klipps utan sista touch, och redigeringsagenten rör den inte.
+  const product = activeProduct();
+  setSetting("polish", false);
+  progress.stopped(product.id, "polish", "");
+  const { lastInsertRowid } = db.prepare("INSERT INTO videos (product_id, created_at, status, raw_file, edit) VALUES (?, ?, 'failed', ?, ?)")
+    .run(product.id, new Date().toISOString(), path.basename(looked), JSON.stringify({ overlays: CONCEPT.overlays, info_bar: CONCEPT.info_bar, end_card: CONCEPT.end_card }));
+  assert.equal(await editAndOffer(db.prepare("SELECT * FROM videos WHERE id = ?").get(Number(lastInsertRowid))), true);
+  assert.equal(progressOf(product.id, "polish").status, "stopped");
+  setSetting("polish", true);
 });
 
 test("Provklippet när servern startar visar att klipparen fungerar", async () => {

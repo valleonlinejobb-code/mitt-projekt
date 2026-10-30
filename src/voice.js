@@ -23,17 +23,26 @@ export function chosenVoice() {
   return VOICES[voice] || voice === DEFAULT_VOICE ? voice : DEFAULT_VOICE;
 }
 
+// Hur fort rösten pratar. 1 = Googles vanliga takt. Lite snabbare känns ofta mer som reklam på TikTok.
+// En lista, eftersom ett objekt skulle lägga "1" först.
+export const SPEED_LIST = [["0.9", "Lugn"], ["1", "Normal"], ["1.1", "Lite snabbare"], ["1.2", "Snabb"]];
+export const SPEEDS = Object.fromEntries(SPEED_LIST);
+export function chosenSpeed() {
+  const speed = String(getSetting("tts_speed", "1"));
+  return SPEEDS[speed] ? speed : "1";
+}
+
 export const voiceConfigured = () => Boolean(process.env.GOOGLE_TTS_API_KEY);
 
-/** Gör om texten till tal med den valda rösten (eller en annan för provlyssning). Returnerar en MP3 som Buffer. */
-export async function synthesizeVoice(text, voice = chosenVoice()) {
+/** Gör om texten till tal med den valda rösten och takten (eller andra för provlyssning). Returnerar en MP3 som Buffer. */
+export async function synthesizeVoice(text, voice = chosenVoice(), speed = chosenSpeed()) {
   const res = await fetch(API, {
     method: "POST",
     headers: { "X-Goog-Api-Key": process.env.GOOGLE_TTS_API_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({
       input: { text },
       voice: { languageCode: "sv-SE", name: voice },
-      audioConfig: { audioEncoding: "MP3" },
+      audioConfig: { audioEncoding: "MP3", speakingRate: Number(speed) },
     }),
   });
   const body = await res.json().catch(() => ({}));
