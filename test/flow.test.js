@@ -56,7 +56,7 @@ const CONCEPT = {
     "Photorealistic vertical smartphone video, sharp focus, natural colors, realistic hand and paw anatomy, no on-screen text.",
   hook_type: "problem–lösning",
   variant_of: 0,
-  audience: "ägare till stora hundar",
+  audience: "hundägare med ljust golv",
   overlays: [{ from: 0, to: 1, text: "Lerig hund igen?" }, { from: 1, to: 2, text: "Ren tass på sekunder" }],
   voiceover: "Trött på leriga tassar? Tasstvättkit för 199 kronor på vardagshoppen.com. De tio första får 10 % extra med koden FORSTA10.",
   info_bar: "Tasstvättkit · kopp + handduk · 199 kr",
@@ -744,4 +744,28 @@ test("Storlekarna: nämner annonsen bara L stoppas den, eftersom kitet finns i S
   assert.deepEqual(sizeProblems({ ...CONCEPT, voiceover: "Finns i S, M och L för 199 kronor." }, sizes), []);
   const onlyL = sizeProblems({ ...CONCEPT, voiceover: "Nu i storlek L för 199 kronor." }, sizes);
   assert.match(onlyL[0], /bara storlek L/);
+});
+
+test("Kontrollen av den färdiga filmen: en film utan grön slutbild och text släpps aldrig fram", async () => {
+  const { verifyAd } = await import("../src/editor.js");
+  await assert.rejects(verifyAd(sampleVideo, { duration: 1, total: 2, price: "199 kr", infoBar: "x" }), /slutbildens gröna bakgrund syns inte/);
+});
+
+test("Texten i bild är det rösten säger, i samma takt: varje mening börjar när rösten börjar säga den", async () => {
+  const { speechSegments, voiceCaptions, captionChunks } = await import("../src/editor.js");
+  // Tre "meningar" (toner) med pauser emellan, som en riktig berättarröst.
+  const voice = path.join(dataDir, "tre-meningar.mp3");
+  execFileSync(ffmpeg, ["-v", "error", "-f", "lavfi", "-i",
+    "sine=f=400:d=1.2[a];anullsrc=r=44100:cl=mono,atrim=0:0.5[s1];sine=f=400:d=2.4[b];anullsrc=r=44100:cl=mono,atrim=0:0.5[s2];sine=f=400:d=2[c];[a][s1][b][s2][c]concat=n=5:v=0:a=1",
+    voice]);
+  const segments = await speechSegments(voice, 6.6);
+  assert.equal(segments.length, 3, JSON.stringify(segments));
+  const text = "Leriga tassar igen? Pumpa, vrid och torka med handduken. Bara 199 kronor på vardagshoppen.com.";
+  const captions = voiceCaptions(text, segments, { tempo: 1, until: 10 });
+  assert.equal(captions[0].text, "Leriga tassar igen?");
+  assert.equal(captions[0].from, 0, "kroken syns från första bildrutan");
+  const second = captions.find((c) => c.text.startsWith("Pumpa"));
+  assert.ok(Math.abs(second.from - (0.4 + segments[1][0])) < 0.05, `andra meningen börjar med rösten (${second.from})`);
+  assert.equal(captions.map((c) => c.text).join(" ").replace(/,/g, ""), text.replace(/[,.]/g, "").replace("vardagshoppencom", "vardagshoppen.com"));
+  assert.deepEqual(captionChunks("Trött på leriga tassar efter varje promenad i skogen?"), ["Trött på leriga tassar efter", "varje promenad i skogen?"]);
 });
