@@ -24,12 +24,35 @@ const MAX_PER_MONTH = Number(process.env.MAX_VIDEOS_PER_MONTH || 35);
 const MIN_SCORE = Number(process.env.MIN_VIDEO_SCORE || 8);
 const REFERENCE = fs.readFileSync(new URL("./reference-ad.md", import.meta.url), "utf8");
 
-const CAPTIONS = {
+// Texten under videon ska vara kort: långa texter läses inte och låter AI-skrivna (ägarens önskan).
+const CAPTION = { type: "string", description: "1–2 korta meningar på naturlig svenska (högst 150 tecken utan hashtags), pris och erbjudande, sedan 2–3 hashtags" };
+export const CAPTIONS = {
   type: "object",
   additionalProperties: false,
   required: ["instagram", "facebook", "tiktok"],
-  properties: { instagram: { type: "string" }, facebook: { type: "string" }, tiktok: { type: "string" } },
+  properties: { instagram: CAPTION, facebook: CAPTION, tiktok: CAPTION },
 };
+export const CAPTION_MAX = 150;
+// Fraser som får en text att låta AI-skriven eller som reklamklyschor.
+const CLICHES = [/upptäck/i, /säg (hej|adjö)/i, /revolution/i, /game.?changer/i, /oavsett om/i, /perfekt för alla/i, /ta .{0,20}till nästa nivå/i, /missa inte/i, /här är hemligheten/i, /din nya bästa vän/i];
+
+/** Kollar med kod att texterna under videon är korta, enkla och inte låter AI-skrivna. */
+export function captionProblems(captions = {}) {
+  const problems = [];
+  for (const [channel, text] of Object.entries(captions)) {
+    const t = String(text ?? "");
+    const tags = t.match(/#[\p{L}\p{N}_]+/gu) ?? [];
+    const body = t.replace(/#[\p{L}\p{N}_]+/gu, "").trim();
+    const emojis = t.match(/\p{Extended_Pictographic}/gu) ?? [];
+    const sentences = body.replace(/\b[\w-]+\.(com|se)\b/gi, "").split(/[.!?]+/).filter((x) => x.trim().length > 2).length;
+    if (body.length > CAPTION_MAX) problems.push(`Texten till ${channel} är ${body.length} tecken, högst ${CAPTION_MAX} (utan hashtags).`);
+    if (sentences > 3) problems.push(`Texten till ${channel} har ${sentences} meningar, högst 3 inklusive priset.`);
+    if (tags.length > 3) problems.push(`Texten till ${channel} har ${tags.length} hashtags, högst 3.`);
+    if (emojis.length > 2) problems.push(`Texten till ${channel} har ${emojis.length} emojis, högst 2.`);
+    for (const re of CLICHES) if (re.test(body)) problems.push(`Texten till ${channel} låter AI-skriven ("${body.match(re)[0]}"). Skriv som en människa.`);
+  }
+  return problems;
+}
 // Information om butiken och produkten som klipparen visar snyggt i bild (ägaren vill ha en ren, informativ reklam).
 export const INFO_BAR = { type: "string", description: "Produktraden längst ner under hela videon, högst 40 tecken, t.ex. 'Tasstvättkit · kopp + handduk · 199 kr'" };
 export const END_CARD = {
@@ -132,7 +155,7 @@ const RULES = `Regler för en bra annons:
 - Låna greppen från "Annonser som gått bra och varför" – krok, format och känsla – men kopiera aldrig någon annans video.
 - Använd "Kundernas röst" i researchen: bygg krokar och texter på kundernas egna klagomål och ord, och bemöt en vanlig invändning (t.ex. att den passar stora hundar) om produktinfon stöder svaret. Citera aldrig en kund i annonsen.
 - Hundar ska se naturliga och glada ut. Inget som kan uppfattas som djurplågeri.
-- Texterna (captions) skrivs på svenska och slutar med en tydlig uppmaning, priset och erbjudandet. TikTok: lekfull, 3–5 hashtags. Instagram och Facebook: längre, beskriv vem produkten är för och vilket problem den löser (det hjälper annonssystemet att hitta rätt köpare), några hashtags.
+- Texterna under videon (captions) är KORTA: 1–2 meningar på naturlig, vardaglig svenska (högst 150 tecken utan hashtags), sedan priset och erbjudandet och 2–3 hashtags. Videon gör jobbet, texten ska bara läsas på en sekund. Skriv som en riktig butik, inte som en AI: inga klyschor ("Upptäck", "Säg adjö till", "Missa inte", "game changer"), inga utropstecken i varje mening, högst 2 emojis. Exempel: "Leriga tassar? Pumpa, vrid, torka – klart på 10 sekunder. 199 kr på vardagshoppen.com #hund #hundliv"
 - Rabatter och erbjudanden: nämn bara det som står under "Aktuella erbjudanden", med exakt samma procent och kod. Rabatter som står i produktbeskrivningen kan vara gamla och får inte användas. Står det inga erbjudanden nämns ingen rabatt.
 - Alla siffror och påståenden måste vara sanna: priset från produktinfon, övriga fakta bara från "Verifierade fakta" i researchen. Annars ingen siffra.
 
@@ -177,6 +200,7 @@ export function claimProblems(plan, product, offers, maxWords = 30) {
     plan.info_bar, plan.end_card?.headline, ...(plan.end_card?.features ?? []), ...(plan.end_card?.offer_lines ?? []), plan.end_card?.cta,
     ...Object.values(plan.captions ?? {}),
   ].filter(Boolean);
+  problems.push(...captionProblems(plan.captions));
   const all = texts.join("\n");
   const codesInOffers = new Set(offers.match(/\b[A-ZÅÄÖ]{3,}\d+\b/g) ?? []);
   const percentsInOffers = new Set([...offers.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:%|procent)/gi)].map((m) => m[1]));

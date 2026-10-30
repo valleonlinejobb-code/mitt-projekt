@@ -605,3 +605,15 @@ test("Videomodellen går att byta, och priset räknas med", async () => {
   assert.equal(videoModel(), "alibaba/wan-3.0/reference-to-video", "okänd modell faller tillbaka");
   setSetting("video_model", "alibaba/wan-3.0/reference-to-video");
 });
+
+test("Texten under videon hålls kort och mänsklig: långa eller AI-klingande texter stoppas", async () => {
+  const { captionProblems } = await import("../src/agents/prompt.js");
+  const good = "Leriga tassar? Pumpa, vrid, torka – klart på 10 sekunder. 199 kr på vardagshoppen.com #hund #hundliv";
+  assert.deepEqual(captionProblems({ instagram: good, facebook: good, tiktok: good }), []);
+  const long = "Är du trött på leriga tassar efter promenaden? ".repeat(5) + "#a #b #c #d #e";
+  const problems = captionProblems({ facebook: long, tiktok: "Upptäck hemligheten bakom rena tassar 🐶🐾✨" });
+  assert.ok(problems.some((p) => /facebook är \d+ tecken/.test(p)), problems.join(" "));
+  assert.ok(problems.some((p) => /5 hashtags/.test(p)));
+  assert.ok(problems.some((p) => /tiktok låter AI-skriven/.test(p)));
+  assert.ok(problems.some((p) => /3 emojis/.test(p)));
+});
