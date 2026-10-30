@@ -15,6 +15,7 @@ import { addClip } from "./agents/clips.js";
 import { researchDue, latestResearch, RESEARCH_EVERY_DAYS } from "./agents/research.js";
 import { importShopifyProducts } from "./shopify.js";
 import { STAGES, progressOf } from "./progress.js";
+import { polishEnabled } from "./polish.js";
 import { estimateSek, spendSummary } from "./costs.js";
 import { selfCheck } from "./editor.js";
 import { voiceConfigured, synthesizeVoice } from "./voice.js";
@@ -60,6 +61,7 @@ function flowFor(product) {
     stages: Object.fromEntries(Object.entries(STAGES).map(([agent, list]) => [agent, list.map(([, label, seconds]) => ({ label, seconds }))])),
     research: progressOf(product.id, "research") ?? (research ? { status: "done", at: research.created_at, detail: "" } : null),
     prompt,
+    polish: progressOf(product.id, "polish"),
   };
 }
 
@@ -106,6 +108,7 @@ app.get("/api/state", (_req, res) => {
     settings: {
       auto_reply_instagram: getSetting("auto_reply_instagram", false),
       auto_reply_facebook: getSetting("auto_reply_facebook", false),
+      polish: polishEnabled(),
       offers: currentOffers(),
     },
   });
@@ -326,9 +329,10 @@ app.post("/api/inbox/:id/ignore", (req, res) => {
 });
 
 app.post("/api/settings", (req, res) => {
-  for (const key of ["auto_reply_instagram", "auto_reply_facebook"]) {
+  for (const key of ["auto_reply_instagram", "auto_reply_facebook", "polish"]) {
     if (key in req.body) setSetting(key, Boolean(req.body[key]));
   }
+  if ("polish" in req.body) log(null, "prompt", `Redigeringsagenten är ${req.body.polish ? "på" : "av"}.`);
   if ("video_model" in req.body) {
     if (!VIDEO_MODELS[req.body.video_model]) return res.status(400).json({ error: "Okänd videomodell" });
     setSetting("video_model", req.body.video_model);

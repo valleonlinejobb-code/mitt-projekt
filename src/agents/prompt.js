@@ -12,6 +12,7 @@ import { workingProductImage, productImageUrls } from "../shopify.js";
 import { editVideo } from "../editor.js";
 import { voiceConfigured, synthesizeVoice } from "../voice.js";
 import { refreshStats, performance } from "./stats.js";
+import { polishEnabled, polishLook, polishSound } from "../polish.js";
 
 // Krok-typerna från Metas Ads Creative Studio. De tre idéerna ska använda olika typer.
 export const HOOK_TYPES = ["nöjsam start", "känslosam berättelse", "sketch", "FOMO", "problem–lösning"];
@@ -492,8 +493,8 @@ export async function pollVideos() {
 export async function editAndOffer(video) {
   const outFile = `${crypto.randomBytes(12).toString("hex")}.mp4`;
   try {
-    const { voiceError } = await finishAd(video, video.raw_file, outFile);
-    const note = voiceError ? `Utan berättarröst: ${voiceError}` : null;
+    const { voiceError, polishError } = await finishAd(video, video.raw_file, outFile);
+    const note = [voiceError && `Utan berättarröst: ${voiceError}`, polishError && `Utan sista touch: ${polishError}`].filter(Boolean).join(" ") || null;
     db.prepare("UPDATE videos SET status = 'pending', local_file = ?, error = ? WHERE id = ?").run(outFile, note, video.id);
     if (video.local_file && video.local_file !== video.raw_file) fs.rmSync(path.join(MEDIA_DIR, path.basename(video.local_file)), { force: true });
     log(video.product_id, "prompt", `Video #${video.id} är klar och väntar på ditt godkännande.${note ? ` ${note}` : ""}`);
@@ -546,8 +547,24 @@ export async function finishAd(video, rawFile, outFile) {
     voiceError = "GOOGLE_TTS_API_KEY saknas i Railway";
   }
   const productImage = product ? await productImageFile(product) : null;
+  // Redigeringsagenten putsar bilden innan text och slutbild läggs på. Går det inte klipps filmen som den är.
+  let input = path.join(MEDIA_DIR, rawFile);
+  let polished = null;
+  let polishError = null;
+  const polish = polishEnabled();
+  if (polish) {
+    progress.stage(video.product_id, "polish", "look", `Video #${video.id}`);
+    polished = path.join(MEDIA_DIR, `${outFile}.polished.mp4`);
+    try {
+      await polishLook(input, polished);
+      input = polished;
+    } catch (err) {
+      polishError = err.message.slice(0, 300);
+    }
+    progress.stage(video.product_id, "polish", "edit", `Video #${video.id}`);
+  }
   const options = {
-    input: path.join(MEDIA_DIR, rawFile),
+    input,
     output: path.join(MEDIA_DIR, outFile),
     overlays: edit.overlays ?? [],
     price: product?.price ?? "",
@@ -564,9 +581,27 @@ export async function finishAd(video, rawFile, outFile) {
       log(video.product_id, "prompt", `Produktbilden gick inte att lägga i slutbilden, så den görs utan: ${err.message.slice(0, 200)}`);
       await editVideo(options);
     }
+  } catch (err) {
+    if (polish) progress.stopped(video.product_id, "polish", `Video #${video.id} kunde inte klippas`);
+    throw err;
   } finally {
     if (voiceFile) fs.rmSync(voiceFile, { force: true });
     if (productImage) fs.rmSync(productImage, { force: true });
+    if (polished) fs.rmSync(polished, { force: true });
   }
-  return { file: outFile, voiceError };
+  if (polish) {
+    progress.stage(video.product_id, "polish", "sound", `Video #${video.id}`);
+    try {
+      await polishSound(options.output);
+    } catch (err) {
+      polishError = [polishError, err.message.slice(0, 300)].filter(Boolean).join(" ");
+    }
+    if (polishError) {
+      log(video.product_id, "prompt", `Redigeringsagenten: video #${video.id} fick inte hela sista touchen: ${polishError}`);
+      progress.failed(video.product_id, "polish", `Video #${video.id}: ${polishError}`);
+    } else {
+      progress.done(video.product_id, "polish", `Video #${video.id}`);
+    }
+  }
+  return { file: outFile, voiceError, polishError };
 }

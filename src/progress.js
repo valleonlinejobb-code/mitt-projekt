@@ -15,6 +15,12 @@ export const STAGES = {
     ["download", "Hämtar videon från Higgsfield", 10],
     ["edit", "Lägger på logga, pris, erbjudanden och röst", 20],
   ],
+  // Redigeringsagenten: den sista touchen (gratis, ffmpeg).
+  polish: [
+    ["look", "Tar bort brus och flimmer, skärper och ger friskare färger", 15],
+    ["edit", "Promptagenten lägger på text, pris och slutbild", 20],
+    ["sound", "Jämnar ut ljudnivån", 5],
+  ],
 };
 
 const current = new Map();

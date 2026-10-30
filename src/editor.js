@@ -11,7 +11,7 @@ const W = 720;
 const H = 1280;
 const STORE_DOMAIN = new URL(process.env.SHOPIFY_STORE_URL || "https://vardagshoppen.com").host.replace(/^www\./, "");
 
-function run(args) {
+export function run(args) {
   return new Promise((resolve, reject) => {
     const child = spawn(FFMPEG, ["-hide_banner", ...args]);
     let stderr = "";
