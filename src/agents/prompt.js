@@ -76,7 +76,7 @@ const CONCEPT = {
     idea: { type: "string", description: "Kort beskrivning av idén på svenska" },
     hook_type: { type: "string", enum: HOOK_TYPES, description: "Vilken sorts krok de första 3 sekunderna" },
     variant_of: { type: "integer", description: "Numret på vinnarvideon om idén är en variant av den, annars 0" },
-    audience: { type: "string", description: "Vem annonsen riktar sig till (identitetsordet), t.ex. 'ägare till stora hundar'" },
+    audience: { type: "string", description: "Vem annonsen riktar sig till (identitetsordet), t.ex. 'hundägare med ljust golv'" },
     hook: { type: "string", description: "Vad tittaren ser de första 2 sekunderna" },
     video_prompt: { type: "string", description: "Prompt till videomodellen på engelska, i scener: 'Shot 1 (0-2s): ...' (se Så skriver du videoprompten)" },
     overlays: {
@@ -156,7 +156,8 @@ const RULES = `Regler för en bra annons:
 - overlays: 2–4 korta texter (1–5 ord) med tider mellan 0 och ${VIDEO_SECONDS} s som följer före → efter, t.ex. "Leriga tassar igen?" och "Ren tass på sekunder". Skriv som en vanlig TikTok-text, inte som en reklamskylt.
 - voiceover: en lugn, vänlig kvinnoröst som pratar svenska, högst 30 ord (ca 12 sekunder). Den säger problemet, lösningen, priset och erbjudandet med exakt kod, och avslutar med var man köper (vardagshoppen.com). Skriv koden så att den går att uttala, t.ex. "koden FORSTA10".
 - end_card: headline är samma löfte som produktsidan ger (annonsen och sidan ska matcha). offer_lines är 0–2 korta rader med erbjudandena, t.ex. "−5 % med koden VALKOMMEN5". cta är en kort uppmaning utan webbadress.
-- Rikta varje idé till en tydlig grupp i målgruppen med ett identitetsord (t.ex. "ägare till stora hundar", "du som bor på landet", "hundägare med ljust golv") och skriv in det i texten i bild eller texterna. Ge de tre idéerna olika grupper.
+- Produkten är för ALLA hundar, små som stora: koppens storlek (S, M eller L) väljs efter hundens storlek. Rikta aldrig en annons bara till stora (eller bara små) hundar, och skriv inte "stor hund" i texterna. Variera hundens ras och storlek mellan idéerna (t.ex. en liten terrier, en mellanstor spaniel, en stor labrador).
+- Rikta varje idé till en tydlig grupp i målgruppen med ett identitetsord (t.ex. "hundägare med ljust golv", "du som bor på landet", "du med hund i bilen") och skriv in det i texten i bild eller texterna. Ge de tre idéerna olika grupper.
 - De första 2 sekunderna avgör allt. Den starkaste kroken för oss: en riktigt lerig tass på väg in mot en ljus matta eller ett ljust golv, i närbild från hundens höjd. Minst en av de tre idéerna ska börja så, om inte beställningen bestämmer kroken.
 ${HOOK_GUIDE}
 - Krokar: ge de tre idéerna olika krok-typer (hook_type): "nöjsam start" (t.ex. lera som sköljs bort i närbild, tillfredsställande att se), "känslosam berättelse" (ägaren och hunden, vardagskänsla), "sketch" (en kort rolig situation, t.ex. hunden springer in lerig precis efter städningen), "FOMO" (bara med ett riktigt erbjudande, t.ex. att FORSTA10 bara gäller de 10 första) eller "problem–lösning".
@@ -165,7 +166,7 @@ ${HOOK_GUIDE}
 - Finns en vinnarvideo under "Resultat" ska en av de tre idéerna vara en variant av den (variant_of = dess nummer): behåll kärnan som fungerade, men byt kroken (de första 3 sekunderna), miljön eller utseendet så att tittaren inte tänker "den här har jag sett förut".
 - Prioritera videor som visar hur produkten används som bäst, enligt "Så används produkten bäst" i researchen.
 - Låna greppen från "Annonser som gått bra och varför" – krok, format och känsla – men kopiera aldrig någon annans video.
-- Använd "Kundernas röst" i researchen: bygg krokar och texter på kundernas egna klagomål och ord, och bemöt en vanlig invändning (t.ex. att den passar stora hundar) om produktinfon stöder svaret. Citera aldrig en kund i annonsen.
+- Använd "Kundernas röst" i researchen: bygg krokar och texter på kundernas egna klagomål och ord, och bemöt en vanlig invändning (t.ex. "passar den min hund?": ja, koppen finns i S, M och L efter hundens storlek) om produktinfon stöder svaret. Citera aldrig en kund i annonsen.
 - Hundar ska se naturliga och glada ut. Inget som kan uppfattas som djurplågeri.
 - Texterna under videon (captions) är KORTA: 1–2 meningar på naturlig, vardaglig svenska (högst 150 tecken utan hashtags), sedan priset och erbjudandet och 2–3 hashtags. Videon gör jobbet, texten ska bara läsas på en sekund. Skriv som en riktig butik, inte som en AI: inga klyschor ("Upptäck", "Säg adjö till", "Missa inte", "game changer"), inga utropstecken i varje mening, högst 2 emojis. Exempel: "Leriga tassar? Pumpa, vrid, torka – klart på 10 sekunder. 199 kr på vardagshoppen.com #hund #hundliv"
 - Rabatter och erbjudanden: nämn bara det som står under "Aktuella erbjudanden", med exakt samma procent och kod. Rabatter som står i produktbeskrivningen kan vara gamla och får inte användas. Står det inga erbjudanden nämns ingen rabatt.

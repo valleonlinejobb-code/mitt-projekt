@@ -56,7 +56,7 @@ const CONCEPT = {
     "Photorealistic vertical smartphone video, sharp focus, natural colors, realistic hand and paw anatomy, no on-screen text.",
   hook_type: "problem–lösning",
   variant_of: 0,
-  audience: "ägare till stora hundar",
+  audience: "hundägare med ljust golv",
   overlays: [{ from: 0, to: 1, text: "Lerig hund igen?" }, { from: 1, to: 2, text: "Ren tass på sekunder" }],
   voiceover: "Trött på leriga tassar? Tasstvättkit för 199 kronor på vardagshoppen.com. De tio första får 10 % extra med koden FORSTA10.",
   info_bar: "Tasstvättkit · kopp + handduk · 199 kr",
@@ -701,4 +701,9 @@ test("Storlekarna: nämner annonsen bara L stoppas den, eftersom kitet finns i S
   assert.deepEqual(sizeProblems({ ...CONCEPT, voiceover: "Finns i S, M och L för 199 kronor." }, sizes), []);
   const onlyL = sizeProblems({ ...CONCEPT, voiceover: "Nu i storlek L för 199 kronor." }, sizes);
   assert.match(onlyL[0], /bara storlek L/);
+});
+
+test("Kontrollen av den färdiga filmen: en film utan grön slutbild och text släpps aldrig fram", async () => {
+  const { verifyAd } = await import("../src/editor.js");
+  await assert.rejects(verifyAd(sampleVideo, { duration: 1, total: 2, price: "199 kr", infoBar: "x" }), /slutbildens gröna bakgrund syns inte/);
 });

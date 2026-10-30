@@ -205,6 +205,10 @@ db.prepare("UPDATE products SET focus = focus || char(10) || char(10) || ? WHERE
 db.prepare("UPDATE products SET description = replace(description, 'mjuka silikonborst', 'mjuka TPR-borst'), focus = replace(replace(focus, 'mjuka silikonborst', 'mjuka TPR-borst'), 'silikonborsten känns', 'de mjuka borsten känns') WHERE shop_url LIKE '%/products/tasstvattkit-%'").run();
 db.prepare("UPDATE products SET shopify_handle = substr(shop_url, instr(shop_url, '/products/') + 10) WHERE shopify_handle IS NULL AND shop_url LIKE '%/products/%'").run();
 
+// Ägaren 2026-10-30: annonserna riktade sig till stora hundar. Kitet är för alla hundar, koppens storlek efter hundens storlek.
+const PAW_KIT_ALL_DOGS = "Kitet är för alla hundar, små som stora. Koppens storlek väljs efter hundens storlek: S för små hundar, M för mellanstora, L för stora. Rikta aldrig annonserna bara till stora (eller små) hundar, och variera hundens storlek och ras mellan videorna.";
+db.prepare("UPDATE products SET focus = focus || char(10) || char(10) || ? WHERE shop_url LIKE '%/products/tasstvattkit-%' AND focus NOT LIKE '%Kitet är för alla hundar%'").run(PAW_KIT_ALL_DOGS);
+
 // Produkten som agenterna gör reklam för just nu. Standard: den första.
 export function activeProduct() {
   const id = getSetting("active_product_id", null);
