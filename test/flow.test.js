@@ -18,6 +18,7 @@ Object.assign(process.env, {
   META_PAGE_TOKEN: "page-token",
   META_IG_USER_ID: "",
   GOOGLE_TTS_API_KEY: "tts-key",
+  GEMINI_RETRY_MS: "0", // inga väntetider mellan nya försök i testerna
 });
 
 // En riktig liten video (2 s med ljud) och en riktig röstfil, så att klipparen testas på riktigt.
@@ -595,6 +596,28 @@ test("Sökningen ger inga träffar: researchen stoppas med ett tydligt fel och d
     delete process.env.TAVILY_API_KEY;
   }
   assert.equal(latestResearch(product.id).id, before.id, "ingen tom rapport sparades");
+});
+
+test("Gemini överbelastad (503): researchen försöker igen och byter till den mindre modellen", async () => {
+  const { runResearch, latestResearch } = await import("../src/agents/research.js");
+  const product = activeProduct();
+  const before = calls.length;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => String(input).includes("/gemini-3.8-flash:")
+    ? (calls.push({ url: String(input) }), new Response(JSON.stringify({ error: { message: "This model is currently experiencing high demand." } }), { status: 503 }))
+    : realFetch(input, init);
+  Object.assign(process.env, { GEMINI_API_KEY: "gemini-key", TAVILY_API_KEY: "tvly-key" });
+  try {
+    await runResearch(product);
+  } finally {
+    globalThis.fetch = realFetch;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.TAVILY_API_KEY;
+  }
+  assert.match(latestResearch(product.id).notes, /Gemini-faktakollad/);
+  const gemini = calls.slice(before).filter((c) => c.url.startsWith("https://generativelanguage.googleapis.com/"));
+  assert.equal(gemini.filter((c) => c.url.includes("/gemini-3.8-flash:")).length, 12, "3 försök per anrop, 4 anrop");
+  assert.equal(gemini.filter((c) => c.url.includes("/gemini-3.5-flash-lite:")).length, 4, "den mindre modellen klarade alla 4");
 });
 
 test("Kundernas röst plockas ut ur researchen, så att svarsagenten kan bemöta vanliga invändningar", async () => {
