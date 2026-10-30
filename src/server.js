@@ -29,6 +29,13 @@ app.use(express.json());
 // Offentligt: hälsokoll och videofiler (slumpade filnamn) så att Meta kan hämta dem.
 app.get("/health", (_req, res) => res.send("ok"));
 app.use("/media", express.static(MEDIA_DIR, { index: false }));
+// Samma video som nedladdning: mobilens webbläsare sparar filen i stället för att bara spela upp den.
+app.get("/download/:file", (req, res) => {
+  if (!/^[a-f0-9]{24}\.mp4$/.test(req.params.file)) return res.status(404).send("Hittades inte");
+  res.download(path.join(MEDIA_DIR, req.params.file), "vardagshoppen-annons.mp4", (err) => {
+    if (err && !res.headersSent) res.status(404).send("Hittades inte");
+  });
+});
 
 // Allt annat kräver lösenordet (CONTROL_PASSWORD). Användarnamnet spelar ingen roll.
 app.use((req, res, next) => {
@@ -248,9 +255,14 @@ app.get("/api/voices/:id/preview", async (req, res) => {
 app.post("/api/videos/:id/reedit", async (req, res) => {
   let video = one("SELECT * FROM videos WHERE id = ?", req.params.id);
   if (!video?.raw_file || !["failed", "pending"].includes(video.status)) return res.status(400).json({ error: "Den här videon går inte att klippa om" });
+  // Det rösten säger och det som står i bild kan skilja sig, t.ex. när rösten uttalar ett ord fel och du skriver det som det låter.
   const voiceover = String(req.body?.voiceover ?? "").trim();
-  if (voiceover) {
-    db.prepare("UPDATE videos SET edit = ? WHERE id = ?").run(JSON.stringify({ ...JSON.parse(video.edit || "{}"), voiceover }), video.id);
+  const captionText = String(req.body?.caption_text ?? "").trim();
+  if (voiceover || captionText) {
+    const edit = JSON.parse(video.edit || "{}");
+    if (voiceover) edit.voiceover = voiceover;
+    if (captionText) edit.caption_text = captionText;
+    db.prepare("UPDATE videos SET edit = ? WHERE id = ?").run(JSON.stringify(edit), video.id);
     video = one("SELECT * FROM videos WHERE id = ?", video.id);
   }
   // Egen status, så att klippagenten inte tar filmen och skriver nya texter (det skulle kosta).

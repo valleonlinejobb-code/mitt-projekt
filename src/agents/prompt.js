@@ -10,7 +10,7 @@ import { latestResearch } from "./research.js";
 import * as progress from "../progress.js";
 import { workingProductImage, productImageUrls, productOptions, sizesOf } from "../shopify.js";
 import { editVideo } from "../editor.js";
-import { voiceConfigured, synthesizeVoice } from "../voice.js";
+import { voiceConfigured, synthesizeVoice, speakable } from "../voice.js";
 import { refreshStats, performance } from "./stats.js";
 
 // Krok-typerna från Metas Ads Creative Studio. De tre idéerna ska använda olika typer.
@@ -155,6 +155,7 @@ const RULES = `Regler för en bra annons:
 - Det här läggs på automatiskt efteråt, så du ska inte be videomodellen om det: Vardagshoppens logga och namn uppe till vänster, priset uppe till höger, din text i bild (overlays) produktraden (info_bar) längst ner och en slutbild på 3 sekunder med logga, rubrik, produktbild, fördelar, pris, erbjudanden, uppmaning och webbadress.
 - overlays: 2–4 korta texter (1–5 ord) med tider mellan 0 och ${VIDEO_SECONDS} s som följer före → efter. De används bara om rösten inte går att göra; annars visas rösten ordagrant som text i bild. Låt dem därför vara samma ord som rösten säger vid samma tid, t.ex. "Leriga tassar igen?" först om rösten börjar så.
 - voiceover: en lugn, vänlig kvinnoröst som pratar svenska, högst 30 ord (ca 12 sekunder). Den säger problemet, lösningen, priset och erbjudandet med exakt kod, och avslutar med var man köper (vardagshoppen.com). Skriv koden så att den går att uttala, t.ex. "koden FORSTA10".
+- Rösten ska låta som en riktig hundägare som berättar för en kompis, inte som en reklamröst: vardagligt talspråk, korta meningar (3–8 ord), "du" i stället för "man", kommatecken där man andas, högst ett utropstecken. Inga reklamord (t.ex. "revolutionerande", "perfekt för", "missa inte", "unik"), inga uppräkningar med tre saker och inga ord som är svåra att uttala.
 - end_card: headline är samma löfte som produktsidan ger (annonsen och sidan ska matcha). offer_lines är 0–2 korta rader med erbjudandena, t.ex. "−5 % med koden VALKOMMEN5". cta är en kort uppmaning utan webbadress.
 - Produkten är för ALLA hundar, små som stora: koppens storlek (S, M eller L) väljs efter hundens storlek. Rikta aldrig en annons bara till stora (eller bara små) hundar, och skriv inte "stor hund" i texterna. Variera hundens ras och storlek mellan idéerna (t.ex. en liten terrier, en mellanstor spaniel, en stor labrador).
 - Rikta varje idé till en tydlig grupp i målgruppen med ett identitetsord (t.ex. "hundägare med ljust golv", "du som bor på landet", "du med hund i bilen") och skriv in det i texten i bild eller texterna. Ge de tre idéerna olika grupper.
@@ -557,7 +558,7 @@ export async function finishAd(video, rawFile, outFile) {
   if (edit.voiceover && voiceConfigured()) {
     try {
       voiceFile = path.join(MEDIA_DIR, `${outFile}.voice.mp3`);
-      fs.writeFileSync(voiceFile, await synthesizeVoice(edit.voiceover));
+      fs.writeFileSync(voiceFile, await synthesizeVoice(speakable(edit.voiceover)));
     } catch (err) {
       voiceFile = undefined;
       voiceError = err.message;
@@ -574,7 +575,8 @@ export async function finishAd(video, rawFile, outFile) {
     endCard: edit.end_card ?? {},
     infoBar: edit.info_bar ?? "",
     voiceFile,
-    voiceText: voiceFile ? edit.voiceover : "",
+    // Texten i bild: din egen text om du skrev en (t.ex. när rösten behöver ett ord stavat som det låter), annars det rösten säger.
+    voiceText: voiceFile ? edit.caption_text || edit.voiceover : "",
   };
   try {
     try {

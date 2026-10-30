@@ -40,3 +40,15 @@ export async function synthesizeVoice(text, voice = chosenVoice()) {
   if (!res.ok || !body.audioContent) throw new Error(`Google Text-to-Speech svarade ${res.status}: ${JSON.stringify(body).slice(0, 300)}`);
   return Buffer.from(body.audioContent, "base64");
 }
+
+/**
+ * Skriver om det som rösten annars läser konstigt, så att den låter mer som en människa:
+ * webbadresser, "kr" och "%". Texten i bild påverkas inte.
+ */
+export function speakable(text) {
+  return String(text)
+    .replace(/\b([\p{L}\d-]+)\.(com|se|nu)\b/giu, "$1 punkt $2")
+    .replace(/(\d)\s*kr\b/g, "$1 kronor")
+    .replace(/(\d)\s*%/g, "$1 procent")
+    .replace(/[−–]\s*(\d+ procent)/g, "$1");
+}
