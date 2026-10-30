@@ -7,7 +7,7 @@ import { db, now, log, currentOffers, MEDIA_DIR } from "../db.js";
 import { askClaude } from "../claude.js";
 import { newRun } from "../costs.js";
 import { extractFrames, probe } from "../editor.js";
-import { HOOK_TYPES, claimProblems, editAndOffer, INFO_BAR, END_CARD } from "./prompt.js";
+import { HOOK_TYPES, claimProblems, editAndOffer, INFO_BAR, END_CARD, CAPTIONS } from "./prompt.js";
 import * as progress from "../progress.js";
 
 export const MAX_CLIP_SECONDS = 90;
@@ -33,12 +33,7 @@ const CLIP_PLAN = {
     voiceover: { type: "string" },
     info_bar: INFO_BAR,
     end_card: END_CARD,
-    captions: {
-      type: "object",
-      additionalProperties: false,
-      required: ["instagram", "facebook", "tiktok"],
-      properties: { instagram: { type: "string" }, facebook: { type: "string" }, tiktok: { type: "string" } },
-    },
+    captions: CAPTIONS,
   },
 };
 
@@ -103,7 +98,7 @@ Skriv:
 - voiceover: en lugn svensk kvinnoröst, högst ${maxWords} ord. Den säger problemet, lösningen, priset och erbjudandet med exakt kod, och avslutar med vardagshoppen.com.
 - info_bar: produktraden längst ner under hela filmen, högst 40 tecken, t.ex. "Tasstvättkit · kopp + handduk · ${product.price}".
 - end_card: rubrik (samma löfte som produktsidan, högst 6 ord), 2–3 korta fördelar ur produktinfon (features, högst 3 ord var), 0–2 rader med erbjudandena och en kort uppmaning utan webbadress.
-- captions: inläggstexter för Instagram, Facebook och TikTok på svenska som slutar med uppmaning, pris och erbjudande.
+- captions: texten under videon för Instagram, Facebook och TikTok. KORT: 1–2 meningar på naturlig svenska (högst 150 tecken utan hashtags), pris och erbjudande, 2–3 hashtags. Inga AI-klyschor ("Upptäck", "Säg adjö till", "Missa inte"), högst 2 emojis.
 Bara priset ${product.price} och erbjudandena ovan får nämnas. Inga andra siffror om de inte står i produktinfon.
 ${feedback ? `\nRätta det här från förra försöket:\n${feedback}` : ""}`,
       });
