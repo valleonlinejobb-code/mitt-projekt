@@ -93,8 +93,13 @@ globalThis.fetch = async (input, init = {}) => {
     const system = body.system;
     if (system.startsWith("Du är researchagent")) {
       // Som en riktig research: mycket text från webbsökningarna.
+      // Källa B kom från en sökning men citerades inte – den räknas ändå som läst.
       return claudeText("Utkast", [{ type: "web_search_result_location", url: "https://example.com/a", title: "Källa A", cited_text: "x", encrypted_index: "e" }],
-        { model: body.model, usage: { input_tokens: 200_000, output_tokens: 10_000, server_tool_use: { web_search_requests: 12 } } });
+        { model: body.model, usage: { input_tokens: 200_000, output_tokens: 10_000, server_tool_use: { web_search_requests: 12 } },
+          content: [
+            { type: "web_search_tool_result", tool_use_id: "srvtoolu_1", content: [{ type: "web_search_result", url: "https://example.com/b", title: "Källa B", encrypted_content: "e" }] },
+            { type: "text", text: "Utkast", citations: [{ type: "web_search_result_location", url: "https://example.com/a", title: "Källa A", cited_text: "x", encrypted_index: "e" }] },
+          ] });
     }
     if (system.startsWith("Du är faktagranskare")) return claudeText("## Så används produkten bäst\n- Doppa och vrid (källa: https://example.com/a)");
     if (system.startsWith("Du är promptagent")) return claudeText(JSON.stringify({ concepts: [CONCEPT, CONCEPT, CONCEPT] }));
@@ -124,8 +129,8 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url === "https://api.tavily.com/search") {
     return json({ results: [
-      { title: "Tasstips", url: "https://hundtips.se/tassar", content: "Tvätta tassen i ljummet vatten." },
-      { title: "Oanvänd", url: "https://example.com/oanvand", content: "Något annat." },
+      { title: "Tasstips", url: "https://hundtips.se/tassar", content: "Kort utdrag.", raw_content: "Tvätta tassen i ljummet vatten och torka med handduk." },
+      { title: "Recension", url: "https://example.com/recension", content: "Kunderna tycker att koppen är för liten för stora hundar." },
     ] });
   }
   if (url.startsWith("https://vertexaisearch.cloud.google.com/")) return new Response(null, { status: 302, headers: { location: "https://hundtips.se/tassar" } });
@@ -180,6 +185,9 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   assert.equal(progressOf(product.id, "research").status, "done");
   const research = db.prepare("SELECT * FROM research WHERE product_id = ?").get(product.id);
   assert.match(research.notes, /Doppa och vrid/);
+  const checkCall = calls.find((c) => c.body?.system?.startsWith?.("Du är faktagranskare"));
+  assert.match(checkCall.body.messages[0].content.at(-1).text, /- Källa A: https:\/\/example\.com\/a\n- Källa B: https:\/\/example\.com\/b/);
+  assert.match(research.notes, /^Lästa källor: 2 \(sökning med Claude\)\./);
 
   // Promptagenten fick researchen och skickade prompten + produktbilden till Higgsfield.
   const ideaCall = calls.find((c) => c.url.startsWith("https://api.anthropic.com/") && c.body.system.startsWith("Du är promptagent"));
@@ -559,12 +567,34 @@ test("Med GEMINI_API_KEY och TAVILY_API_KEY görs researchen helt gratis: Tavily
   assert.equal(tavily.length, 6, "tre sökningar per steg");
   assert.equal(tavily[0].headers.get("authorization"), "Bearer tvly-key");
   // Utkastet byggde på träffarna, och bara källor som faktiskt citerades skickades vidare till faktakollen.
-  assert.match(geminiCalls[1].body.contents[0].parts[0].text, /URL: https:\/\/hundtips\.se\/tassar/);
+  assert.match(geminiCalls[1].body.contents[0].parts[0].text, /URL: https:\/\/hundtips\.se\/tassar\nTvätta tassen i ljummet vatten och torka/);
   const checkPrompt = geminiCalls[3].body.contents[0].parts[0].text;
-  assert.match(checkPrompt, /- Tasstips: https:\/\/hundtips\.se\/tassar/);
-  assert.doesNotMatch(checkPrompt, /- Oanvänd: /);
+  // Alla lästa sidor går vidare till faktakollen, med sidans egen text som utdrag (inte bara de citerade).
+  assert.equal(tavily[0].body.include_raw_content, "text");
+  assert.match(checkPrompt, /- Tasstips: https:\/\/hundtips\.se\/tassar\n  Utdrag: Tvätta tassen i ljummet vatten och torka med handduk\./);
+  assert.match(checkPrompt, /- Recension: https:\/\/example\.com\/recension\n  Utdrag: Kunderna tycker/);
+  assert.match(latestResearch(product.id).notes, /^Lästa källor: 2 \(sökning med Tavily, 3 sökningar\)\./);
   assert.equal(calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length, claudeBefore, "Claude anropades inte");
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM costs").get().n, costsBefore, "ingen kostnad");
+});
+
+test("Sökningen ger inga träffar: researchen stoppas med ett tydligt fel och den förra rapporten ligger kvar", async () => {
+  const { runResearch, latestResearch } = await import("../src/agents/research.js");
+  const product = activeProduct();
+  const before = latestResearch(product.id);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => String(input) === "https://api.tavily.com/search"
+    ? new Response(JSON.stringify({ detail: { error: "This request exceeds your plan's set usage limit." } }), { status: 432 })
+    : realFetch(input, init);
+  Object.assign(process.env, { GEMINI_API_KEY: "gemini-key", TAVILY_API_KEY: "tvly-key" });
+  try {
+    await assert.rejects(runResearch(product), /Sökningen gav inga träffar \(3 sökningar\): Tavily svarade 432: This request exceeds/);
+  } finally {
+    globalThis.fetch = realFetch;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.TAVILY_API_KEY;
+  }
+  assert.equal(latestResearch(product.id).id, before.id, "ingen tom rapport sparades");
 });
 
 test("Kundernas röst plockas ut ur researchen, så att svarsagenten kan bemöta vanliga invändningar", async () => {
