@@ -28,9 +28,9 @@
   button.danger { background:transparent; color:var(--bad); border-color:var(--bad); }
   button:disabled { opacity:.5; cursor:default; }
   .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
-  .video { display:grid; grid-template-columns:minmax(0, 220px) 1fr; gap:16px; }
+  .video { display:grid; grid-template-columns:minmax(0, 270px) 1fr; gap:16px; align-items:start; }
   @media (max-width:640px) { .video { grid-template-columns:1fr; } }
-  video { width:100%; max-height:420px; border-radius:8px; background:#000; }
+  video { width:100%; aspect-ratio:9/16; max-height:80vh; object-fit:contain; border-radius:8px; background:#000; }
   textarea, input { width:100%; font:inherit; font-size:14px; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); }
   textarea { min-height:70px; resize:vertical; }
   label { display:block; font-size:12px; color:var(--muted); margin:8px 0 2px; }
@@ -109,6 +109,12 @@
   <div class="card">
     <div class="muted">Vilken AI hos Higgsfield som gör videorna. Priset är ungefär för en video på 10 sekunder, utöver Claude.</div>
     <div id="videoModels" style="margin-top:8px"></div>
+  </div>
+
+  <h2>Berättarröst</h2>
+  <div class="card">
+    <div class="muted">Vilken svensk röst som läser texten i videorna. Gratis. Lyssna och välj; en video som väntar på godkännande får den nya rösten med "Ändra rösten".</div>
+    <div id="voices" style="margin-top:8px"></div>
   </div>
 
   <h2>Vad Claude har kostat</h2>
@@ -209,7 +215,14 @@ function keepDrafts(render) {
   const value = (el) => (el.type === "checkbox" ? el.checked : el.value);
   document.querySelectorAll("[data-key]").forEach((el) => { saved[el.dataset.key] = value(el); });
   const focused = document.activeElement?.dataset?.key;
+  // Videospelarna flyttas över till den nya sidan i stället för att göras om, annars börjar en video om från början
+  // varje gång sidan uppdateras (var 3:e–15:e sekund) och man ser aldrig slutet.
+  const players = new Map([...document.querySelectorAll("video[src], audio[src]")].map((el) => [el.getAttribute("src"), el]));
   render();
+  document.querySelectorAll("video[src], audio[src]").forEach((el) => {
+    const old = players.get(el.getAttribute("src"));
+    if (old && old !== el) el.replaceWith(old);
+  });
   document.querySelectorAll("[data-key]").forEach((el) => {
     if (!(el.dataset.key in saved)) return;
     if (el.type === "checkbox") el.checked = saved[el.dataset.key]; else el.value = saved[el.dataset.key];
@@ -307,7 +320,10 @@ function render() {
   const unedited = videos.filter((v) => v.status === "failed" && v.raw_file && Date.now() - new Date(v.created_at) < 7 * 86400000);
   $("pending").innerHTML = (generating.length ? `<p class="muted">${generating.length} ${generating.length === 1 ? "video" : "videor"} görs just nu…</p>` : "") + (pending.map((v) => `
     <div class="card video">
-      <video src="/media/${esc(v.local_file)}" controls playsinline preload="metadata"></video>
+      <div>
+        <video src="/media/${esc(v.local_file)}" controls playsinline preload="metadata"></video>
+        <a href="/media/${esc(v.local_file)}" target="_blank" rel="noopener" class="muted">Öppna i helskärm</a>
+      </div>
       <div>
         <strong>Video #${v.id}</strong> <span class="muted">${time(v.created_at)}</span>
         ${videoBadges(v, product)}
@@ -323,6 +339,11 @@ function render() {
           <button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button>
           <button class="danger" onclick="reject(${v.id})">Släng</button>
         </div>
+        <details><summary class="muted" style="margin:10px 0 0;font-weight:400">Ändra rösten (gratis, samma video)</summary>
+          <label>Det rösten säger</label>
+          <textarea data-key="voice-${v.id}">${esc(v.edit ? JSON.parse(v.edit).voiceover ?? "" : "")}</textarea>
+          <div class="row"><button class="ghost" onclick="reeditVoice(${v.id})">Klipp om med ${esc(state.voices.find((x) => x.chosen)?.name.split(" ·")[0] ?? "vald röst")} och den här texten (gratis)</button></div>
+        </details>
         ${v.prompt ? `<details><summary class="muted" style="margin:10px 0 0;font-weight:400">Prompten till Higgsfield</summary><pre class="muted">${esc(v.prompt)}</pre></details>` : ""}
       </div>
     </div>`).join("") || (generating.length || unedited.length ? "" : `<div class="empty">Inget att godkänna just nu.</div>`)) +
@@ -354,6 +375,11 @@ function render() {
   $("videoModels").innerHTML = state.videoModels.map((m) => `
     <label class="check" style="display:block;margin:6px 0"><input type="radio" name="videoModel" ${m.chosen ? "checked" : ""} onchange="chooseModel('${esc(m.id)}', ${m.sek}, '${esc(m.name)}')">
       <strong>${esc(m.name)}</strong> · ca ${m.sek} kr per video <span class="muted">${esc(m.note)}</span></label>`).join("");
+  $("voices").innerHTML = state.voices.map((v) => `
+    <div class="row" style="align-items:center;margin:6px 0">
+      <label class="check" style="min-width:220px"><input type="radio" name="voice" ${v.chosen ? "checked" : ""} onchange="chooseVoice('${esc(v.id)}')"> <strong>${esc(v.name)}</strong></label>
+      <audio src="/api/voices/${esc(v.id)}/preview" controls preload="none" style="height:32px"></audio>
+    </div>`).join("");
   $("inbox").innerHTML = state.inbox.map((m) => `
     <div class="card" style="margin-bottom:10px">
       <strong>${CHANNEL_NAMES[m.channel]}</strong> · ${m.kind === "dm" ? "DM" : "kommentar"} från ${esc(m.author || "okänd")}
@@ -670,6 +696,16 @@ async function chooseModel(id, sek, name) {
 }
 async function reedit(id) {
   await api("POST", `/api/videos/${id}/reedit`);
+  refresh();
+}
+async function reeditVoice(id) {
+  const voiceover = document.querySelector(`[data-key="voice-${id}"]`).value;
+  const button = event.target;
+  button.disabled = true; button.textContent = "Klipper om…";
+  try { await api("POST", `/api/videos/${id}/reedit`, { voiceover }); } finally { refresh(); }
+}
+async function chooseVoice(id) {
+  await api("POST", "/api/settings", { tts_voice: id });
   refresh();
 }
 async function deleteVideo(id, published) {

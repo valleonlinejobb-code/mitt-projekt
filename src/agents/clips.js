@@ -7,7 +7,8 @@ import { db, now, log, currentOffers, MEDIA_DIR } from "../db.js";
 import { askClaude } from "../claude.js";
 import { newRun } from "../costs.js";
 import { extractFrames, probe } from "../editor.js";
-import { HOOK_TYPES, claimProblems, editAndOffer, INFO_BAR, END_CARD, CAPTIONS } from "./prompt.js";
+import { HOOK_TYPES, claimProblems, sizeProblems, editAndOffer, INFO_BAR, END_CARD, CAPTIONS } from "./prompt.js";
+import { productOptions, sizesOf } from "../shopify.js";
 import * as progress from "../progress.js";
 
 export const MAX_CLIP_SECONDS = 90;
@@ -71,6 +72,7 @@ export async function processClip(video) {
     const { note } = JSON.parse(video.edit || "{}");
     const { duration, frames } = await extractFrames(path.join(MEDIA_DIR, video.raw_file));
     const offers = currentOffers();
+    const sizes = sizesOf(await productOptions(product));
     const maxWords = Math.max(12, Math.min(40, Math.round(duration * 2.3)));
     let plan;
     let feedback = "";
@@ -86,7 +88,7 @@ export async function processClip(video) {
           "berättarröst, slutbild och inläggstexter. Du ändrar inte filmen. Skriv bara om det som syns i bilderna, och hitta inte på något.\n\n" +
           REFERENCE,
         prompt: `Produkt: ${product.name}, pris ${product.price}
-Beskrivning: ${product.description}
+Beskrivning: ${product.description}${sizes.length > 1 ? `\nStorlekar: ${sizes.join(", ")}. Nämner du storlek ska alla nämnas, aldrig bara en.` : ""}
 Målgrupp: ${product.audience}
 Butik: Vardagshoppen (vardagshoppen.com), ett svenskt UF-företag.
 Aktuella erbjudanden (de enda rabatterna som får nämnas): ${offers || "(inga)"}${product.focus ? `\nÄgarens instruktioner för produkten:\n${product.focus}` : ""}
@@ -102,7 +104,7 @@ Skriv:
 Bara priset ${product.price} och erbjudandena ovan får nämnas. Inga andra siffror om de inte står i produktinfon.
 ${feedback ? `\nRätta det här från förra försöket:\n${feedback}` : ""}`,
       });
-      const problems = claimProblems(draft, product, offers, maxWords);
+      const problems = [...claimProblems(draft, product, offers, maxWords), ...sizeProblems(draft, sizes)];
       if (problems.length) {
         log(product.id, "prompt", `Egen film #${video.id}: faktakollen hittade ${problems.join(" ")}`);
         feedback = problems.join("\n");

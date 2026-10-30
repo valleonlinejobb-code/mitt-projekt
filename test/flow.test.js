@@ -150,7 +150,7 @@ globalThis.fetch = async (input, init = {}) => {
   if (url === "https://vardagshoppen.com/products/tasstvattkit-sma-och-mellanstora-hundar.json") {
     return json({ product: { image: { src: "https://cdn.shopify.com/s/files/ny-bild.jpg" }, images: [
       { src: "https://cdn.shopify.com/s/files/ny-bild.jpg?v=2" }, { src: "https://cdn.shopify.com/s/files/borsten.jpg" }, { src: "https://cdn.shopify.com/s/files/handduk.jpg" },
-    ] } });
+    ], options: [{ name: "Färg", values: ["Blå"] }, { name: "Storlek", values: ["S", "M", "L"] }, { name: "Paket", values: ["Hallkit", "Tvåpack"] }] } });
   }
   if (url === "https://cdn.higgsfield.test/video.mp4") return new Response(fs.readFileSync(sampleVideo));
   if (url === "https://texttospeech.googleapis.com/v1/text:synthesize") {
@@ -222,11 +222,11 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   video = db.prepare("SELECT * FROM videos WHERE id = ?").get(video.id);
   assert.equal(video.status, "pending");
   assert.ok(fs.existsSync(path.join(dataDir, "media", video.local_file)), "videofilen är sparad");
-  // Klipparen har lagt på slutbild och röst: 2 s video + slutbild som räcker för rösten (4 s + marginal).
+  // Klipparen har lagt på slutbild och röst: 2 s video + slutbild på minst 4 s som räcker för rösten och en lugn paus.
   assert.equal(video.error, null);
   assert.notEqual(video.local_file, video.raw_file);
   const finished = await probe(path.join(dataDir, "media", video.local_file));
-  assert.ok(finished.duration > 4.5 && finished.duration < 5.5, `längd ${finished.duration}`);
+  assert.ok(finished.duration > 5.5 && finished.duration < 6.5, `längd ${finished.duration}`);
   assert.ok(finished.hasAudio);
   // Det som saknades i den dåliga annonsen: slutbilden visar produkten (röd provbild) på grön bakgrund med pris.
   const finalFile = path.join(dataDir, "media", video.local_file);
@@ -411,7 +411,7 @@ test("Egen mobilfilm: klippagenten lägger på text, röst och logga utan Higgsf
   assert.equal(clip.hook_type, "nöjsam start");
   assert.equal(JSON.parse(clip.captions).facebook, "FB-film");
   const finished = await probe(path.join(dataDir, "media", clip.local_file));
-  assert.ok(finished.duration > 4.5 && finished.duration < 5.5, `längd ${finished.duration}`);
+  assert.ok(finished.duration > 5.5 && finished.duration < 6.5, `längd ${finished.duration}`);
   assert.equal(calls.filter((c) => c.url.includes("higgsfield")).length, higgsfieldBefore, "Higgsfield anropades inte");
   // Claude fick bilder ur filmen och ägarens anteckning.
   const call = claudeCalls("Du är klippagent").at(-1);
@@ -690,4 +690,15 @@ test("Kroken: eget krokbetyg och kodkoll av första sekunderna, annars beställs
   await tick();
   reviewedHookScore = 9;
   assert.equal(calls.filter((c) => c.url.endsWith("/reference-to-video")).length, before, "Higgsfield anropades inte");
+});
+
+test("Storlekarna: nämner annonsen bara L stoppas den, eftersom kitet finns i S, M och L", async () => {
+  const { sizeProblems } = await import("../src/agents/prompt.js");
+  const { productOptions, sizesOf } = await import("../src/shopify.js");
+  const sizes = sizesOf(await productOptions({ shopify_handle: "tasstvattkit-sma-och-mellanstora-hundar" }));
+  assert.deepEqual(sizes, ["S", "M", "L"]);
+  assert.deepEqual(sizeProblems(CONCEPT, sizes), [], "nämns ingen storlek är det okej");
+  assert.deepEqual(sizeProblems({ ...CONCEPT, voiceover: "Finns i S, M och L för 199 kronor." }, sizes), []);
+  const onlyL = sizeProblems({ ...CONCEPT, voiceover: "Nu i storlek L för 199 kronor." }, sizes);
+  assert.match(onlyL[0], /bara storlek L/);
 });
