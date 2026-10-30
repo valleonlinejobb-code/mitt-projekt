@@ -67,7 +67,7 @@ ${product.focus ? `Ägarens instruktioner för just den här produkten:\n${produ
 6. Vad som får målgruppen att köpa (pris, erbjudanden, känslor, säsong – just nu är det ${new Date().toLocaleDateString("sv-SE", { month: "long" })} i Sverige).
 7. Svenska kunders röst: läs vad riktiga kunder skriver om den här typen av produkt (och om problemet den löser), helst på svenska. Sök i recensioner hos svenska butiker (t.ex. Zooplus, Arken Zoo, Musti, Granngården, Amazon.se, Prisjakt) och på Trustpilot, och i diskussioner om problemet (t.ex. Reddit, Facebook-grupper och forum för hundägare). Ta fram:
    - Klagomål och problem: vad kunderna irriterar sig på, både med problemet (leriga tassar, smutsiga golv, bilen) och med liknande produkter (t.ex. för liten, spricker, svår att torka).
-   - Invändningar innan köp: varför folk tvekar (t.ex. "funkar den på stora hundar?", "blir det blött överallt?", "är den värd pengarna?").
+   - Invändningar innan köp: varför folk tvekar (t.ex. "vilken storlek passar min hund?", "blir det blött överallt?", "är den värd pengarna?").
    - Kundernas egna ord: korta citat ordagrant, med källa. De ska kunna användas som krokar och i svar på kommentarer.
    Hitta aldrig på citat. Hittar du inget på svenska går engelska bra, men skriv det.
 8. Tre videoidéer på 10 sekunder för oss, i stående format, med före/efter. Minst en ska visa hur produkten används bäst.
