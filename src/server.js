@@ -18,7 +18,7 @@ import { STAGES, progressOf } from "./progress.js";
 import { polishEnabled } from "./polish.js";
 import { estimateSek, spendSummary } from "./costs.js";
 import { selfCheck } from "./editor.js";
-import { voiceConfigured, synthesizeVoice } from "./voice.js";
+import { voiceConfigured, synthesizeVoice, VOICES, chosenVoice } from "./voice.js";
 import { editAndOffer } from "./agents/prompt.js";
 
 const AB_SIZE = 3;
@@ -104,6 +104,7 @@ app.get("/api/state", (_req, res) => {
     cost: { video: estimateSek("video") + videoModelSek(), research: geminiConfigured() ? 0 : estimateSek("research"), clip: estimateSek("clip") },
     spend: spendSummary(),
     videoModels: Object.entries(VIDEO_MODELS).map(([id, m]) => ({ id, ...m, chosen: id === videoModel() })),
+    voices: Object.entries(VOICES).map(([id, name]) => ({ id, name, chosen: id === chosenVoice() })),
     maxOrder: MAX_ORDER,
     settings: {
       auto_reply_instagram: getSetting("auto_reply_instagram", false),
@@ -231,9 +232,30 @@ app.post("/api/videos/:id/reject", (req, res) => {
 });
 
 // Klipp om en video gratis (ingen ny Higgsfield- eller Claude-kostnad), t.ex. efter att klippningen misslyckades.
+// Provlyssna på en röst (gratis inom Googles gratiskvot). Sparas, så att samma röst bara görs en gång.
+app.get("/api/voices/:id/preview", async (req, res) => {
+  if (!VOICES[req.params.id]) return res.status(404).json({ error: "Okänd röst" });
+  if (!voiceConfigured()) return res.status(400).json({ error: "GOOGLE_TTS_API_KEY saknas i Railway" });
+  const file = path.join(MEDIA_DIR, `voice-preview-${req.params.id}.mp3`);
+  try {
+    if (!fs.existsSync(file)) {
+      fs.writeFileSync(file, await synthesizeVoice("Leriga tassar efter promenaden? Med tasstvättkitet från Vardagshoppen blir tassen ren på några sekunder. Finns i S, M och L.", req.params.id));
+    }
+    res.type("audio/mpeg").sendFile(file);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Klipp om en video gratis (samma film från Higgsfield): med den valda rösten, och med ny rösttext om du skrev en.
 app.post("/api/videos/:id/reedit", async (req, res) => {
-  const video = one("SELECT * FROM videos WHERE id = ?", req.params.id);
+  let video = one("SELECT * FROM videos WHERE id = ?", req.params.id);
   if (!video?.raw_file || !["failed", "pending"].includes(video.status)) return res.status(400).json({ error: "Den här videon går inte att klippa om" });
+  const voiceover = String(req.body?.voiceover ?? "").trim();
+  if (voiceover) {
+    db.prepare("UPDATE videos SET edit = ? WHERE id = ?").run(JSON.stringify({ ...JSON.parse(video.edit || "{}"), voiceover }), video.id);
+    video = one("SELECT * FROM videos WHERE id = ?", video.id);
+  }
   // Egen status, så att klippagenten inte tar filmen och skriver nya texter (det skulle kosta).
   db.prepare("UPDATE videos SET status = 'reediting' WHERE id = ?").run(video.id);
   const ok = await editAndOffer(video);
@@ -337,6 +359,11 @@ app.post("/api/settings", (req, res) => {
     if (!VIDEO_MODELS[req.body.video_model]) return res.status(400).json({ error: "Okänd videomodell" });
     setSetting("video_model", req.body.video_model);
     log(null, "prompt", `Videomodellen är nu ${VIDEO_MODELS[req.body.video_model].name} (ca ${VIDEO_MODELS[req.body.video_model].sek} kr per video hos Higgsfield).`);
+  }
+  if ("tts_voice" in req.body) {
+    if (!VOICES[req.body.tts_voice]) return res.status(400).json({ error: "Okänd röst" });
+    setSetting("tts_voice", req.body.tts_voice);
+    log(null, "prompt", `Berättarrösten är nu ${VOICES[req.body.tts_voice]}. Nya videor får den, och "Klipp om" ger en befintlig video den gratis.`);
   }
   if ("claude_budget_sek" in req.body) {
     const budget = Math.max(0, Math.round(Number(req.body.claude_budget_sek) || 0));

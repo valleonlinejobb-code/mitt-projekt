@@ -8,7 +8,7 @@ import { newRun } from "../costs.js";
 import { startVideo, checkVideo, higgsfieldConfigured } from "../higgsfield.js";
 import { latestResearch } from "./research.js";
 import * as progress from "../progress.js";
-import { workingProductImage, productImageUrls } from "../shopify.js";
+import { workingProductImage, productImageUrls, productOptions, sizesOf } from "../shopify.js";
 import { editVideo } from "../editor.js";
 import { voiceConfigured, synthesizeVoice } from "../voice.js";
 import { refreshStats, performance } from "./stats.js";
@@ -217,17 +217,32 @@ export function hookProblems(plan) {
   return problems;
 }
 
+/** Alla texter i annonsen som kunden ser eller hör. */
+const adTexts = (plan) => [
+  ...(plan.overlays ?? []).map((o) => o.text), plan.voiceover,
+  plan.info_bar, plan.end_card?.headline, ...(plan.end_card?.features ?? []), ...(plan.end_card?.offer_lines ?? []), plan.end_card?.cta,
+  ...Object.values(plan.captions ?? {}),
+].filter(Boolean);
+
+/** Nämner annonsen en storlek ska den nämna alla (ägaren: rösten sa bara L fast kitet finns i S, M och L). */
+export function sizeProblems(plan, sizes) {
+  if (sizes.length < 2) return [];
+  const all = adTexts(plan).join("\n");
+  const escape = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const named = sizes.filter((v) => new RegExp(`(^|[^\\p{L}])${escape(v)}(?![\\p{L}])`, "u").test(all));
+  if (named.length && named.length < sizes.length) {
+    return [`Annonsen nämner bara storlek ${named.join(", ")}, men produkten finns i ${sizes.join(", ")}. Nämn alla storlekar, t.ex. "finns i ${sizes.slice(0, -1).join(", ")} och ${sizes.at(-1)}".`];
+  }
+  return [];
+}
+
 /**
  * Kollar med kod (inte med Claude) att annonsen bara nämner rätt pris, rätt rabattkoder och rätt procent.
  * Returnerar en lista med problem. Tom lista betyder att allt stämmer.
  */
 export function claimProblems(plan, product, offers, maxWords = 30) {
   const problems = [];
-  const texts = [
-    ...(plan.overlays ?? []).map((o) => o.text), plan.voiceover,
-    plan.info_bar, plan.end_card?.headline, ...(plan.end_card?.features ?? []), ...(plan.end_card?.offer_lines ?? []), plan.end_card?.cta,
-    ...Object.values(plan.captions ?? {}),
-  ].filter(Boolean);
+  const texts = adTexts(plan);
   problems.push(...captionProblems(plan.captions));
   const all = texts.join("\n");
   const codesInOffers = new Set(offers.match(/\b[A-ZÅÄÖ]{3,}\d+\b/g) ?? []);
@@ -347,8 +362,10 @@ export async function createVideo(product) {
 
   const offers = currentOffers();
   for (const warning of offerMismatches(product.description, offers)) log(product.id, "prompt", `Obs: ${warning}`);
+  const options = await productOptions(product);
+  const sizes = sizesOf(options);
   const productInfo = `Produkt: ${product.name}, pris ${product.price}
-Beskrivning: ${product.description}
+Beskrivning: ${product.description}${options.length ? `\nVal i butiken: ${options.map((o) => `${o.name}: ${o.values.join(", ")}`).join("; ")}${sizes.length > 1 ? `. Nämner du storlek ska ALLA storlekar nämnas (${sizes.join(", ")}), aldrig bara en.` : ""}` : ""}
 Målgrupp: ${product.audience}
 Butik: Vardagshoppen (vardagshoppen.com), ett svenskt UF-företag. Produktsidan: ${product.shop_url}
 Aktuella erbjudanden (de enda rabatterna som får nämnas): ${offers || "(inga)"}${product.focus ? `\nÄgarens instruktioner för just den här produkten (följ dem):\n${product.focus}` : ""}`;
@@ -421,7 +438,7 @@ ${JSON.stringify(concepts, null, 2)}`,
     });
     log(product.id, "prompt", `Bästa idén fick ${review.score}/10 (kroken ${review.hook_score}/10)${review.problems ? ` (${review.problems.slice(0, 200)})` : ""}.`);
     // Fel pris, kod eller procent stoppas även om granskaren gav högt betyg.
-    const wrong = [...claimProblems(review.final, product, offers), ...jobCheck(review.final), ...videoPromptProblems(review.final.video_prompt, product), ...hookProblems(review.final)];
+    const wrong = [...claimProblems(review.final, product, offers), ...jobCheck(review.final), ...videoPromptProblems(review.final.video_prompt, product), ...hookProblems(review.final), ...sizeProblems(review.final, sizes)];
     if (review.hook_score < MIN_HOOK_SCORE) wrong.push(`Kroken fick ${review.hook_score}/10, den måste få minst ${MIN_HOOK_SCORE}. Gör de första 2 sekunderna starkare enligt "Så gör du kroken".`);
     if (wrong.length) log(product.id, "prompt", `Stoppad av faktakollen: ${wrong.join(" ")}`);
     if (review.score >= MIN_SCORE && !wrong.length) plan = { ...review.final, score: review.score, hook_score: review.hook_score };
