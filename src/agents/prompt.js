@@ -22,6 +22,8 @@ const MAX_PER_MONTH = Number(process.env.MAX_VIDEOS_PER_MONTH || 35);
 // Promptagenten skriver tre idéer, en granskare poängsätter dem mot referensvideon och skriver om den bästa.
 // Når ingen idé upp till MIN_VIDEO_SCORE beställs ingen video, så att inga pengar går till en dålig annons.
 const MIN_SCORE = Number(process.env.MIN_VIDEO_SCORE || 8);
+// Kroken (första 1–2 sekunderna) avgör om någon tittar alls, så den får ett eget betyg med eget krav (ägarens önskan).
+const MIN_HOOK_SCORE = Number(process.env.MIN_HOOK_SCORE || 8);
 const REFERENCE = fs.readFileSync(new URL("./reference-ad.md", import.meta.url), "utf8");
 
 // Texten under videon ska vara kort: långa texter läses inte och låter AI-skrivna (ägarens önskan).
@@ -102,19 +104,20 @@ const CONCEPTS_SCHEMA = {
 const REVIEW_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["reviews", "final", "score", "problems"],
+  required: ["reviews", "final", "score", "hook_score", "problems"],
   properties: {
     reviews: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["idea", "score", "problems"],
-        properties: { idea: { type: "string" }, score: { type: "integer" }, problems: { type: "string" } },
+        required: ["idea", "score", "hook_score", "problems"],
+        properties: { idea: { type: "string" }, score: { type: "integer" }, hook_score: { type: "integer" }, problems: { type: "string" } },
       },
     },
     final: CONCEPT,
     score: { type: "integer", description: "Betyg 1–10 för den slutliga versionen" },
+    hook_score: { type: "integer", description: "Eget betyg 1–10 för bara kroken (första 2 sekunderna) i den slutliga versionen" },
     problems: { type: "string", description: "Det som fortfarande är svagt i den slutliga versionen" },
   },
 };
@@ -133,6 +136,14 @@ const PROMPT_GUIDE = `Så skriver du videoprompten (det är den som avgör hur b
 - Avsluta med stilen: "Photorealistic vertical smartphone video, sharp focus, natural colors, realistic hand and paw anatomy, no on-screen text."
 - Skriv det du vill se, inte det du inte vill se (modellen förstår "inte" dåligt). Ingen text, logga, skylt, tal eller musik i bilden.`;
 
+// Vad som gör en krok bra. Granskaren sätter ett eget krokbetyg, och hookProblems kollar det som går att kolla med kod.
+const HOOK_GUIDE = `Så gör du kroken (första 1–2 sekunderna) riktigt bra:
+- Första bildrutan är redan mitt i handlingen: något rör sig direkt (en lerig tass som kliver, lera som stänker, en hund som springer in). Ingen etableringsbild, inget långsamt svep, ingen tom miljö, ingen logga eller titel.
+- Problemet syns direkt i närbild och är tydligt även utan ljud: mycket lera, en ljus matta eller soffa i fara, ett lerigt avtryck.
+- En känsla eller en fråga i huvudet: "nej, inte på mattan!" eller "vad är det där för kopp?". Tittaren ska vilja se nästa sekund.
+- Första texten i bild (overlays[0]) börjar på 0 s, är högst 5 ord och talar direkt till tittaren, t.ex. "Leriga tassar igen?" eller "Inte på nya mattan!".
+- Shot 1 är högst 3 sekunder och börjar med ett verb i rörelse ("A muddy paw steps…", "Mud splashes…").`;
+
 const RULES = `Regler för en bra annons:
 - Stående 9:16, exakt ${VIDEO_SECONDS} sekunder från videomodellen, högst 3 scener. Kroken syns inom 2 sekunder.
 - Visa varför man ska köpa: först problemet (FÖRE, t.ex. en smutsig, lerig tass och leriga avtryck på golvet), sedan produkten i användning och till sist resultatet (EFTER, ren tass, rent golv, nöjd ägare). Före/efter ska synas tydligt i bild.
@@ -147,6 +158,7 @@ const RULES = `Regler för en bra annons:
 - end_card: headline är samma löfte som produktsidan ger (annonsen och sidan ska matcha). offer_lines är 0–2 korta rader med erbjudandena, t.ex. "−5 % med koden VALKOMMEN5". cta är en kort uppmaning utan webbadress.
 - Rikta varje idé till en tydlig grupp i målgruppen med ett identitetsord (t.ex. "ägare till stora hundar", "du som bor på landet", "hundägare med ljust golv") och skriv in det i texten i bild eller texterna. Ge de tre idéerna olika grupper.
 - De första 2 sekunderna avgör allt. Den starkaste kroken för oss: en riktigt lerig tass på väg in mot en ljus matta eller ett ljust golv, i närbild från hundens höjd. Minst en av de tre idéerna ska börja så, om inte beställningen bestämmer kroken.
+${HOOK_GUIDE}
 - Krokar: ge de tre idéerna olika krok-typer (hook_type): "nöjsam start" (t.ex. lera som sköljs bort i närbild, tillfredsställande att se), "känslosam berättelse" (ägaren och hunden, vardagskänsla), "sketch" (en kort rolig situation, t.ex. hunden springer in lerig precis efter städningen), "FOMO" (bara med ett riktigt erbjudande, t.ex. att FORSTA10 bara gäller de 10 första) eller "problem–lösning".
 - Visa produkten i användning av en människa (händer, ägaren med hunden), inte bara produkten på ett bord. Det ger mänsklig kontakt och förtroende.
 - Förtroendesignaler gör annonsen trovärdigare, men bara sanna: Vardagshoppen är ett svenskt UF-företag. Andra (garanti, leveranstid, betyg, antal sålda) bara om de står i produktinfon, ägarens instruktioner eller "Verifierade fakta".
@@ -185,6 +197,21 @@ export function videoPromptProblems(prompt, product) {
     if (!use) problems.push("Videoprompten visar inte hur koppen används (pumpa och vrida runt tassen).");
     else if (use.to - use.from < 3.5) problems.push(`Användningsscenen är ${use.to - use.from} s, den ska vara minst 4 s.`);
     if (!/towel/i.test(text)) problems.push("Videoprompten visar inte handduken som torkar tassen.");
+  }
+  return problems;
+}
+
+/** Kollar med kod det som går att kolla i kroken: första texten i bild och första scenen. */
+export function hookProblems(plan) {
+  const problems = [];
+  const first = [...(plan.overlays ?? [])].sort((a, b) => a.from - b.from)[0];
+  if (!first || first.from > 0.3) problems.push("Första texten i bild ska komma direkt på 0 s, det är en del av kroken.");
+  else if (first.text.split(/\s+/).filter(Boolean).length > 5) problems.push(`Första texten i bild ("${first.text}") är för lång för en krok, högst 5 ord.`);
+  const text = String(plan.video_prompt ?? "");
+  const shot1 = text.match(/Shot\s*1\s*\((\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*s\)\s*:([\s\S]*?)(?=Shot\s*2|$)/i);
+  if (shot1) {
+    if (Number(shot1[2]) - Number(shot1[1]) > 3) problems.push("Första scenen (kroken) är längre än 3 s. Kom till saken direkt.");
+    if (/establishing|slow(ly)? (pan|zoom|reveal)|wide shot|aerial|fade[s]? in|\blogo\b|\btitle\b/i.test(shot1[3])) problems.push("Första scenen börjar långsamt (etableringsbild, svep, logga eller titel). Börja mitt i handlingen i närbild.");
   }
   return problems;
 }
@@ -377,7 +404,9 @@ Skriv tre olika idéer.`,
         "att rösten och slutbilden säger pris och erbjudande rätt och lockar till köp, att rubriken matchar produktsidan, " +
         "att produkten används av en människa och på rätt sätt enligt ägarens instruktioner (står det hur produkten ska användas, t.ex. att tassen gnuggas runt i koppen och torkas med handduken, ska det stå tydligt i videoprompten), att förtroendesignaler är sanna, och att idéerna bygger på det som gått bra under 'Resultat'. " +
         "och att varje siffra och påstående i texterna stöds av produktinfon, 'Aktuella erbjudanden' eller 'Verifierade fakta'. " +
-        "Ta den bästa idén och skriv en förbättrad slutversion där alla problem är rättade.\n\n" + REFERENCE + "\n\n" + RULES,
+        "Sätt dessutom ett eget krokbetyg (hook_score 1–10) för bara de första 2 sekunderna: Stannar en hundägare som scrollar förbi? 8 betyder 'stannar nästan alla i målgruppen'. " +
+        "Dra ner krokbetyget om första bildrutan är stilla, en etableringsbild, ett långsamt svep eller en logga, om problemet inte syns direkt i närbild, eller om första texten i bild är lång eller kommer sent. " +
+        "Ta den bästa idén och skriv en förbättrad slutversion där alla problem är rättade och kroken är så stark som möjligt.\n\n" + REFERENCE + "\n\n" + RULES,
       prompt: `${productInfo}
 
 Research (faktakollad):
@@ -389,11 +418,12 @@ ${jobText ? `\nDen här beställningen (slutversionen måste följa den):\n${job
 Idéer att granska:
 ${JSON.stringify(concepts, null, 2)}`,
     });
-    log(product.id, "prompt", `Bästa idén fick ${review.score}/10${review.problems ? ` (${review.problems.slice(0, 200)})` : ""}.`);
+    log(product.id, "prompt", `Bästa idén fick ${review.score}/10 (kroken ${review.hook_score}/10)${review.problems ? ` (${review.problems.slice(0, 200)})` : ""}.`);
     // Fel pris, kod eller procent stoppas även om granskaren gav högt betyg.
-    const wrong = [...claimProblems(review.final, product, offers), ...jobCheck(review.final), ...videoPromptProblems(review.final.video_prompt, product)];
+    const wrong = [...claimProblems(review.final, product, offers), ...jobCheck(review.final), ...videoPromptProblems(review.final.video_prompt, product), ...hookProblems(review.final)];
+    if (review.hook_score < MIN_HOOK_SCORE) wrong.push(`Kroken fick ${review.hook_score}/10, den måste få minst ${MIN_HOOK_SCORE}. Gör de första 2 sekunderna starkare enligt "Så gör du kroken".`);
     if (wrong.length) log(product.id, "prompt", `Stoppad av faktakollen: ${wrong.join(" ")}`);
-    if (review.score >= MIN_SCORE && !wrong.length) plan = { ...review.final, score: review.score };
+    if (review.score >= MIN_SCORE && !wrong.length) plan = { ...review.final, score: review.score, hook_score: review.hook_score };
     else feedback = [...wrong, review.problems, ...review.reviews.map((r) => `${r.idea}: ${r.problems}`)].join("\n");
   }
 
@@ -403,7 +433,7 @@ ${JSON.stringify(concepts, null, 2)}`,
     progress.stopped(product.id, "prompt", `Ingen idé nådde ${MIN_SCORE}/10, så ingen video beställdes`);
     return;
   }
-  const idea = `${plan.idea} · Krok: ${plan.hook_type}${plan.variant_of ? ` (variant av #${plan.variant_of})` : ""} · För: ${plan.audience} · Kvalitet ${plan.score}/10 · Text i bild: ${plan.overlays.map((o) => o.text).join(" / ")} · Röst: "${plan.voiceover}"`;
+  const idea = `${plan.idea} · Krok: ${plan.hook_type}${plan.variant_of ? ` (variant av #${plan.variant_of})` : ""} · För: ${plan.audience} · Kvalitet ${plan.score}/10, krok ${plan.hook_score}/10 · Text i bild: ${plan.overlays.map((o) => o.text).join(" / ")} · Röst: "${plan.voiceover}"`;
   const edit = { overlays: plan.overlays, voiceover: plan.voiceover, info_bar: plan.info_bar, end_card: plan.end_card };
 
   const { lastInsertRowid } = db.prepare(`INSERT INTO videos

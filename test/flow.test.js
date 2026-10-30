@@ -63,6 +63,7 @@ const CONCEPT = {
   captions: { instagram: "IG-text", facebook: "FB-text", tiktok: "TT-text" },
 };
 let reviewedConcept = CONCEPT;
+let reviewedHookScore = 9;
 let ignoreOrders = false; // låtsas att granskaren struntar i beställningen (A/B-krok, variant)
 let clipPlan = null;
 let ttsFails = false;
@@ -99,7 +100,7 @@ globalThis.fetch = async (input, init = {}) => {
     if (system.startsWith("Du är promptagent")) return claudeText(JSON.stringify({ concepts: [CONCEPT, CONCEPT, CONCEPT] }));
     if (system.startsWith("Du är en sträng kvalitetsgranskare")) {
       const final = followOrder(reviewedConcept, body.messages[0].content.at(-1).text);
-      return claudeText(JSON.stringify({ reviews: [{ idea: CONCEPT.idea, score: 9, problems: "" }], final, score: 9, problems: "" }));
+      return claudeText(JSON.stringify({ reviews: [{ idea: CONCEPT.idea, score: 9, hook_score: reviewedHookScore, problems: "" }], final, score: 9, hook_score: reviewedHookScore, problems: "" }));
     }
     if (system.startsWith("Du är klippagent")) return claudeText(JSON.stringify(clipPlan ?? CLIP_PLAN));
   }
@@ -616,4 +617,24 @@ test("Texten under videon hålls kort och mänsklig: långa eller AI-klingande t
   assert.ok(problems.some((p) => /5 hashtags/.test(p)));
   assert.ok(problems.some((p) => /tiktok låter AI-skriven/.test(p)));
   assert.ok(problems.some((p) => /3 emojis/.test(p)));
+});
+
+test("Kroken: eget krokbetyg och kodkoll av första sekunderna, annars beställs ingen video", async () => {
+  const { hookProblems } = await import("../src/agents/prompt.js");
+  assert.deepEqual(hookProblems(CONCEPT), []);
+  const slow = { ...CONCEPT, overlays: [{ from: 1.5, to: 3, text: "Lerig hund igen?" }],
+    video_prompt: CONCEPT.video_prompt.replace("Shot 1 (0-2s): Close-up", "Shot 1 (0-2s): Slow pan establishing shot") };
+  const problems = hookProblems(slow);
+  assert.ok(problems.some((p) => /direkt på 0 s/.test(p)), problems.join(" "));
+  assert.ok(problems.some((p) => /börjar långsamt/.test(p)));
+
+  // Granskaren ger hela idén 9/10 men kroken bara 6/10: Higgsfield anropas inte.
+  const product = activeProduct();
+  db.prepare("UPDATE videos SET status = 'rejected' WHERE status = 'generating'").run();
+  reviewedHookScore = 6;
+  const before = calls.filter((c) => c.url.endsWith("/reference-to-video")).length;
+  setQueuedVideos(product.id, 1);
+  await tick();
+  reviewedHookScore = 9;
+  assert.equal(calls.filter((c) => c.url.endsWith("/reference-to-video")).length, before, "Higgsfield anropades inte");
 });
