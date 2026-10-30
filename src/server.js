@@ -8,7 +8,7 @@ import { startScheduler, runNow } from "./scheduler.js";
 import { sendReply, channelConfigured } from "./agents/social.js";
 import { diagnoseMeta, metaLoginConfigured, metaLoginUrl, finishMetaLogin } from "./channels/meta.js";
 import { higgsfieldConfigured, VIDEO_MODELS, videoModel, videoModelSek } from "./higgsfield.js";
-import { geminiConfigured } from "./gemini.js";
+import { geminiConfigured, tavilyConfigured } from "./gemini.js";
 import { queuedVideos, setQueuedVideos, addVideoJobs, videoJobs, newAbGroup } from "./agents/prompt.js";
 import { statsText, abTests, performance } from "./agents/stats.js";
 import { addClip } from "./agents/clips.js";
@@ -90,6 +90,7 @@ app.get("/api/state", (_req, res) => {
     connections: {
       claude: Boolean(process.env.ANTHROPIC_API_KEY),
       gemini: geminiConfigured(),
+      tavily: tavilyConfigured(),
       higgsfield: higgsfieldConfigured(),
       publicUrl: Boolean(process.env.PUBLIC_URL),
       editor: checks.editor,
