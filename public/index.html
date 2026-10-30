@@ -250,7 +250,7 @@ function reportHtml(notes) {
 
 function render() {
   const c = state.connections;
-  $("connections").innerHTML = [["claude","Claude"],["gemini","Gemini (gratis research)"],["higgsfield","Higgsfield"],["publicUrl","Publik adress"],["instagram","Instagram"],["facebook","Facebook"],["tiktok","TikTok"]]
+  $("connections").innerHTML = [["claude","Claude"],["gemini","Gemini (gratis research)"],["tavily","Tavily (gratis sökning)"],["higgsfield","Higgsfield"],["publicUrl","Publik adress"],["instagram","Instagram"],["facebook","Facebook"],["tiktok","TikTok"]]
     .map(([k, n]) => `<span class="chip ${c[k] ? "on" : ""}">${c[k] ? "✓" : "–"} ${n}</span>`).join("") +
     // Provklippet och provrösten som görs när servern startar.
     [["editor", "Klipparen"], ["voice", "Berättarröst"]].filter(([k]) => c[k])

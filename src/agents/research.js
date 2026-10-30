@@ -1,18 +1,18 @@
 // Researchagenten: studerar hur andra företag gör sina annonser och annonsvideor.
 import { db, now, log } from "../db.js";
 import { askClaude } from "../claude.js";
-import { askGemini, geminiConfigured, GEMINI_MODEL } from "../gemini.js";
+import { askGemini, geminiConfigured, tavilyConfigured, GEMINI_MODEL } from "../gemini.js";
 import { newRun } from "../costs.js";
 import * as progress from "../progress.js";
 
 // Researchen sparas per produkt och återanvänds för alla videor tills den är äldre än så här.
 // Researchen är mest sökning och sammanfattning, så den körs med den billigare Sonnet-modellen (ägarens val 2026-10-29).
-// Med GEMINI_API_KEY körs den i stället gratis med Gemini och Google-sökning (ägarens val 2026-10-29).
+// Med GEMINI_API_KEY körs den i stället gratis med Gemini, och med TAVILY_API_KEY söker den gratis med Tavily (ägarens val 2026-10-29).
 const RESEARCH_MODEL = process.env.RESEARCH_MODEL || "claude-sonnet-5-5";
 
 // Samma fråga till Gemini (gratis) eller Claude. Gemini sätter själv "(källa: URL)" efter det som kommer från en sökning.
 function ask(opts) {
-  if (geminiConfigured()) return askGemini({ system: opts.system, prompt: opts.prompt, search: opts.webSearch, withSources: opts.withSources });
+  if (geminiConfigured()) return askGemini({ system: opts.system, prompt: opts.prompt, search: opts.webSearch, maxSearches: opts.maxSearches, withSources: opts.withSources });
   return askClaude(opts);
 }
 
@@ -36,7 +36,7 @@ export function researchDue(product) {
 // Först söker den på webben och citerar källor, sedan granskar en faktakontroll rapporten
 // och stryker allt som saknar källa innan den skickas till promptagenten.
 export async function runResearch(product) {
-  log(product.id, "research", geminiConfigured() ? `Undersöker andra företags annonser (gratis med ${GEMINI_MODEL})…` : "Undersöker andra företags annonser…");
+  log(product.id, "research", geminiConfigured() ? `Undersöker andra företags annonser (gratis med ${GEMINI_MODEL}, sökning med ${tavilyConfigured() ? "Tavily" : "Google"})…` : "Undersöker andra företags annonser…");
   progress.stage(product.id, "research", "search");
   const previous = latestResearch(product.id);
   const cost = { agent: "research", task: "research", run: newRun(), productId: product.id, model: RESEARCH_MODEL };

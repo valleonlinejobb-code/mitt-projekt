@@ -30,7 +30,7 @@ Kanalagenterna (Instagram, Facebook, TikTok) startas och stoppas med **Starta**/
 |---|---|
 | Railway (Hobby) | 55 kr |
 | Claude API: en video ca 5–10 kr. Researchen är gratis med Gemini (annars ca 8–15 kr med Sonnet 5.5) | 50–200 kr |
-| Gemini API (researchen) | 0 kr: gratisnivån, med 500 gratis Google-sökningar per dag |
+| Gemini API + Tavily (researchen) | 0 kr: Geminis gratisnivå och Tavilys 1 000 gratis sökningar per månad |
 | Higgsfield, en video om 10 s per dag (Wan 3.0) | ca 2 kr per video, 60–100 kr |
 | Google Text-to-Speech (berättarrösten) | 0 kr: 1 miljon tecken per månad är gratis, en video använder ca 200 |
 
@@ -66,8 +66,9 @@ Kontrollsidan visar under **Vad Claude har kostat** vad varje jobb faktiskt kost
 | `MIN_VIDEO_SCORE` | nej | Lägsta betyg (1–10) en idé måste få innan videon beställs. Standard `8`. |
 | `RESEARCH_EVERY_DAYS` | nej | Hur gammal researchen får vara innan en beställning kör ny. Standard `3`. |
 | `COST_PER_VIDEO_SEK`, `COST_PER_RESEARCH_SEK`, `COST_PER_CLIP_SEK` | nej | Kostnaderna som visas på knapparna innan det finns riktiga siffror. Standard `8`, `12` och `3`. |
-| `GEMINI_API_KEY` | nej, men gör researchen gratis | Från aistudio.google.com → Get API key → Create API key. Inget kort behövs. Med nyckeln görs researchen med Gemini och Google-sökning i stället för Claude. Videoidéer, granskning och kundsvar använder fortfarande Claude. |
-| `GEMINI_MODEL` | nej | Standard `gemini-2.5-flash`. Gratis Google-sökning finns bara på 2.5 Flash och 2.5 Flash-Lite. |
+| `GEMINI_API_KEY` | nej, men gör researchen gratis | Från aistudio.google.com → Get API key → Create API key. Inget kort behövs. Med nyckeln görs researchen med Gemini i stället för Claude (sökningen görs med Tavily, se nästa rad). Videoidéer, granskning och kundsvar använder fortfarande Claude. |
+| `TAVILY_API_KEY` | för gratis research | Från app.tavily.com (logga in, kopiera nyckeln som börjar med `tvly-`). Inget kort behövs, 1 000 gratis sökningar per månad, en research använder ca 20. Google-sökningen ingår inte i Geminis gratisnivå, så utan Tavily fungerar Gemini-researchen bara om betalning är påslagen hos Google. |
+| `GEMINI_MODEL` | nej | Standard `gemini-3.8-flash`. Byt här om Google stänger modellen. |
 | `RESEARCH_MODEL` | nej | Claude-modellen för researchen när `GEMINI_API_KEY` saknas. Standard `claude-sonnet-5-5` (billigare). Videoidéer och granskning använder `CLAUDE_MODEL`. |
 | `CLAUDE_BUDGET_SEK` | nej | Månadstaket för Claude innan du har ändrat det på sidan. Standard `300`. |
 | `USD_TO_SEK` | nej | Växelkursen för kostnaderna. Standard `10.5`. |

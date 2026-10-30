@@ -84,7 +84,7 @@ const CLIP_PLAN = {
 
 globalThis.fetch = async (input, init = {}) => {
   const url = String(input instanceof Request ? input.url : input);
-  const body = init.body ? JSON.parse(init.body) : null;
+  const body = typeof init.body === "string" ? JSON.parse(init.body) : init.body ?? null; // FormData (videouppladdning) lämnas som den är
   const headers = new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined));
   calls.push({ url, method: init.method ?? "GET", headers, body });
 
@@ -105,16 +105,27 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url.startsWith("https://generativelanguage.googleapis.com/")) {
     // Gemini med Google-sökning: platsen för källan räknas i byte, så texten har å, ä och ö.
+    // Med Tavily planerar Gemini först sökfrågorna och skriver sedan själv (källa: URL) utifrån träffarna.
+    const system = body.systemInstruction.parts[0].text;
+    if (system.startsWith("Du planerar webbsökningar")) {
+      return json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ queries: ["tasstvätt tips", "paw plunger ad", "tasstvätt recension"] }) }] } }] });
+    }
     const first = "Tvätta tassen i ljummet vatten.";
-    const text = body.systemInstruction.parts[0].text.startsWith("Du är researchagent")
-      ? `${first} Torka sedan med handduken.`
-      : `## Så används produkten bäst\n- Gemini-faktakollad: ${first}`;
-    const grounded = body.systemInstruction.parts[0].text.startsWith("Du är researchagent");
+    const grounded = system.startsWith("Du är researchagent") && body.tools;
+    const text = !system.startsWith("Du är researchagent")
+      ? `## Så används produkten bäst\n- Gemini-faktakollad: ${first}`
+      : grounded ? `${first} Torka sedan med handduken.` : `${first} (källa: https://hundtips.se/tassar) Torka sedan med handduken.`;
     return json({ candidates: [{ content: { parts: [{ text }] }, finishReason: "STOP",
       ...(grounded ? { groundingMetadata: {
         groundingChunks: [{ web: { uri: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", title: "hundtips.se" } }],
         groundingSupports: [{ segment: { endIndex: Buffer.byteLength(first) }, groundingChunkIndices: [0] }],
       } } : {}) }] });
+  }
+  if (url === "https://api.tavily.com/search") {
+    return json({ results: [
+      { title: "Tasstips", url: "https://hundtips.se/tassar", content: "Tvätta tassen i ljummet vatten." },
+      { title: "Oanvänd", url: "https://example.com/oanvand", content: "Något annat." },
+    ] });
   }
   if (url.startsWith("https://vertexaisearch.cloud.google.com/")) return new Response(null, { status: 302, headers: { location: "https://hundtips.se/tassar" } });
   if (url === "https://api.higgsfield.ai/alibaba/wan-3.0/reference-to-video") {
@@ -139,7 +150,7 @@ globalThis.fetch = async (input, init = {}) => {
     if (ttsFails) return json({ error: { code: 403, message: "API key not valid" } }, 403);
     return json({ audioContent: fs.readFileSync(sampleVoice).toString("base64") });
   }
-  if (url.startsWith("https://graph.facebook.com/")) {
+  if (url.startsWith("https://graph.facebook.com/") || url.startsWith("https://graph-video.facebook.com/")) {
     if (url.includes("/page-1/videos")) return json({ id: "fb-video-1" });
     if (url.includes("/fb-video-1/video_insights")) {
       const metric = (name, value) => ({ name, values: [{ value }] });
@@ -238,8 +249,10 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   assert.equal(fbPost.status, "posted");
   assert.equal(fbPost.external_id, "fb-video-1");
   const fbCall = calls.find((c) => c.url.includes("/page-1/videos"));
-  assert.equal(fbCall.body.file_url, `https://agent-uf.test/media/${video.local_file}`);
-  assert.equal(fbCall.body.description, "FB-text");
+  // Videofilen laddas upp direkt (Meta hämtar den inte från en adress).
+  assert.ok(fbCall.url.startsWith("https://graph-video.facebook.com/"));
+  assert.ok(fbCall.body.get("source").size > 0, "videofilen skickades med");
+  assert.equal(fbCall.body.get("description"), "FB-text");
   assert.equal(db.prepare("SELECT status FROM posts WHERE video_id = ? AND channel = 'instagram'").get(video.id).status, "manual");
   // TikTok-agenten är avstängd och har inte lagt upp något.
   assert.equal(db.prepare("SELECT 1 FROM posts WHERE channel = 'tiktok'").get(), undefined);
@@ -497,7 +510,7 @@ test("Provklippet när servern startar visar att klipparen fungerar", async () =
   assert.deepEqual(await selfCheck(path.join(dataDir, "media")), { ok: true });
 });
 
-test("Med GEMINI_API_KEY görs researchen gratis med Gemini, och källorna får riktiga adresser", async () => {
+test("Gemini med Googles egen sökning (betalning påslagen): källorna får riktiga adresser", async () => {
   const { runResearch, latestResearch } = await import("../src/agents/research.js");
   const product = activeProduct();
   const costsBefore = db.prepare("SELECT COUNT(*) AS n FROM costs").get().n;
@@ -511,7 +524,7 @@ test("Med GEMINI_API_KEY görs researchen gratis med Gemini, och källorna får 
   assert.match(latestResearch(product.id).notes, /Gemini-faktakollad/);
   const geminiCalls = calls.filter((c) => c.url.startsWith("https://generativelanguage.googleapis.com/"));
   assert.equal(geminiCalls.length, 2, "utkast och faktakoll");
-  assert.ok(geminiCalls.every((c) => c.url.includes("gemini-2.5-flash:generateContent") && c.headers.get("x-goog-api-key") === "gemini-key"));
+  assert.ok(geminiCalls.every((c) => c.url.includes("gemini-3.8-flash:generateContent") && c.headers.get("x-goog-api-key") === "gemini-key"));
   assert.deepEqual(geminiCalls[0].body.tools, [{ google_search: {} }]);
   // Researchen letar också efter svenska kunders klagomål, invändningar och ord.
   assert.match(geminiCalls[0].body.contents[0].parts[0].text, /Svenska kunders röst/);
@@ -524,6 +537,34 @@ test("Med GEMINI_API_KEY görs researchen gratis med Gemini, och källorna får 
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM costs").get().n, costsBefore, "ingen kostnad");
 });
 
+test("Med GEMINI_API_KEY och TAVILY_API_KEY görs researchen helt gratis: Tavily söker och Gemini läser träffarna", async () => {
+  const { runResearch, latestResearch } = await import("../src/agents/research.js");
+  const product = activeProduct();
+  const costsBefore = db.prepare("SELECT COUNT(*) AS n FROM costs").get().n;
+  const geminiBefore = calls.filter((c) => c.url.startsWith("https://generativelanguage.googleapis.com/")).length;
+  const claudeBefore = calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length;
+  Object.assign(process.env, { GEMINI_API_KEY: "gemini-key", TAVILY_API_KEY: "tvly-key" });
+  try {
+    await runResearch(product);
+  } finally {
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.TAVILY_API_KEY;
+  }
+  assert.match(latestResearch(product.id).notes, /Gemini-faktakollad/);
+  const geminiCalls = calls.filter((c) => c.url.startsWith("https://generativelanguage.googleapis.com/")).slice(geminiBefore);
+  assert.equal(geminiCalls.length, 4, "sökplan + utkast, sökplan + faktakoll");
+  assert.ok(geminiCalls.every((c) => !c.body.tools), "Googles sökning används inte (den kostar på gratisnivån)");
+  const tavily = calls.filter((c) => c.url === "https://api.tavily.com/search");
+  assert.equal(tavily.length, 6, "tre sökningar per steg");
+  assert.equal(tavily[0].headers.get("authorization"), "Bearer tvly-key");
+  // Utkastet byggde på träffarna, och bara källor som faktiskt citerades skickades vidare till faktakollen.
+  assert.match(geminiCalls[1].body.contents[0].parts[0].text, /URL: https:\/\/hundtips\.se\/tassar/);
+  const checkPrompt = geminiCalls[3].body.contents[0].parts[0].text;
+  assert.match(checkPrompt, /- Tasstips: https:\/\/hundtips\.se\/tassar/);
+  assert.doesNotMatch(checkPrompt, /- Oanvänd: /);
+  assert.equal(calls.filter((c) => c.url.startsWith("https://api.anthropic.com/")).length, claudeBefore, "Claude anropades inte");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM costs").get().n, costsBefore, "ingen kostnad");
+});
 
 test("Kundernas röst plockas ut ur researchen, så att svarsagenten kan bemöta vanliga invändningar", async () => {
   const { researchSection } = await import("../src/agents/research.js");
