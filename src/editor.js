@@ -94,7 +94,7 @@ function buildAss({ duration, total, overlays, price, endCard, infoBar, layout }
     // Texten i bild poppar in mjukt (växer från 85 % till 100 %).
     ...overlays
       .filter((o) => o.text && o.to > o.from && o.from < t0)
-      .map((o) => line(o.from, Math.min(o.to, t0), "Caption", o.text, "{\\fscx85\\fscy85\\t(0,180,\\fscx100\\fscy100)\\fad(150,150)}")),
+      .map((o) => line(o.from, Math.min(o.to, t0), "Caption", o.text, "{\\fscx90\\fscy90\\t(0,120,\\fscx100\\fscy100)\\fad(90,60)}")),
     // Övergången till slutbilden: en ljus och en grön panel sveper upp över videon, som i en riktig reklamfilm.
     `Dialogue: 0,${assTime(t0)},${assTime(t0 + 0.6)},Wipe,,0,0,0,,{\\an7\\move(0,${H},0,0,0,360)\\p1}m 0 0 l ${W} 0 ${W} ${H} 0 ${H}{\\p0}`,
     `Dialogue: 0,${assTime(t0 + 0.08)},${assTime(total)},Box,,0,0,0,,{\\an7\\move(0,${H},0,0,0,420)\\p1}m 0 0 l ${W} 0 ${W} ${H} 0 ${H}{\\p0}`,
@@ -143,6 +143,17 @@ async function videoLength(file) {
   return seconds > 0.5 ? seconds : null;
 }
 
+/**
+ * Hur lång rösten verkligen är, genom att avkoda hela ljudfilen. Längden i MP3-filens huvud är bara en uppskattning
+ * och kan vara för kort, och då klipptes videon av innan rösten hade pratat klart.
+ */
+async function audioLength(file) {
+  const { stderr } = await run(["-i", file, "-map", "0:a:0", "-f", "null", "-"]);
+  const m = [...stderr.matchAll(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/g)].at(-1);
+  const seconds = m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0;
+  return seconds > 0.2 ? seconds : null;
+}
+
 /** Medelfärgen (r, g, b) i en ruta [w, h, x, y] av en video vid tiden t. */
 export function colorAt(file, t, [w, h, x, y]) {
   return new Promise((resolve, reject) => {
@@ -186,6 +197,77 @@ export async function verifyAd(file, { duration, total, price, infoBar }) {
   if (problems.length) throw new Error(`Kontrollen av den färdiga filmen hittade fel: ${problems.join(", ")}.`);
 }
 
+/** När rösten pratar: tidsintervall [start, slut] i sekunder, avgränsade av pauser i ljudet. */
+export async function speechSegments(file, length) {
+  const { stderr } = await run(["-i", file, "-af", "silencedetect=noise=-38dB:d=0.22", "-f", "null", "-"]);
+  const starts = [...stderr.matchAll(/silence_start: (-?[\d.]+)/g)].map((m) => Math.max(0, Number(m[1])));
+  const ends = [...stderr.matchAll(/silence_end: ([\d.]+)/g)].map((m) => Number(m[1]));
+  const segments = [];
+  let from = 0;
+  starts.forEach((start, i) => {
+    if (start - from > 0.15) segments.push([from, start]);
+    from = ends[i] ?? length;
+  });
+  if (length - from > 0.15) segments.push([from, length]);
+  return segments;
+}
+
+/** Delar rösttexten i korta bitar (2–5 ord) som visas som text i bild, en i taget. */
+export function captionChunks(sentence) {
+  const words = sentence.split(/\s+/).filter(Boolean);
+  const chunks = [];
+  let current = [];
+  for (const word of words) {
+    current.push(word);
+    const text = current.join(" ");
+    const pause = /[,;:–—]$/.test(word) && text.length >= 12;
+    if (current.length >= 6 || text.length >= 26 || pause) {
+      chunks.push(text);
+      current = [];
+    }
+  }
+  if (current.length) {
+    // Ett ensamt sista ord läggs ihop med biten före, så att det inte blinkar förbi.
+    if (current.length === 1 && chunks.length && chunks.at(-1).length + current[0].length < 34) chunks[chunks.length - 1] += ` ${current[0]}`;
+    else chunks.push(current.join(" "));
+  }
+  return chunks.map((c) => c.replace(/[,;:.–—]+$/, "").trim()).filter(Boolean);
+}
+
+/**
+ * Text i bild som visar exakt det rösten säger, i samma takt: meningarna läggs på rösten pauser i ljudet,
+ * och bitarna inom en mening fördelas efter hur långa de är. Visas bara medan videon pågår (slutbilden har egen text).
+ */
+export function voiceCaptions(text, segments, { offset = 0.4, tempo = 1, until }) {
+  const sentences = String(text).split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  if (!sentences.length || !segments.length) return [];
+  const spans = segments.length === sentences.length
+    ? segments
+    : (() => {
+      // Pauserna stämmer inte med meningarna: fördela meningarna efter längd över hela talet.
+      const [start, end] = [segments[0][0], segments.at(-1)[1]];
+      const total = sentences.reduce((a, s) => a + s.length, 0);
+      let at = start;
+      return sentences.map((s) => { const span = [at, at + ((end - start) * s.length) / total]; at = span[1]; return span; });
+    })();
+  const captions = [];
+  sentences.forEach((sentence, i) => {
+    const chunks = captionChunks(sentence);
+    const [start, end] = spans[i];
+    const weight = chunks.reduce((a, c) => a + c.length + 4, 0);
+    let at = start;
+    for (const chunk of chunks) {
+      const next = at + ((end - start) * (chunk.length + 4)) / weight;
+      captions.push({ from: offset + at / tempo, to: offset + next / tempo, text: chunk });
+      at = next;
+    }
+  });
+  // Bitarna hänger ihop utan glapp, den första syns redan från start (kroken) och ingen syns på slutbilden.
+  captions.forEach((c, i) => { c.to = captions[i + 1]?.from ?? c.to + 0.3; });
+  if (captions.length) captions[0].from = 0;
+  return captions.filter((c) => c.from < until - 0.3).map((c) => ({ ...c, to: Math.min(c.to, until) }));
+}
+
 /**
  * Gör den färdiga annonsen av videomodellens video.
  * @param {object} o
@@ -195,21 +277,28 @@ export async function verifyAd(file, { duration, total, price, infoBar }) {
  * @param {string} o.price       t.ex. "199 kr"
  * @param {{headline?:string, offer_lines?:string[], cta?:string}} o.endCard
  * @param {string} [o.voiceFile] berättarrösten (MP3)
+ * @param {string} [o.voiceText] det rösten säger; blir texten i bild, i samma takt som rösten
  * @param {string} [o.productImage] produktbilden, visas i slutbilden så att man ser vad vi säljer
  * @param {string} [o.infoBar]   produktraden längst ner under videon
  */
-export async function editVideo({ input, output, overlays = [], price = "", endCard = {}, voiceFile, productImage, infoBar = "" }) {
+export async function editVideo({ input, output, overlays = [], price = "", endCard = {}, voiceFile, voiceText = "", productImage, infoBar = "" }) {
   const probed = await probe(input);
   // Bildens egen längd: ljudet från videomodellen kan vara längre eller kortare än bilden.
   const duration = (await videoLength(input)) || probed.duration;
   const hasAudio = probed.hasAudio;
-  const voice = voiceFile ? await probe(voiceFile) : null;
-  // Rösten börjar efter 0,4 s. Är den för lång för en slutbild på högst 8 s pratar den lite snabbare (högst 15 %), så att den aldrig klipps av.
-  const tempo = voice ? Math.min(1.15, Math.max(1, (voice.duration + 0.4 + 1.2) / (duration + 8))) : 1;
+  const voice = voiceFile ? { duration: (await audioLength(voiceFile)) || (await probe(voiceFile)).duration } : null;
+  // Rösten börjar efter 0,4 s. Är den lång pratar den lite snabbare (högst 10 %), så att slutbilden inte blir för lång.
+  const tempo = voice ? Math.min(1.1, Math.max(1, (voice.duration + 0.4 + 1.2) / (duration + 8))) : 1;
   const voiceEnd = voice ? 0.4 + voice.duration / tempo : 0;
-  // Slutbilden står kvar minst 4 s och 1,2 s efter att rösten har pratat klart (högst 8 s): inte avhugget, och ingen lång tystnad.
-  const endSeconds = Math.min(8, Math.max(4, voiceEnd + 1.2 - duration));
+  // Slutbilden står kvar minst 4 s och alltid tills 1,2 s efter att rösten har pratat klart: videon tar aldrig slut mitt i en mening.
+  const endSeconds = Math.max(4, voiceEnd + 1.2 - duration);
   const total = duration + endSeconds;
+
+  // Med berättarröst visar texten i bild exakt det rösten säger, i samma takt (ägaren: annars läser man en sak och hör en annan).
+  if (voice && voiceText.trim()) {
+    const spoken = voiceCaptions(voiceText, await speechSegments(voiceFile, voice.duration), { tempo, until: duration });
+    if (spoken.length) overlays = spoken;
+  }
 
   const assFile = `${output}.ass`;
   const layout = productImage ? LAYOUT.product : LAYOUT.plain;
