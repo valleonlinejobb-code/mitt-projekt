@@ -344,7 +344,7 @@ function render() {
           <button class="danger" onclick="reject(${v.id})">Släng</button>
         </div>
         <details><summary class="muted" style="margin:10px 0 0;font-weight:400">Ändra rösten och texten i bild (gratis, samma video)</summary>
-          <p class="muted">Säger hon ett ord fel? Skriv ordet som det låter i den första rutan, och som det ska stavas i den andra.</p>
+          <p class="muted">Säger rösten ett ord fel? Skriv ordet som det låter i den första rutan, och som det ska stavas i den andra.</p>
           <label>Det rösten säger</label>
           <textarea data-key="voice-${v.id}">${esc(v.edit ? JSON.parse(v.edit).voiceover ?? "" : "")}</textarea>
           <label>Det som står i bild</label>

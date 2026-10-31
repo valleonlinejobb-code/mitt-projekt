@@ -9,7 +9,7 @@ Fem AI-agenter per produkt som tillsammans gör och publicerar reklamvideor, sty
 | Resultat | Innan promptagenten skriver idéer hämtar den (gratis) hur de publicerade videorna har gått på Facebook och Instagram: visningar, krokgrad (andel som tittar minst 3 s), hur många som tittar klart och snittid. Den bästa videon blir "vinnare", och en av de nya idéerna blir en variant av den med ny krok. Siffrorna syns i videohistoriken. |
 | A/B-test och varianter | **A/B-test** gör 3 videor med samma budskap men olika krok-typer. När de är publicerade visar kontrollsidan krokgrad per video och utser en vinnare (minst 300 visningar var). **Beställ variant** gör en ny version av en video med ny krok eller miljö. Vid godkännandet väljer du vilka kanaler videon ska läggas upp på. |
 | Egen mobilfilm | Ladda upp en egen film (2–90 s) på kontrollsidan. Klippagenten tittar på bilder ur filmen och skriver text i bild, berättarröst, slutbild och inläggstexter (1–2 Claude-anrop, ca 3 kr). Ingen Higgsfield-kostnad. |
-| Klippare | När videon kommer tillbaka lägger servern på (med ffmpeg, gratis) Vardagshoppens logga och namn, priset, text i bild, en slutbild på 3 s med pris, erbjudanden och vardagshoppen.com, och en svensk kvinnoröst (Google Text-to-Speech). Videomodellen kan inte skriva text eller logotyper själv. |
+| Klippare | När videon kommer tillbaka lägger servern på (med ffmpeg, gratis) Vardagshoppens logga och namn, priset, text i bild, en slutbild på minst 4 s med pris, erbjudanden och vardagshoppen.com, och en svensk berättarröst som du väljer på kontrollsidan (Google Text-to-Speech). Videomodellen kan inte skriva text eller logotyper själv. |
 | Redigeringsagent | Ger varje video en sista touch, gratis med ffmpeg: tar bort flimmer och brus, skalar upp mjukt till 720×1280, zoomar långsamt in (6 %), skärper lagom och ger friskare färger (innan text och slutbild läggs på). Ljudet: rösten putsas (bort med muller, kompressor, tydlighet), ett whoosh läggs där slutbilden sveper in, och ljudnivån jämnas ut till −14 LUFS som TikTok, Instagram och Facebook använder. Kan stängas av med bocken på kontrollsidan. |
 | Instagram | Publicerar godkända videor som Reels (max en per dag) och skriver svar på kommentarer och DM. |
 | Facebook | Publicerar godkända videor på sidan (max en per dag) och skriver svar på kommentarer och Messenger. |
@@ -75,7 +75,7 @@ Kontrollsidan visar under **Vad Claude har kostat** vad varje jobb faktiskt kost
 | `CLAUDE_BUDGET_SEK` | nej | Månadstaket för Claude innan du har ändrat det på sidan. Standard `300`. |
 | `USD_TO_SEK` | nej | Växelkursen för kostnaderna. Standard `10.5`. |
 | `GOOGLE_TTS_API_KEY` | för rösten | API-nyckel från Google Cloud med **Cloud Text-to-Speech API** påslaget. Utan den görs videorna utan berättarröst. |
-| `TTS_VOICE` | nej | Rösten. Standard `sv-SE-Chirp3-HD-Aoede` (svensk kvinnoröst). Andra kvinnoröster: `sv-SE-Chirp3-HD-Kore`, `sv-SE-Chirp3-HD-Leda`. |
+| `TTS_VOICE` | nej | Rösten. Rösten innan du har valt en på kontrollsidan. Standard `sv-SE-Chirp3-HD-Aoede` (svensk kvinnoröst). Rutan **Berättarröst** har tio röster, både kvinno- och mansröster. |
 | `SHOPIFY_STORE_URL` | nej | Butikens adress för att hämta produkter. Standard `https://vardagshoppen.com`. |
 | `INBOX_EVERY_MINUTES` | nej | Hur ofta kommentarer och DM hämtas. Standard `10`. |
 

@@ -46,8 +46,13 @@ export function recordCost({ productId = null, agent, task, run = null, model, u
 }
 
 const sek = (usd) => Math.round(usd * USD_TO_SEK * 10) / 10;
-// Månaden räknas i svensk tid, från den 1:a.
-const monthStart = () => new Date(`${stockholmDate().slice(0, 8)}01T00:00:00+01:00`).toISOString();
+// Månaden räknas i svensk tid, från den 1:a. Sommartid (+02:00) räknas med, så att inget hamnar i fel månad.
+const monthStart = () => {
+  const first = `${stockholmDate().slice(0, 8)}01`;
+  const offset = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Stockholm", timeZoneName: "longOffset" })
+    .formatToParts(new Date(`${first}T12:00:00Z`)).find((p) => p.type === "timeZoneName").value.replace("GMT", "") || "+00:00";
+  return new Date(`${first}T00:00:00${offset}`).toISOString();
+};
 
 export const spentThisMonthSek = () => sek(db.prepare("SELECT COALESCE(SUM(usd), 0) AS usd FROM costs WHERE at >= ?").get(monthStart()).usd);
 
