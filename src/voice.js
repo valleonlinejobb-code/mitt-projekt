@@ -1,4 +1,4 @@
-// Berättarrösten: en svensk kvinnoröst från Google Cloud Text-to-Speech.
+// Berättarrösten: en svensk röst (kvinna eller man) från Google Cloud Text-to-Speech.
 // De första 1 miljon tecknen per månad är gratis (Chirp 3 HD), och en speakertext är ca 200 tecken.
 // Utan GOOGLE_TTS_API_KEY görs videorna utan berättarröst.
 const API = "https://texttospeech.googleapis.com/v1/text:synthesize";

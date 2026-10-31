@@ -1,5 +1,5 @@
 // Egna mobilfilmer: ägaren laddar upp en film, och klippagenten lägger på text i bild, berättarröst, logga, pris och slutbild.
-// Äkta film av en riktig hund slår ofta AI-video. En film kostar bara ett anrop till Claude (ca 1 kr), ingen Higgsfield.
+// Äkta film av en riktig hund slår ofta AI-video. En film kostar bara 1–2 anrop till Claude (ca 3 kr), ingen Higgsfield.
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";

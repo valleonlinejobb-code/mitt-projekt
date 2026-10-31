@@ -44,7 +44,10 @@ app.use((req, res, next) => {
   if (!password) return res.status(500).send("Sätt CONTROL_PASSWORD i Railway först.");
   const [, encoded = ""] = (req.headers.authorization || "").split(" ");
   const given = Buffer.from(encoded, "base64").toString().split(":").slice(1).join(":");
-  const ok = given.length === password.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(password));
+  // Jämför byte, inte tecken: annars kraschar inloggningen (fel 500) om lösenordet har å, ä eller ö.
+  const givenBytes = Buffer.from(given);
+  const passwordBytes = Buffer.from(password);
+  const ok = givenBytes.length === passwordBytes.length && crypto.timingSafeEqual(givenBytes, passwordBytes);
   if (ok) return next();
   res.set("WWW-Authenticate", 'Basic realm="Agent UF"').status(401).send("Lösenord krävs");
 });
@@ -208,7 +211,7 @@ app.post("/api/products/:id/order/cancel", (req, res) => {
   res.json({ ok: true });
 });
 
-// Ladda upp en egen mobilfilm. Klippagenten lägger på text, röst och logga (ett Claude-anrop, ca 1 kr).
+// Ladda upp en egen mobilfilm. Klippagenten lägger på text, röst och logga (1–2 Claude-anrop, ca 3 kr).
 app.post("/api/products/:id/clips", express.raw({ type: () => true, limit: "300mb" }), async (req, res) => {
   const product = one("SELECT * FROM products WHERE id = ?", req.params.id);
   if (!product) return res.status(404).json({ error: "Finns inte" });
@@ -239,7 +242,6 @@ app.post("/api/videos/:id/reject", (req, res) => {
   res.json({ ok: true });
 });
 
-// Klipp om en video gratis (ingen ny Higgsfield- eller Claude-kostnad), t.ex. efter att klippningen misslyckades.
 // Provlyssna på en röst (gratis inom Googles gratiskvot). Sparas, så att samma röst bara görs en gång.
 app.get("/api/voices/:id/preview", async (req, res) => {
   if (!VOICES[req.params.id]) return res.status(404).json({ error: "Okänd röst" });
@@ -298,7 +300,6 @@ app.post("/api/posts/:id/done", (req, res) => {
   res.json({ ok: true });
 });
 
-// Ett misslyckat inlägg tas bort så att agenten försöker igen.
 // "Koppla Facebook": skickar dig till Facebooks godkännanderuta och tar emot svaret.
 // Adressen byggs från den adress du själv är på, så att den alltid stämmer med appens domän.
 const siteUrl = (req) => `${req.get("x-forwarded-proto") || req.protocol}://${req.get("host")}`;
@@ -341,6 +342,7 @@ app.get("/api/meta/check", async (_req, res) => {
   try { res.json(await diagnoseMeta()); } catch (err) { res.json({ ok: false, lines: [`✗ ${err.message}`] }); }
 });
 
+// Ett misslyckat inlägg tas bort så att agenten försöker igen.
 app.post("/api/posts/:id/retry", (req, res) => {
   db.prepare("DELETE FROM posts WHERE id = ? AND status = 'failed'").run(req.params.id);
   res.json({ ok: true });
