@@ -70,6 +70,7 @@ let clipPlan = null;
 let ttsFails = false;
 let elevenUsed = 0;
 let elevenBlocked = false;
+let elevenNoTts = false;
 // Granskaren följer beställningen: väljer en ledig krok i A/B-testet och sätter variant_of.
 function followOrder(concept, prompt) {
   if (ignoreOrders) return concept;
@@ -161,6 +162,8 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url === "https://api.elevenlabs.io/v1/user/subscription") return json({ tier: "free", character_count: elevenUsed, character_limit: 10000, next_character_count_reset_unix: 1796000000 });
   if (url.startsWith("https://api.elevenlabs.io/v1/text-to-speech/")) {
+    if (elevenNoTts) return json({ detail: { status: "missing_permissions", message: "The API key you used is missing the permission text_to_speech to execute this operation." } }, 401);
+    if (!body.text) return json({ detail: { status: "invalid_text", message: "text is empty" } }, 400);
     if (elevenBlocked) return json({ detail: { status: "paid_plan_required", message: "Free users cannot use library voices via the API." } }, 402);
     elevenUsed += Math.ceil(body.text.length / 2);
     return new Response(fs.readFileSync(sampleVoice), { headers: { "Content-Type": "audio/mpeg" } });
@@ -788,11 +791,18 @@ test("ElevenLabs: billig modell, svensk röst, sparat ljud (Klipp om gratis), m�
   const { checkVoice, voiceSummary, voiceNames, chosenVoice } = await import("../src/voice.js");
   const { setSetting } = await import("../src/db.js");
   const { editAndOffer } = await import("../src/agents/prompt.js");
-  const elevenTts = () => calls.filter((c) => c.url.startsWith("https://api.elevenlabs.io/v1/text-to-speech/"));
+  const elevenTts = () => calls.filter((c) => c.url.startsWith("https://api.elevenlabs.io/v1/text-to-speech/") && c.body?.text);
   try {
     // Kontrollen när servern startar frågar bara om kontot: inga krediter.
     assert.deepEqual(await checkVoice(), { ok: true, provider: "elevenlabs" });
-    assert.equal(elevenTts().length, 0);
+    // En nyckel utan behörigheten Text to Speech syns direkt, med vad du ska göra.
+    elevenNoTts = true;
+    const noTts = await checkVoice();
+    elevenNoTts = false;
+    assert.equal(noTts.ok, false);
+    assert.match(noTts.error, /saknar behörigheten Text to Speech/);
+    const ttsCalls = () => elevenTts().filter((c) => c.body.text);
+    assert.equal(ttsCalls().length, 0, "kontrollen gör ingen röst");
     // Egen designad röst är standard. Gratisplanen: biblioteksrösterna märks och väljs aldrig, även om de var valda.
     assert.match(voiceNames()[chosenVoice()], /Vardagshoppen 1/);
     assert.match(voiceNames()["4xkUqaR9MYOJHoaC1Nak"], /kräver betalplan/);
