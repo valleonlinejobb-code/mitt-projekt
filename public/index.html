@@ -779,7 +779,7 @@ function renderVoiceUsage() {
     <div style="background:#eee;border-radius:6px;height:8px;margin:6px 0"><div style="background:${pct > 85 ? "#c0392b" : "#1f7a4d"};width:${pct}%;height:8px;border-radius:6px"></div></div>
     <div class="muted">${acc}</div>
     <form class="row" onsubmit="saveVoiceCap(event)" style="align-items:center"><label style="margin:0">Månadstak (krediter)</label><input id="voiceCap" type="number" min="0" step="500" value="${v.cap}" style="width:110px"><button class="ghost">Spara tak</button></form>
-    ${v.recent.length ? `<details><summary class="muted" style="font-weight:400">Senaste rösterna</summary>${v.recent.map((r) => `<div class="muted">${new Date(r.at).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })} · ${esc(r.what || "")} · ${r.provider === "elevenlabs" ? `${esc(r.voice)} · ${r.chars} tecken · ${r.credits} krediter` : "Google (gratis)"}</div>`).join("")}</details>` : ""}`;
+    ${v.recent.length ? `<details><summary class="muted" style="font-weight:400">Senaste rösterna</summary>${v.recent.map((r) => `<div class="muted">${new Date(r.at).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })} · ${esc(r.what || "")} · ${r.provider === "elevenlabs" ? `${esc(r.voice)} · ${r.chars} tecken · ${r.credits} krediter${r.measured ? "" : " (uppskattat)"}` : "Google (gratis)"}</div>`).join("")}</details>` : ""}`;
 }
 async function saveVoiceCap(e) {
   e.preventDefault();
