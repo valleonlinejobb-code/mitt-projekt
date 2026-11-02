@@ -1,0 +1,325 @@
+{%- comment -%}
+  Vardagshoppen startsida, vinter 2026. Mobil först, samma sida på dator.
+  Produkter hämtas från butiken (inga påhittade produkter). Snöprickar är en statisk CSS-bakgrund.
+{%- endcomment -%}
+{%- liquid
+  assign kit = all_products['tasstvattkit-sma-och-mellanstora-hundar']
+  assign v_hall = kit.selected_or_first_available_variant
+  assign v_two = blank
+  for v in kit.variants
+    if v.option3 == 'Hallkit' and v.option2 == 'M' and v_hall_set == blank
+      assign v_hall = v
+      assign v_hall_set = true
+    endif
+    if v.option3 == 'Tvåpack' and v.option2 == 'M' and v_two == blank
+      assign v_two = v
+    endif
+  endfor
+  assign tass = collections['tassvard']
+-%}
+
+<div class="vs">
+
+  <section class="vs-hero">
+    <div class="vs-w vs-hero__in">
+      <div class="vs-hero__text">
+        <p class="vs-tag"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 3 3-3M9 20l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Vinter i butiken</p>
+        <h1 class="vs-hero__title">{{ section.settings.heading | escape }}</h1>
+        <p class="vs-hero__lead">{{ section.settings.intro | escape }}</p>
+        <div class="vs-hero__ctas">
+          <a class="vs-btn vs-btn--snow" href="#produkter">Se alla produkter</a>
+          <a class="vs-btn vs-btn--line" href="/pages/om-oss">Om oss</a>
+        </div>
+        <ul class="vs-hero__facts">
+          <li>Leverans 1–4 vardagar</li>
+          <li>Fri frakt från 349 kr</li>
+          <li>14 dagars ångerrätt</li>
+        </ul>
+      </div>
+      {%- if kit -%}
+      <a class="vs-window" href="{{ kit.url }}">
+        {{ kit.featured_image | image_url: width: 900 | image_tag: loading: 'eager', sizes: '(min-width: 990px) 34vw, 1px', alt: kit.featured_image.alt | default: kit.title }}
+        <span class="vs-window__cap"><span>Nytt i butiken</span><strong>{{ kit.title | split: ' –' | first }}</strong></span>
+      </a>
+      {%- endif -%}
+    </div>
+  </section>
+
+  <section class="vs-cats" aria-labelledby="vs-cats-h">
+    <div class="vs-w">
+      <h2 id="vs-cats-h" class="vs-h2">Hitta rätt för din hund</h2>
+      <ul class="vs-cats__list">
+        <li><a class="vs-cat vs-cat--live" href="/collections/tassvard">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="21" rx="6" ry="5"/><ellipse cx="8.5" cy="13.5" rx="2.4" ry="3"/><ellipse cx="13" cy="9" rx="2.4" ry="3"/><ellipse cx="19" cy="9" rx="2.4" ry="3"/><ellipse cx="23.5" cy="13.5" rx="2.4" ry="3"/></svg>
+          <strong>Tassvård</strong><span>{% if tass.products_count > 0 %}{{ tass.products_count }} {% if tass.products_count == 1 %}produkt{% else %}produkter{% endif %}{% else %}Handla nu{% endif %}</span></a></li>
+        <li><div class="vs-cat">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 26c4-1 6-5 6-10s3-9 8-9m0 0a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+          <strong>Promenad</strong><span>Kommer snart</span></div></li>
+        <li><div class="vs-cat">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 22c0-4 3-7 7-7h10c4 0 7 3 7 7v3H4z" fill="none" stroke-width="2" stroke-linejoin="round"/><path d="M8 15v-3a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3" fill="none" stroke-width="2"/></svg>
+          <strong>Vila och mys</strong><span>Kommer snart</span></div></li>
+        <li><a class="vs-cat vs-cat--gift" href="#julklapp">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="13" width="22" height="14" rx="2" fill="none" stroke-width="2"/><path d="M3 9h26v4H3zM16 9v18M16 9c-2-5-8-5-7-1s7 1 7 1Zm0 0c2-5 8-5 7-1s-7 1-7 1Z" fill="none" stroke-width="2" stroke-linejoin="round"/></svg>
+          <strong>Julklappstips</strong><span>Till hundägaren</span></a></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="vs-prod" id="produkter" aria-labelledby="vs-prod-h">
+    <div class="vs-w">
+      <div class="vs-row">
+        <h2 id="vs-prod-h" class="vs-h2">Våra produkter</h2>
+        <a class="vs-more" href="{{ routes.all_products_collection_url }}">Visa alla</a>
+      </div>
+      <ul class="vs-grid">
+        {%- for p in collections.all.products limit: 8 -%}
+          <li><a class="vs-card" href="{{ p.url }}">
+            <span class="vs-card__img">{{ p.featured_image | image_url: width: 700 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 25vw, 50vw', alt: p.featured_image.alt | default: p.title }}</span>
+            <span class="vs-card__t">{{ p.title }}</span>
+            <span class="vs-card__p">{% if p.price_varies %}Från {% endif %}{{ p.price_min | money_without_trailing_zeros }}</span>
+          </a></li>
+        {%- endfor -%}
+        <li class="vs-soon">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <strong>Fler hundprodukter är på väg</strong>
+          <span>Skriv upp dig på nyhetsbrevet längst ner så får du veta först.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  {%- if kit -%}
+  <section class="vs-kit" aria-labelledby="vs-kit-h">
+    <div class="vs-w">
+      <div class="vs-kit__head">
+        <h2 id="vs-kit-h" class="vs-h2">Tasstvättkitet: välj paket</h2>
+        <p>Koppen tvättar bort lera och grus, handduken torkar. Finns i S, M och L och i tre färger.</p>
+      </div>
+      <div class="vs-offers">
+        <a class="vs-offer" href="{{ kit.url }}{% if v_hall %}?variant={{ v_hall.id }}{% endif %}">
+          <span class="vs-offer__img">{{ kit.featured_image | image_url: width: 700 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 25vw, 50vw', alt: '' }}</span>
+          <span class="vs-offer__name">Hallkit</span>
+          <span class="vs-offer__what">1 kopp och 1 handduk</span>
+          <span class="vs-offer__price">{% if v_hall %}{{ v_hall.price | money_without_trailing_zeros }}{% else %}{{ kit.price_min | money_without_trailing_zeros }}{% endif %}</span>
+        </a>
+        {%- if v_two -%}
+        <a class="vs-offer vs-offer--two" href="{{ kit.url }}?variant={{ v_two.id }}">
+          <span class="vs-offer__badge">Fri frakt</span>
+          <span class="vs-offer__img">{{ kit.featured_image | image_url: width: 700 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 25vw, 50vw', alt: '' }}<span class="vs-offer__x">2 koppar</span></span>
+          <span class="vs-offer__name">Tvåpack</span>
+          <span class="vs-offer__what">2 koppar och 1 handduk</span>
+          <span class="vs-offer__price">{{ v_two.price | money_without_trailing_zeros }}</span>
+        </a>
+        {%- endif -%}
+      </div>
+    </div>
+  </section>
+  {%- endif -%}
+
+  <section class="vs-gift" id="julklapp" aria-labelledby="vs-gift-h">
+    <div class="vs-w vs-gift__in">
+      <svg class="vs-gift__flake" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M32 4v56M7.8 18l48.4 28M7.8 46 56.2 18"/><path d="M26 9l6 6 6-6M26 55l6-6 6 6M9 26l8 2-2 8M55 38l-8-2 2-8M9 38l8-2-2-8M55 26l-8 2 2 8"/></g></svg>
+      <div>
+        <h2 id="vs-gift-h" class="vs-h2">Julklapp till någon med hund?</h2>
+        <p>Något praktiskt som används varje dag, särskilt när det är slask ute. Vi skickar från Sverige med PostNord och leveransen tar 1–4 vardagar. Förbeställda varor skickar vi så fort de kommit till oss, det står alltid på produktsidan.</p>
+      </div>
+      <a class="vs-btn vs-btn--green" href="{{ routes.all_products_collection_url }}">Hitta en julklapp</a>
+    </div>
+  </section>
+
+  <section class="vs-trust" aria-label="Därför handlar du hos oss">
+    <ul class="vs-w vs-trust__list">
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="7" cy="17.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="17.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><div><strong>Snabb leverans</strong><span>1–4 vardagar med PostNord</span></div></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M12 4v16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><div><strong>Fri frakt från 349 kr</strong><span>Annars 29 kr</span></div></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><div><strong>14 dagars ångerrätt</strong><span>Enkelt att ångra ett köp</span></div></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg><div><strong>Svenskt UF-företag</strong><span>Vi packar och svarar själva</span></div></li>
+    </ul>
+  </section>
+
+  <section class="vs-faq" aria-labelledby="vs-faq-h">
+    <div class="vs-w vs-faq__in">
+      <div>
+        <h2 id="vs-faq-h" class="vs-h2">Vanliga frågor</h2>
+        <p>Hittar du inte svaret? <a href="/pages/contact">Skriv till oss</a>, vi svarar oftast inom en vardag.</p>
+      </div>
+      <div class="vs-faq__list">
+        <details><summary>Hur lång är leveranstiden?</summary><p>Vi skickar med PostNord inom Sverige och leveransen tar 1–4 vardagar. Förbeställda varor skickar vi så fort de har kommit till oss. Det står alltid på produktsidan.</p></details>
+        <details><summary>Vad kostar frakten?</summary><p>Frakten kostar 29 kr per beställning. Handlar du för 349 kr eller mer är frakten gratis.</p></details>
+        <details><summary>Kan jag ångra mitt köp?</summary><p>Ja, du har 14 dagars ångerrätt från att du tagit emot varan. Läs mer under <a href="/pages/frakt-och-retur">Frakt och retur</a>.</p></details>
+        <details><summary>Hur betalar jag?</summary><p>Du betalar tryggt i Shopifys kassa och ser alla betalsätt där. Du behöver inget konto, det går alltid att handla som gäst.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="vs-about">
+    <div class="vs-w vs-about__in">
+      <div>
+        <h2 class="vs-h2">Vi är elever som driver ett riktigt företag</h2>
+        <p>Vardagshoppen drivs av Agent UF inom Ung Företagsamhet. Vi väljer produkterna, packar varje paket och svarar på dina frågor själva. Tack för att du stöttar oss.</p>
+      </div>
+      <a class="vs-btn vs-btn--line" href="/pages/om-oss">Läs mer om oss</a>
+    </div>
+  </section>
+</div>
+
+{% stylesheet %}
+  .vs { --g:#073322; --g2:#1d4a37; --ink:#13201a; --moss:#56685d; --frost:#eef3f1; --frost2:#dfe8e4; --lingon:#a3262a; --line:#d9e2de;
+    background:#fff; color:var(--ink); overflow-x:clip; font-size:1rem; }
+  .vs-w { max-width:1200px; margin:0 auto; padding:0 16px; }
+  .vs a { color:inherit; }
+  .vs .vs-h2 { font-size:clamp(1.45rem,1.1rem + 1.6vw,2.2rem); line-height:1.15; letter-spacing:-.02em; font-weight:800; margin:0; color:var(--ink); }
+  .vs p { margin:0; }
+  .vs-btn { display:inline-flex; align-items:center; justify-content:center; min-height:50px; padding:0 24px; border-radius:10px; font-weight:700; font-size:1rem; text-decoration:none; }
+  .vs-btn--snow { background:#fff; color:var(--g) !important; }
+  .vs-btn--green { background:var(--g); color:#fff !important; }
+  .vs-btn--line { border:1.5px solid currentColor; }
+  .vs-btn:hover { filter:brightness(.94); }
+  .vs a:focus-visible, .vs summary:focus-visible { outline:3px solid #9cc7b3; outline-offset:3px; border-radius:6px; }
+
+  /* Hero: granskog med stilla snö */
+  .vs-hero { background-color:var(--g); color:#fff; padding:36px 0 40px;
+    background-image:radial-gradient(circle at 12% 18%, rgba(255,255,255,.55) 0 1.5px, transparent 2.5px), radial-gradient(circle at 62% 8%, rgba(255,255,255,.4) 0 1px, transparent 2px), radial-gradient(circle at 88% 30%, rgba(255,255,255,.5) 0 1.5px, transparent 2.5px), radial-gradient(circle at 35% 70%, rgba(255,255,255,.3) 0 1px, transparent 2px), radial-gradient(circle at 78% 82%, rgba(255,255,255,.4) 0 1.2px, transparent 2.2px);
+    background-size:220px 180px, 260px 210px, 300px 240px, 180px 160px, 240px 200px; }
+  .vs-tag { display:inline-flex; align-items:center; gap:8px; font-size:.9rem; font-weight:600; color:#dbe8e1; margin-bottom:14px !important; }
+  .vs-tag svg { width:18px; height:18px; color:#fff; }
+  .vs .vs-hero__title { color:#fff; font-size:clamp(2.1rem,1.4rem + 3.6vw,3.9rem); line-height:1.04; letter-spacing:-.035em; font-weight:900; margin:0 0 14px; max-width:16ch; }
+  .vs-hero__lead { font-size:1.06rem; line-height:1.55; color:#d3e1da; max-width:44ch; }
+  .vs-hero__ctas { display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
+  .vs-hero__ctas .vs-btn { flex:1 1 100%; }
+  .vs-hero__facts { list-style:none; padding:0; margin:22px 0 0; display:flex; flex-wrap:wrap; gap:6px 16px; font-size:.9rem; color:#cfe0d7; }
+  .vs-hero__facts li::before { content:""; display:inline-block; width:6px; height:6px; border-radius:50%; background:#fff; margin-right:8px; vertical-align:middle; opacity:.8; }
+  .vs-window { display:none; }
+
+  /* Kategorier: rullbar rad på mobil */
+  .vs-cats { padding:32px 0 8px; }
+  .vs-cats__list { list-style:none; margin:16px 0 0; padding:0 0 6px; display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; }
+  .vs-cats__list::-webkit-scrollbar { display:none; }
+  .vs-cats__list li { flex:0 0 42%; scroll-snap-align:start; }
+  .vs-cat { display:flex; flex-direction:column; gap:2px; height:100%; min-height:128px; padding:16px; border-radius:14px; background:var(--frost); text-decoration:none; color:var(--moss); }
+  .vs-cat svg { width:30px; height:30px; margin-bottom:auto; fill:var(--moss); stroke:var(--moss); opacity:.7; }
+  .vs-cat strong { color:var(--ink); font-size:1.02rem; margin-top:14px; }
+  .vs-cat span { font-size:.86rem; }
+  .vs .vs-cat--live { background:var(--g); color:#cfe0d7; }
+  .vs-cat--live svg { fill:#fff; stroke:#fff; opacity:1; }
+  .vs-cat--live strong { color:#fff; }
+  .vs-cat--gift { background:#fff; border:1.5px solid var(--lingon); }
+  .vs-cat--gift svg { fill:none; stroke:var(--lingon); opacity:1; }
+  .vs-cat--gift span { color:var(--lingon); font-weight:600; }
+
+  /* Produkter */
+  .vs-prod { padding:32px 0 40px; }
+  .vs-row { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:16px; }
+  .vs-more { font-weight:700; color:var(--g) !important; text-underline-offset:3px; padding:10px 0; }
+  .vs-grid { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px 12px; }
+  .vs-card { display:flex; flex-direction:column; gap:4px; text-decoration:none; }
+  .vs-card__img { display:block; border-radius:12px; overflow:hidden; background:var(--frost); margin-bottom:8px; }
+  .vs-card__img img { display:block; width:100%; height:auto; aspect-ratio:1; object-fit:contain; }
+  .vs-card__t { font-weight:600; font-size:.95rem; line-height:1.35; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:break-word; hyphens:auto; }
+  .vs-card__p { font-weight:800; font-size:1.05rem; }
+  .vs-soon { display:flex; flex-direction:column; justify-content:center; gap:6px; padding:18px; border:1.5px dashed var(--frost2); border-radius:12px; color:var(--moss); font-size:.9rem; line-height:1.45; min-height:180px; }
+  .vs-soon svg { width:26px; height:26px; color:var(--g2); }
+  .vs-soon strong { color:var(--ink); font-size:1rem; }
+  .vs-grid:has(> li:nth-child(1):nth-last-child(3)) .vs-soon { grid-column:span 2; min-height:0; }
+
+  /* Kitets paket */
+  .vs-kit { background:var(--frost); padding:36px 0 40px; }
+  .vs-kit__head p { color:var(--moss); line-height:1.55; margin-top:8px; max-width:56ch; }
+  .vs-offers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:20px; }
+  .vs-offer { position:relative; display:flex; flex-direction:column; background:#fff; border-radius:14px; padding:10px 10px 16px; text-decoration:none; border:1.5px solid transparent; }
+  .vs-offer--two { border-color:var(--g); }
+  .vs-offer__img { position:relative; display:block; margin-bottom:10px; }
+  .vs-offer__img img { display:block; width:100%; height:auto; aspect-ratio:1; object-fit:contain; }
+  .vs-offer__badge { position:absolute; z-index:1; top:10px; left:10px; background:var(--g); color:#fff; font-size:.75rem; font-weight:700; padding:5px 10px; border-radius:999px; }
+  .vs-offer__x { position:absolute; right:4px; bottom:4px; background:var(--lingon); color:#fff; font-size:.75rem; font-weight:700; padding:5px 10px; border-radius:999px; }
+  .vs-offer__name { font-weight:800; font-size:1.1rem; padding:0 4px; }
+  .vs-offer__what { color:var(--moss); font-size:.88rem; padding:0 4px; }
+  .vs-offer__price { font-weight:900; font-size:1.4rem; letter-spacing:-.02em; margin-top:6px; padding:0 4px; }
+
+  /* Julklapp */
+  .vs-gift { padding:40px 0; }
+  .vs-gift__in { display:grid; gap:16px; }
+  .vs-gift__flake { width:44px; height:44px; color:var(--lingon); }
+  .vs-gift p { color:var(--moss); line-height:1.6; margin-top:10px; max-width:60ch; }
+  .vs-gift .vs-btn { justify-self:start; }
+
+  /* Trygghet */
+  .vs-trust { border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:22px 0; }
+  .vs-trust__list { list-style:none; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:18px 12px; }
+  .vs-trust li { display:flex; gap:10px; align-items:flex-start; }
+  .vs-trust svg { width:24px; height:24px; flex:none; color:var(--g); margin-top:2px; }
+  .vs-trust strong { display:block; font-size:.92rem; }
+  .vs-trust span { display:block; font-size:.82rem; color:var(--moss); line-height:1.4; }
+
+  /* Frågor */
+  .vs-faq { padding:40px 0; }
+  .vs-faq__in > div:first-child p { color:var(--moss); margin-top:8px; line-height:1.55; }
+  .vs-faq__list { margin-top:12px; }
+  .vs-faq__list details { border-bottom:1px solid var(--line); }
+  .vs-faq__list summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:16px; min-height:56px; font-weight:700; }
+  .vs-faq__list summary::-webkit-details-marker { display:none; }
+  .vs-faq__list summary::after { content:"+"; font-size:1.5rem; font-weight:400; color:var(--g); }
+  .vs-faq__list details[open] summary::after { content:"–"; }
+  .vs-faq__list p { color:var(--moss); line-height:1.6; padding:0 0 16px; }
+
+  /* Om oss */
+  .vs-about { background:var(--g); color:#fff; padding:40px 0; }
+  .vs .vs-about .vs-h2 { color:#fff; max-width:22ch; }
+  .vs-about p { color:#cfe0d7; line-height:1.6; margin-top:10px; max-width:60ch; }
+  .vs-about__in { display:grid; gap:20px; }
+  .vs-about .vs-btn { justify-self:start; }
+
+  @media (min-width:750px) {
+    .vs-w { padding:0 32px; }
+    .vs-cats__list { margin:20px 0 0; padding:0; display:grid; grid-template-columns:repeat(4,1fr); overflow:visible; }
+    .vs-cat { min-height:150px; padding:20px; }
+    .vs-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px 20px; }
+    .vs-grid:has(> li:nth-child(1):nth-last-child(2)) .vs-soon { grid-column:span 2; }
+    .vs-grid:has(> li:nth-child(1):nth-last-child(3)) .vs-soon { grid-column:auto; }
+    .vs-offers { gap:20px; max-width:760px; }
+    .vs-offer { padding:16px 16px 22px; }
+    .vs-trust__list { grid-template-columns:repeat(4,1fr); }
+    .vs-faq__in { display:grid; grid-template-columns:1fr 1.6fr; gap:48px; }
+    .vs-faq__list { margin-top:0; }
+    .vs-hero__ctas .vs-btn { flex:0 0 auto; min-width:180px; }
+  }
+  @media (min-width:990px) {
+    .vs-hero { padding:64px 0; }
+    .vs-hero__in { display:grid; grid-template-columns:1.3fr 1fr; gap:56px; align-items:center; }
+    .vs-window { display:block; position:relative; background:#fff; border-radius:20px; padding:14px; text-decoration:none; box-shadow:0 0 0 8px rgba(255,255,255,.08); }
+    .vs-window img { display:block; width:100%; height:auto; aspect-ratio:5/4; object-fit:contain; }
+    .vs-window__cap { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:12px 6px 4px; border-top:1px solid var(--line); color:var(--moss); font-size:.88rem; }
+    .vs-window__cap strong { color:var(--ink); font-size:.98rem; }
+    .vs-cats { padding-top:48px; }
+    .vs-prod { padding:48px 0 64px; }
+    .vs-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .vs-grid:has(> li:nth-child(1):nth-last-child(2)) .vs-soon { grid-column:span 3; }
+    .vs-grid:has(> li:nth-child(1):nth-last-child(3)) .vs-soon { grid-column:span 2; }
+    .vs-grid:has(> li:nth-child(1):nth-last-child(4)) .vs-soon { grid-column:auto; }
+    .vs-soon { align-items:flex-start; padding:28px 32px; }
+    .vs-kit { padding:56px 0; }
+    .vs-kit .vs-w { display:grid; grid-template-columns:1fr 1.4fr; gap:48px; align-items:center; }
+    .vs-offers { margin-top:0; }
+    .vs-gift { padding:56px 0; }
+    .vs-gift__in { grid-template-columns:auto 1fr auto; align-items:center; gap:32px; }
+    .vs-faq, .vs-about { padding:56px 0; }
+    .vs-about__in { grid-template-columns:1fr auto; align-items:center; }
+  }
+  @media (max-width:374px) {
+    .vs-cats__list li { flex-basis:48%; }
+    .vs-offer__name { font-size:1rem; }
+    .vs-offer__price { font-size:1.2rem; }
+    .vs-soon { padding:14px; }
+    .vs-card__t { font-size:.9rem; }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Startsida vinter",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Rubrik", "default": "Smarta saker för vardagen med hund." },
+    { "type": "textarea", "id": "intro", "label": "Introduktion", "default": "Vi är ett svenskt UF-företag som väljer ut praktiska produkter för dig och din hund. Vi packar och skickar allt själva." }
+  ],
+  "presets": [{ "name": "Startsida vinter" }]
+}
+{% endschema %}
