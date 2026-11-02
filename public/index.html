@@ -410,7 +410,7 @@ function render() {
   $("history").innerHTML = videos.map((v) => `
     <tr><td>#${v.id}</td><td>${time(v.created_at)}</td><td>${statusText[v.status] ?? esc(v.status)}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</td>
     <td>${videoBadges(v, product)}${esc(v.idea)}${v.status === "approved" ? `<div class="row" style="margin-top:6px"><button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button></div>` : ""}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}${p.statsText ? `<div class="muted">${esc(p.statsText)}</div>` : ""}`).join("<br>")}</td>
-    <td>${v.status === "failed" && v.raw_file ? `<button class="ghost" onclick="reedit(${v.id})">Klipp om (${reeditCost(v)})</button> ` : ""}${["generating", "editing", "reediting"].includes(v.status) ? "" : `<button class="danger" onclick="deleteVideo(${v.id}, ${v.posts.some((p) => p.status === "posted")})">Radera</button>`}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
+    <td>${v.canReedit && v.status !== "pending" ? `<button class="ghost" onclick="reedit(${v.id})" title="Med vald röst. Videon hamnar under Godkänn igen.">Klipp om (${reeditCost(v)})</button> ` : ""}${["generating", "editing", "reediting"].includes(v.status) ? "" : `<button class="danger" onclick="deleteVideo(${v.id}, ${v.posts.some((p) => p.status === "posted")})">Radera</button>`}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
 
   $("abtests").innerHTML = product.abTests.map((t) => `
     <div class="card" style="margin-bottom:10px">

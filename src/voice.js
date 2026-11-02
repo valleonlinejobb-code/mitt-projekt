@@ -33,8 +33,16 @@ export const googleConfigured = () => Boolean(process.env.GOOGLE_TTS_API_KEY);
 export const voiceConfigured = () => elevenConfigured() || googleConfigured();
 export const voiceProvider = () => (elevenConfigured() ? "elevenlabs" : "google");
 
-// Svenska röster hos ElevenLabs (från deras röstbibliotek, infödda svenskar). Provlyssningen är deras egna gratis prov.
-export const EL_VOICES = {
+// Egna röster, designade i Vardagshoppens ElevenLabs-konto (Voice Design). De fungerar via nyckeln även på gratisplanen.
+// Provet hämtas från kontot (gratis).
+export const OWN_VOICES = {
+  "l1iNkIoIkS6iWcpRwB4J": { name: "Vardagshoppen 1 · kvinna, varm och lugn (egen röst)", own: true },
+  "1ea9ipG3XUIaIcYOe0oU": { name: "Vardagshoppen 2 · kvinna, varm och lugn (egen röst)", own: true },
+  "PeyckxHZ7dK2og1XssBY": { name: "Vardagshoppen 3 · kvinna, varm och lugn (egen röst)", own: true },
+};
+// Svenska röster från ElevenLabs röstbibliotek (infödda svenskar). Provlyssningen är deras egna gratis prov.
+// Gratisplanen får inte använda biblioteksröster via nyckeln (svarar 402), bara med betalplan.
+const LIBRARY_VOICES = {
   "4xkUqaR9MYOJHoaC1Nak": { name: "Sanna · kvinna, glad och vardaglig", preview: "https://storage.googleapis.com/eleven-public-prod/custom/voices/4xkUqaR9MYOJHoaC1Nak/l4PwfhXHwvKzA0G9XP46.mp3" },
   "kPdGSxhZAqy4bmPAf9iJ": { name: "Evelina · kvinna, lugn och varm", preview: "https://storage.googleapis.com/eleven-public-prod/database/user/oNCvJMp3mXbjhQO8EcgVSRoZEv12/voices/kPdGSxhZAqy4bmPAf9iJ/A2ZEj9HQDCioeYPZqwL4.mp3" },
   "QLfvbukvQvrPOx9HXQ3x": { name: "Louise · kvinna, vänlig", preview: "https://storage.googleapis.com/eleven-public-prod/database/user/oNCvJMp3mXbjhQO8EcgVSRoZEv12/voices/QLfvbukvQvrPOx9HXQ3x/ejyOuFwPynyshE2fi2cq.mp3" },
@@ -45,7 +53,11 @@ export const EL_VOICES = {
   "6eknYWL7D5Z4nRkDy15t": { name: "Tommy · man, varm", preview: "https://storage.googleapis.com/eleven-public-prod/database/user/OxzjVs83YRcaNqdHRbfyP7zir7f1/voices/6eknYWL7D5Z4nRkDy15t/DJmKx32l40yW3NuIHHf8.mp3" },
   "oJEeOXECH9V31Oci9WHK": { name: "Peter · man, reklamröst (skånsk)", preview: "https://storage.googleapis.com/eleven-public-prod/database/user/4zyOZkjQKNWKGaXK4WckvDaRjsE2/voices/oJEeOXECH9V31Oci9WHK/pFc3wHot7db0LfM0zWDk.mp3" },
 };
-const EL_DEFAULT = process.env.ELEVENLABS_VOICE || "4xkUqaR9MYOJHoaC1Nak";
+export const EL_VOICES = { ...OWN_VOICES, ...LIBRARY_VOICES };
+const EL_DEFAULT = process.env.ELEVENLABS_VOICE || "l1iNkIoIkS6iWcpRwB4J";
+// Gratisplanen: biblioteksrösterna fungerar inte via nyckeln.
+const freePlan = () => account.value?.tier === "free";
+const usable = (id) => Boolean(EL_VOICES[id]) && (EL_VOICES[id].own || !freePlan());
 
 // Svenska röster hos Google (Chirp 3 HD, gratis upp till 1 miljon tecken per månad).
 export const GOOGLE_VOICES = {
@@ -64,19 +76,31 @@ const GOOGLE_DEFAULT = process.env.TTS_VOICE || "sv-SE-Chirp3-HD-Aoede";
 
 /** Rösterna som går att välja just nu: id → namn. */
 export function voiceNames() {
-  return elevenConfigured() ? Object.fromEntries(Object.entries(EL_VOICES).map(([id, v]) => [id, v.name])) : GOOGLE_VOICES;
+  if (!elevenConfigured()) return GOOGLE_VOICES;
+  return Object.fromEntries(Object.entries(EL_VOICES).map(([id, v]) => [id, usable(id) ? v.name : `${v.name} (kräver betalplan)`]));
 }
 export function chosenVoice() {
   if (elevenConfigured()) {
     const voice = getSetting("el_voice", EL_DEFAULT);
-    return EL_VOICES[voice] ? voice : EL_DEFAULT;
+    return usable(voice) ? voice : EL_DEFAULT;
   }
   const voice = getSetting("tts_voice", GOOGLE_DEFAULT);
   return GOOGLE_VOICES[voice] ? voice : GOOGLE_DEFAULT;
 }
 /** Inställningen som sparar valet: ElevenLabs- och Google-valet sparas var för sig. */
 export const voiceSettingKey = () => (elevenConfigured() ? "el_voice" : "tts_voice");
-export const elevenPreviewUrl = (id) => EL_VOICES[id]?.preview;
+/** Provet för en röst: bibliotekets eget, eller för egna röster provet som ElevenLabs sparade (gratis att hämta). */
+const previews = {};
+export async function elevenPreviewUrl(id) {
+  if (!EL_VOICES[id]) return null;
+  if (EL_VOICES[id].preview) return EL_VOICES[id].preview;
+  if (previews[id] && Date.now() - previews[id].at < 30 * 60_000) return previews[id].url;
+  const res = await fetch(`${EL_API}/voices/${encodeURIComponent(id)}`, { headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY } });
+  const body = await res.json().catch(() => ({}));
+  const url = res.ok ? body.preview_url : null;
+  previews[id] = { at: Date.now(), url: url || null };
+  return url || null;
+}
 
 // Hur fort rösten pratar. 1 = vanlig takt. Lite snabbare känns ofta mer som reklam på TikTok.
 // En lista, eftersom ett objekt skulle lägga "1" först.

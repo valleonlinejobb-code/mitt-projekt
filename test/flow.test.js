@@ -793,7 +793,14 @@ test("ElevenLabs: billig modell, svensk röst, sparat ljud (Klipp om gratis), m�
     // Kontrollen när servern startar frågar bara om kontot: inga krediter.
     assert.deepEqual(await checkVoice(), { ok: true, provider: "elevenlabs" });
     assert.equal(elevenTts().length, 0);
-    assert.match(voiceNames()[chosenVoice()], /Sanna/);
+    // Egen designad röst är standard. Gratisplanen: biblioteksrösterna märks och väljs aldrig, även om de var valda.
+    assert.match(voiceNames()[chosenVoice()], /Vardagshoppen 1/);
+    assert.match(voiceNames()["4xkUqaR9MYOJHoaC1Nak"], /kräver betalplan/);
+    setSetting("el_voice", "4xkUqaR9MYOJHoaC1Nak");
+    assert.equal(chosenVoice(), "l1iNkIoIkS6iWcpRwB4J");
+    setSetting("el_voice", "PeyckxHZ7dK2og1XssBY");
+    assert.equal(chosenVoice(), "PeyckxHZ7dK2og1XssBY", "egna röster går att välja");
+    setSetting("el_voice", "l1iNkIoIkS6iWcpRwB4J");
 
     const product = activeProduct();
     const insert = (voiceover) => Number(db.prepare("INSERT INTO videos (product_id, created_at, status, hf_request_id, edit) VALUES (?, ?, 'generating', 'req-1', ?)")
@@ -806,7 +813,7 @@ test("ElevenLabs: billig modell, svensk röst, sparat ljud (Klipp om gratis), m�
     assert.equal(video.error, null);
     assert.equal(elevenTts().length, 1);
     const req = elevenTts()[0];
-    assert.match(req.url, /\/text-to-speech\/4xkUqaR9MYOJHoaC1Nak\?output_format=mp3_44100_128$/);
+    assert.match(req.url, /\/text-to-speech\/l1iNkIoIkS6iWcpRwB4J\?output_format=mp3_44100_128$/);
     assert.equal(req.headers.get("xi-api-key"), "el-key");
     assert.equal(req.body.model_id, "eleven_flash_v2_5", "billigaste modellen");
     assert.equal(req.body.language_code, "sv");

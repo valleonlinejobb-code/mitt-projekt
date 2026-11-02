@@ -93,6 +93,7 @@ app.get("/api/state", async (_req, res) => {
     researchEveryDays: RESEARCH_EVERY_DAYS,
     videos: all("SELECT * FROM videos ORDER BY id DESC LIMIT 30").map((v) => ({
       ...v,
+      canReedit: Boolean(v.raw_file) && (["failed", "pending"].includes(v.status) || (["approved", "rejected"].includes(v.status) && !one("SELECT 1 FROM posts WHERE video_id = ?", v.id))),
       captions: v.captions ? JSON.parse(v.captions) : null,
       channels: v.channels ? JSON.parse(v.channels) : null,
       posts: all("SELECT * FROM posts WHERE video_id = ?", v.id).map((p) => ({ ...p, statsText: p.stats ? statsText(JSON.parse(p.stats)) : "" })),
@@ -117,7 +118,7 @@ app.get("/api/state", async (_req, res) => {
     voices: Object.entries(voiceNames()).map(([id, name]) => ({ id, name, chosen: id === chosenVoice() })),
     voice: await voiceSummary(),
     // Om "Klipp om" kostar ElevenLabs-krediter: bara när rösttexten (eller rösten/takten) är ny.
-    voiceCached: Object.fromEntries(all("SELECT id, edit FROM videos WHERE status IN ('pending', 'failed') AND edit IS NOT NULL ORDER BY id DESC LIMIT 30")
+    voiceCached: Object.fromEntries(all("SELECT id, edit FROM videos WHERE edit IS NOT NULL AND raw_file IS NOT NULL ORDER BY id DESC LIMIT 30")
       .map((v) => [v.id, voiceCached(JSON.parse(v.edit).voiceover ?? "")])),
     voiceSpeeds: SPEED_LIST.map(([id, name]) => ({ id, name, chosen: id === chosenSpeed() })),
     maxOrder: MAX_ORDER,
@@ -249,7 +250,10 @@ app.post("/api/videos/:id/reject", (req, res) => {
 // Provlyssna på en röst. ElevenLabs: deras eget prov (kostar inga krediter). Google: görs en gång och sparas (gratis).
 app.get("/api/voices/:id/preview", async (req, res) => {
   if (!voiceNames()[req.params.id]) return res.status(404).json({ error: "Okänd röst" });
-  if (elevenConfigured()) return res.redirect(elevenPreviewUrl(req.params.id));
+  if (elevenConfigured()) {
+    const url = await elevenPreviewUrl(req.params.id).catch(() => null);
+    return url ? res.redirect(url) : res.status(404).json({ error: "Provet finns på elevenlabs.io under My Voices" });
+  }
   if (!voiceConfigured()) return res.status(400).json({ error: "ELEVENLABS_API_KEY saknas i Railway" });
   // Provlyssningen görs i den valda takten, så att du hör hur videon kommer att låta.
   const file = path.join(MEDIA_DIR, `voice-preview-${req.params.id}-${chosenSpeed()}.mp3`);
@@ -266,7 +270,11 @@ app.get("/api/voices/:id/preview", async (req, res) => {
 // Klipp om en video gratis (samma film från Higgsfield): med den valda rösten, och med ny rösttext om du skrev en.
 app.post("/api/videos/:id/reedit", async (req, res) => {
   let video = one("SELECT * FROM videos WHERE id = ?", req.params.id);
-  if (!video?.raw_file || !["failed", "pending"].includes(video.status)) return res.status(400).json({ error: "Den här videon går inte att klippa om" });
+  // Även en godkänd eller slängd video kan klippas om (t.ex. med en ny röst), så länge den inte har lagts upp någonstans.
+  const hasPosts = one("SELECT COUNT(*) AS n FROM posts WHERE video_id = ?", req.params.id)?.n > 0;
+  if (!video?.raw_file || !(["failed", "pending"].includes(video.status) || (["approved", "rejected"].includes(video.status) && !hasPosts))) {
+    return res.status(400).json({ error: "Den här videon går inte att klippa om" });
+  }
   // Det rösten säger och det som står i bild kan skilja sig, t.ex. när rösten uttalar ett ord fel och du skriver det som det låter.
   const voiceover = String(req.body?.voiceover ?? "").trim();
   const captionText = String(req.body?.caption_text ?? "").trim();
