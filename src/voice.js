@@ -288,5 +288,7 @@ export function speakable(text) {
     .replace(/\b([\p{L}\d-]+)\.(com|se|nu)\b/giu, "$1 punkt $2")
     .replace(/(\d)\s*kr\b/g, "$1 kronor")
     .replace(/(\d)\s*%/g, "$1 procent")
-    .replace(/[−–]\s*(\d+ procent)/g, "$1");
+    .replace(/[−–]\s*(\d+ procent)/g, "$1")
+    // "kit" läses annars som engelska "kajt": tasstvättkit, kitet → tasstvättkitt, kittet.
+    .replace(/(?<!s)kit(et|ets|s)?\b/giu, (m, end = "") => `${m.slice(0, 3)}t${end}`);
 }
