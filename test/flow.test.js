@@ -258,6 +258,7 @@ test("research → prompt → Higgsfield → video tillbaka → kanalagenterna",
   // Rösten får webbadress och procent utskrivna så att de uttalas rätt.
   assert.equal(tts.body.input.text, speakable(CONCEPT.voiceover));
   assert.match(tts.body.input.text, /vardagshoppen punkt com/);
+  assert.equal(speakable("Tasstvättkit för 199 kr. Kitet finns i S, M och L."), "Tasstvättkitt för 199 kronor. Kittet finns i S, M och L.", "kit uttalas som svenska kitt");
   assert.equal(tts.body.voice.languageCode, "sv-SE");
   assert.equal(tts.body.audioConfig.speakingRate, 1, "vanlig takt tills du väljer en annan");
   assert.match(video.idea, /Röst: "Trött på leriga tassar/);
