@@ -18,7 +18,7 @@ import { STAGES, progressOf } from "./progress.js";
 import { polishEnabled } from "./polish.js";
 import { estimateSek, spendSummary } from "./costs.js";
 import { selfCheck } from "./editor.js";
-import { voiceConfigured, synthesizeVoice, VOICES, chosenVoice, SPEEDS, SPEED_LIST, chosenSpeed } from "./voice.js";
+import { voiceConfigured, elevenConfigured, synthesizeGoogle, voiceNames, voiceSettingKey, elevenPreviewUrl, chosenVoice, SPEEDS, SPEED_LIST, chosenSpeed, checkVoice, voiceSummary, voiceCached } from "./voice.js";
 import { editAndOffer } from "./agents/prompt.js";
 
 const AB_SIZE = 3;
@@ -75,7 +75,7 @@ function flowFor(product) {
   };
 }
 
-app.get("/api/state", (_req, res) => {
+app.get("/api/state", async (_req, res) => {
   const products = all("SELECT * FROM products ORDER BY id").map((p) => ({
     ...p,
     agents: all("SELECT * FROM agents WHERE product_id = ?", p.id),
@@ -114,7 +114,11 @@ app.get("/api/state", (_req, res) => {
     cost: { video: estimateSek("video") + videoModelSek(), research: geminiConfigured() ? 0 : estimateSek("research"), clip: estimateSek("clip") },
     spend: spendSummary(),
     videoModels: Object.entries(VIDEO_MODELS).map(([id, m]) => ({ id, ...m, chosen: id === videoModel() })),
-    voices: Object.entries(VOICES).map(([id, name]) => ({ id, name, chosen: id === chosenVoice() })),
+    voices: Object.entries(voiceNames()).map(([id, name]) => ({ id, name, chosen: id === chosenVoice() })),
+    voice: await voiceSummary(),
+    // Om "Klipp om" kostar ElevenLabs-krediter: bara när rösttexten (eller rösten/takten) är ny.
+    voiceCached: Object.fromEntries(all("SELECT id, edit FROM videos WHERE status IN ('pending', 'failed') AND edit IS NOT NULL ORDER BY id DESC LIMIT 30")
+      .map((v) => [v.id, voiceCached(JSON.parse(v.edit).voiceover ?? "")])),
     voiceSpeeds: SPEED_LIST.map(([id, name]) => ({ id, name, chosen: id === chosenSpeed() })),
     maxOrder: MAX_ORDER,
     settings: {
@@ -242,15 +246,16 @@ app.post("/api/videos/:id/reject", (req, res) => {
   res.json({ ok: true });
 });
 
-// Provlyssna på en röst (gratis inom Googles gratiskvot). Sparas, så att samma röst bara görs en gång.
+// Provlyssna på en röst. ElevenLabs: deras eget prov (kostar inga krediter). Google: görs en gång och sparas (gratis).
 app.get("/api/voices/:id/preview", async (req, res) => {
-  if (!VOICES[req.params.id]) return res.status(404).json({ error: "Okänd röst" });
-  if (!voiceConfigured()) return res.status(400).json({ error: "GOOGLE_TTS_API_KEY saknas i Railway" });
+  if (!voiceNames()[req.params.id]) return res.status(404).json({ error: "Okänd röst" });
+  if (elevenConfigured()) return res.redirect(elevenPreviewUrl(req.params.id));
+  if (!voiceConfigured()) return res.status(400).json({ error: "ELEVENLABS_API_KEY saknas i Railway" });
   // Provlyssningen görs i den valda takten, så att du hör hur videon kommer att låta.
   const file = path.join(MEDIA_DIR, `voice-preview-${req.params.id}-${chosenSpeed()}.mp3`);
   try {
     if (!fs.existsSync(file)) {
-      fs.writeFileSync(file, await synthesizeVoice("Leriga tassar efter promenaden? Med tasstvättkitet från Vardagshoppen blir tassen ren på några sekunder. Finns i S, M och L.", req.params.id));
+      fs.writeFileSync(file, await synthesizeGoogle("Leriga tassar efter promenaden? Med tasstvättkitet från Vardagshoppen blir tassen ren på några sekunder. Finns i S, M och L.", req.params.id));
     }
     res.type("audio/mpeg").sendFile(file);
   } catch (err) {
@@ -379,12 +384,18 @@ app.post("/api/settings", (req, res) => {
   if ("tts_speed" in req.body) {
     if (!SPEEDS[req.body.tts_speed]) return res.status(400).json({ error: "Okänd takt" });
     setSetting("tts_speed", req.body.tts_speed);
-    log(null, "prompt", `Rösten pratar nu i takten "${SPEEDS[req.body.tts_speed]}". Nya videor får den, och "Klipp om" ger en befintlig video den gratis.`);
+    log(null, "prompt", `Rösten pratar nu i takten "${SPEEDS[req.body.tts_speed]}". Nya videor får den${elevenConfigured() ? "" : `, och "Klipp om" ger en befintlig video den gratis`}.`);
   }
   if ("tts_voice" in req.body) {
-    if (!VOICES[req.body.tts_voice]) return res.status(400).json({ error: "Okänd röst" });
-    setSetting("tts_voice", req.body.tts_voice);
-    log(null, "prompt", `Berättarrösten är nu ${VOICES[req.body.tts_voice]}. Nya videor får den, och "Klipp om" ger en befintlig video den gratis.`);
+    const names = voiceNames();
+    if (!names[req.body.tts_voice]) return res.status(400).json({ error: "Okänd röst" });
+    setSetting(voiceSettingKey(), req.body.tts_voice);
+    log(null, "prompt", `Berättarrösten är nu ${names[req.body.tts_voice]}. Nya videor får den${elevenConfigured() ? "" : `, och "Klipp om" ger en befintlig video den gratis`}.`);
+  }
+  if ("el_cap_credits" in req.body) {
+    const cap = Math.max(0, Math.round(Number(req.body.el_cap_credits) || 0));
+    setSetting("el_cap_credits", cap);
+    log(null, "prompt", `Månadstaket för ElevenLabs är nu ${cap} krediter. Över taket görs rösten med Google (gratis).`);
   }
   if ("claude_budget_sek" in req.body) {
     const budget = Math.max(0, Math.round(Number(req.body.claude_budget_sek) || 0));
@@ -422,13 +433,13 @@ app.post("/api/products", (req, res) => {
 db.prepare("UPDATE posts SET status = 'failed', error = 'Avbröts av omstart' WHERE status = 'publishing'").run();
 db.prepare("UPDATE videos SET status = 'failed', error = 'Omklippningen avbröts av en omstart. Tryck Klipp om igen.' WHERE status = 'reediting'").run();
 
-// Provklipp och provröst när servern startar (gratis). Resultatet visas överst på kontrollsidan.
+// Provklipp och röstkontroll när servern startar (gratis). Resultatet visas överst på kontrollsidan.
 const checks = { editor: null, voice: null };
 async function runChecks() {
   checks.editor = await selfCheck(MEDIA_DIR);
   if (!checks.editor.ok) log(null, "prompt", `Klipparen fungerar inte: ${checks.editor.error}`);
-  if (!voiceConfigured()) checks.voice = { ok: false, error: "GOOGLE_TTS_API_KEY saknas i Railway" };
-  else checks.voice = await synthesizeVoice("Hej").then(() => ({ ok: true }), (err) => ({ ok: false, error: err.message }));
+  // ElevenLabs tillfrågas bara om kontot, så kontrollen kostar inga krediter.
+  checks.voice = await checkVoice();
   if (!checks.voice.ok) log(null, "prompt", `Berättarrösten fungerar inte: ${checks.voice.error}`);
 }
 
