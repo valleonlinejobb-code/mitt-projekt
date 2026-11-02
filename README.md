@@ -9,7 +9,7 @@ Fem AI-agenter per produkt som tillsammans gör och publicerar reklamvideor, sty
 | Resultat | Innan promptagenten skriver idéer hämtar den (gratis) hur de publicerade videorna har gått på Facebook och Instagram: visningar, krokgrad (andel som tittar minst 3 s), hur många som tittar klart och snittid. Den bästa videon blir "vinnare", och en av de nya idéerna blir en variant av den med ny krok. Siffrorna syns i videohistoriken. |
 | A/B-test och varianter | **A/B-test** gör 3 videor med samma budskap men olika krok-typer. När de är publicerade visar kontrollsidan krokgrad per video och utser en vinnare (minst 300 visningar var). **Beställ variant** gör en ny version av en video med ny krok eller miljö. Vid godkännandet väljer du vilka kanaler videon ska läggas upp på. |
 | Egen mobilfilm | Ladda upp en egen film (2–90 s) på kontrollsidan. Klippagenten tittar på bilder ur filmen och skriver text i bild, berättarröst, slutbild och inläggstexter (1–2 Claude-anrop, ca 3 kr). Ingen Higgsfield-kostnad. |
-| Klippare | När videon kommer tillbaka lägger servern på (med ffmpeg, gratis) Vardagshoppens logga och namn, priset, text i bild, en slutbild på minst 4 s med pris, erbjudanden och vardagshoppen.com, och en svensk berättarröst som du väljer på kontrollsidan (Google Text-to-Speech). Videomodellen kan inte skriva text eller logotyper själv. |
+| Klippare | När videon kommer tillbaka lägger servern på (med ffmpeg, gratis) Vardagshoppens logga och namn, priset, text i bild, en slutbild på minst 4 s med pris, erbjudanden och vardagshoppen.com, och en svensk berättarröst som du väljer på kontrollsidan (ElevenLabs, eller Google Text-to-Speech utan ElevenLabs-nyckel). Videomodellen kan inte skriva text eller logotyper själv. |
 | Redigeringsagent | Ger varje video en sista touch, gratis med ffmpeg: tar bort flimmer och brus, skalar upp mjukt till 720×1280, zoomar långsamt in (6 %), skärper lagom och ger friskare färger (innan text och slutbild läggs på). Ljudet: rösten putsas (bort med muller, kompressor, tydlighet), ett whoosh läggs där slutbilden sveper in, och ljudnivån jämnas ut till −14 LUFS som TikTok, Instagram och Facebook använder. Kan stängas av med bocken på kontrollsidan. |
 | Instagram | Publicerar godkända videor som Reels (max en per dag) och skriver svar på kommentarer och DM. |
 | Facebook | Publicerar godkända videor på sidan (max en per dag) och skriver svar på kommentarer och Messenger. |
@@ -33,7 +33,8 @@ Kanalagenterna (Instagram, Facebook, TikTok) startas och stoppas med **Starta**/
 | Claude API: en video ca 5–10 kr. Researchen är gratis med Gemini (annars ca 8–15 kr med Sonnet 5.5) | 50–200 kr |
 | Gemini API + Tavily (researchen) | 0 kr: Geminis gratisnivå och Tavilys 1 000 gratis sökningar per månad |
 | Higgsfield, en video om 10 s per dag (Wan 3.0) | ca 2 kr per video, 60–100 kr |
-| Google Text-to-Speech (berättarrösten) | 0 kr: 1 miljon tecken per månad är gratis, en video använder ca 200 |
+| ElevenLabs (berättarrösten) | 0 kr på gratisplanen: 10 000 krediter per månad. Modellen Flash v2.5 kostar 0,5 kredit per tecken, så en video ≈ 90 krediter (ca 100 videor). Samma text görs aldrig om, och ett månadstak (standard 9 000) gör att rösten görs med Google när taket är nått. |
+| Google Text-to-Speech (reservröst) | 0 kr: 1 miljon tecken per månad är gratis, en video använder ca 200 |
 
 Du betalar bara för de videor du beställer. Taket `MAX_VIDEOS_PER_MONTH` (standard 35) är ett extra skydd.
 
@@ -74,7 +75,10 @@ Kontrollsidan visar under **Vad Claude har kostat** vad varje jobb faktiskt kost
 | `RESEARCH_MODEL` | nej | Claude-modellen för researchen när `GEMINI_API_KEY` saknas. Standard `claude-sonnet-5-5` (billigare). Videoidéer och granskning använder `CLAUDE_MODEL`. |
 | `CLAUDE_BUDGET_SEK` | nej | Månadstaket för Claude innan du har ändrat det på sidan. Standard `300`. |
 | `USD_TO_SEK` | nej | Växelkursen för kostnaderna. Standard `10.5`. |
-| `GOOGLE_TTS_API_KEY` | för rösten | API-nyckel från Google Cloud med **Cloud Text-to-Speech API** påslaget. Utan den görs videorna utan berättarröst. |
+| `ELEVENLABS_API_KEY` | för rösten | Från elevenlabs.io → Developers → API keys → Create key. Ge nyckeln **Text to Speech** och **User: Read** (för att visa saldot). Kontrollen när servern startar och provlyssningen kostar inga krediter. |
+| `ELEVENLABS_MODEL` | nej | Standard `eleven_flash_v2_5` (billigast, 0,5 kredit per tecken). |
+| `ELEVENLABS_MONTHLY_CREDITS` | nej | Månadstaket innan du har ändrat det på kontrollsidan. Standard 9000. |
+| `GOOGLE_TTS_API_KEY` | nej, reserv | API-nyckel från Google Cloud med **Cloud Text-to-Speech API** påslaget. Används när ElevenLabs saknas eller månadstaket är nått (gratis). |
 | `TTS_VOICE` | nej | Rösten. Rösten innan du har valt en på kontrollsidan. Standard `sv-SE-Chirp3-HD-Aoede` (svensk kvinnoröst). Rutan **Berättarröst** har tio röster, både kvinno- och mansröster. |
 | `SHOPIFY_STORE_URL` | nej | Butikens adress för att hämta produkter. Standard `https://vardagshoppen.com`. |
 | `INBOX_EVERY_MINUTES` | nej | Hur ofta kommentarer och DM hämtas. Standard `10`. |

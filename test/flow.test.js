@@ -68,6 +68,8 @@ let reviewedHookScore = 9;
 let ignoreOrders = false; // låtsas att granskaren struntar i beställningen (A/B-krok, variant)
 let clipPlan = null;
 let ttsFails = false;
+let elevenUsed = 0;
+let elevenBlocked = false;
 // Granskaren följer beställningen: väljer en ledig krok i A/B-testet och sätter variant_of.
 function followOrder(concept, prompt) {
   if (ignoreOrders) return concept;
@@ -156,6 +158,12 @@ globalThis.fetch = async (input, init = {}) => {
   if (url === "https://texttospeech.googleapis.com/v1/text:synthesize") {
     if (ttsFails) return json({ error: { code: 403, message: "API key not valid" } }, 403);
     return json({ audioContent: fs.readFileSync(sampleVoice).toString("base64") });
+  }
+  if (url === "https://api.elevenlabs.io/v1/user/subscription") return json({ tier: "free", character_count: elevenUsed, character_limit: 10000, next_character_count_reset_unix: 1796000000 });
+  if (url.startsWith("https://api.elevenlabs.io/v1/text-to-speech/")) {
+    if (elevenBlocked) return json({ detail: { status: "paid_plan_required", message: "Free users cannot use library voices via the API." } }, 402);
+    elevenUsed += Math.ceil(body.text.length / 2);
+    return new Response(fs.readFileSync(sampleVoice), { headers: { "Content-Type": "audio/mpeg" } });
   }
   if (url.startsWith("https://graph.facebook.com/") || url.startsWith("https://graph-video.facebook.com/")) {
     if (url.includes("/page-1/videos")) return json({ id: "fb-video-1" });
@@ -773,4 +781,64 @@ test("Texten i bild är det rösten säger, i samma takt: varje mening börjar n
   assert.ok(Math.abs(second.from - (0.4 + segments[1][0])) < 0.05, `andra meningen börjar med rösten (${second.from})`);
   assert.equal(captions.map((c) => c.text).join(" ").replace(/,/g, ""), text.replace(/[,.]/g, "").replace("vardagshoppencom", "vardagshoppen.com"));
   assert.deepEqual(captionChunks("Trött på leriga tassar efter varje promenad i skogen?"), ["Trött på leriga tassar efter", "varje promenad i skogen?"]);
+});
+
+test("ElevenLabs: billig modell, svensk röst, sparat ljud (Klipp om gratis), månadstak och kontroll utan krediter", async () => {
+  process.env.ELEVENLABS_API_KEY = "el-key";
+  const { checkVoice, voiceSummary, voiceNames, chosenVoice } = await import("../src/voice.js");
+  const { setSetting } = await import("../src/db.js");
+  const { editAndOffer } = await import("../src/agents/prompt.js");
+  const elevenTts = () => calls.filter((c) => c.url.startsWith("https://api.elevenlabs.io/v1/text-to-speech/"));
+  try {
+    // Kontrollen när servern startar frågar bara om kontot: inga krediter.
+    assert.deepEqual(await checkVoice(), { ok: true, provider: "elevenlabs" });
+    assert.equal(elevenTts().length, 0);
+    assert.match(voiceNames()[chosenVoice()], /Sanna/);
+
+    const product = activeProduct();
+    const insert = (voiceover) => Number(db.prepare("INSERT INTO videos (product_id, created_at, status, hf_request_id, edit) VALUES (?, ?, 'generating', 'req-1', ?)")
+      .run(product.id, new Date().toISOString(), JSON.stringify({ overlays: CONCEPT.overlays, voiceover, info_bar: CONCEPT.info_bar, end_card: CONCEPT.end_card })).lastInsertRowid);
+    const googleBefore = calls.filter((c) => c.url.startsWith("https://texttospeech")).length;
+    const id = insert(CONCEPT.voiceover);
+    await pollVideos();
+    let video = db.prepare("SELECT * FROM videos WHERE id = ?").get(id);
+    assert.equal(video.status, "pending");
+    assert.equal(video.error, null);
+    assert.equal(elevenTts().length, 1);
+    const req = elevenTts()[0];
+    assert.match(req.url, /\/text-to-speech\/4xkUqaR9MYOJHoaC1Nak\?output_format=mp3_44100_128$/);
+    assert.equal(req.headers.get("xi-api-key"), "el-key");
+    assert.equal(req.body.model_id, "eleven_flash_v2_5", "billigaste modellen");
+    assert.equal(req.body.language_code, "sv");
+    assert.equal(req.body.text, speakable(CONCEPT.voiceover));
+    assert.equal(calls.filter((c) => c.url.startsWith("https://texttospeech")).length, googleBefore, "Google används inte");
+    const summary = await voiceSummary();
+    assert.equal(summary.usedThisMonth, Math.ceil(speakable(CONCEPT.voiceover).length / 2));
+
+    // Klipp om med samma text: ljudet är sparat, inga nya krediter.
+    db.prepare("UPDATE videos SET status = 'reediting' WHERE id = ?").run(id);
+    assert.equal(await editAndOffer(db.prepare("SELECT * FROM videos WHERE id = ?").get(id)), true);
+    assert.equal(elevenTts().length, 1);
+
+    // Månadstaket nått: rösten görs gratis med Google i stället, och det står varför.
+    setSetting("el_cap_credits", summary.usedThisMonth + 10);
+    const capped = insert("Leriga tassar? Tasstvättkit för 199 kronor på vardagshoppen.com. Koden FORSTA10 ger 10 procent.");
+    await pollVideos();
+    video = db.prepare("SELECT * FROM videos WHERE id = ?").get(capped);
+    assert.equal(video.status, "pending");
+    assert.equal(elevenTts().length, 1, "inget anrop över taket");
+    assert.match(video.error, /Google-rösten användes eftersom månadstaket för ElevenLabs/);
+    setSetting("el_cap_credits", 9000);
+
+    // Rösten är låst på gratisplanen: Google tar över, och felet syns.
+    elevenBlocked = true;
+    const blocked = insert("Ren tass på sekunder. Tasstvättkit på vardagshoppen.com.");
+    await pollVideos();
+    video = db.prepare("SELECT * FROM videos WHERE id = ?").get(blocked);
+    assert.equal(video.status, "pending");
+    assert.match(video.error, /tillåter inte den här rösten/);
+  } finally {
+    elevenBlocked = false;
+    delete process.env.ELEVENLABS_API_KEY;
+  }
 });

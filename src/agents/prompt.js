@@ -10,7 +10,7 @@ import { latestResearch } from "./research.js";
 import * as progress from "../progress.js";
 import { workingProductImage, productImageUrls, productOptions, sizesOf } from "../shopify.js";
 import { editVideo } from "../editor.js";
-import { voiceConfigured, synthesizeVoice, speakable } from "../voice.js";
+import { voiceConfigured, makeVoice } from "../voice.js";
 import { refreshStats, performance } from "./stats.js";
 import { polishEnabled, polishLook, polishSound } from "../polish.js";
 
@@ -514,8 +514,8 @@ export async function pollVideos() {
 export async function editAndOffer(video) {
   const outFile = `${crypto.randomBytes(12).toString("hex")}.mp4`;
   try {
-    const { voiceError, polishError } = await finishAd(video, video.raw_file, outFile);
-    const note = [voiceError && `Utan berättarröst: ${voiceError}`, polishError && `Utan sista touch: ${polishError}`].filter(Boolean).join(" ") || null;
+    const { voiceError, voiceNote, polishError } = await finishAd(video, video.raw_file, outFile);
+    const note = [voiceError && `Utan berättarröst: ${voiceError}`, voiceNote && `${voiceNote}.`, polishError && `Utan sista touch: ${polishError}`].filter(Boolean).join(" ") || null;
     db.prepare("UPDATE videos SET status = 'pending', local_file = ?, error = ? WHERE id = ?").run(outFile, note, video.id);
     if (video.local_file && video.local_file !== video.raw_file) fs.rmSync(path.join(MEDIA_DIR, path.basename(video.local_file)), { force: true });
     log(video.product_id, "prompt", `Video #${video.id} är klar och väntar på ditt godkännande.${note ? ` ${note}` : ""}`);
@@ -556,16 +556,21 @@ export async function finishAd(video, rawFile, outFile) {
   if (!edit.overlays?.length && !edit.end_card) throw new Error("Videon saknar text i bild och slutbild, så den kan inte klippas. Beställ en ny video.");
   let voiceFile;
   let voiceError = null;
+  let voiceNote = null;
+  let voiceTemp = false;
   if (edit.voiceover && voiceConfigured()) {
     try {
-      voiceFile = path.join(MEDIA_DIR, `${outFile}.voice.mp3`);
-      fs.writeFileSync(voiceFile, await synthesizeVoice(speakable(edit.voiceover)));
+      // Rösten sparas: samma text med samma röst och takt görs aldrig om (sparar ElevenLabs-krediter).
+      const voice = await makeVoice(edit.voiceover, { what: `Video #${video.id}` });
+      voiceFile = voice.file;
+      voiceNote = voice.note;
+      voiceTemp = voice.temp;
     } catch (err) {
       voiceFile = undefined;
       voiceError = err.message;
     }
   } else if (edit.voiceover) {
-    voiceError = "GOOGLE_TTS_API_KEY saknas i Railway";
+    voiceError = "ELEVENLABS_API_KEY saknas i Railway";
   }
   const productImage = product ? await productImageFile(product) : null;
   // Redigeringsagenten putsar bilden innan text och slutbild läggs på. Går det inte klipps filmen som den är.
@@ -609,7 +614,7 @@ export async function finishAd(video, rawFile, outFile) {
     if (polish) progress.stopped(video.product_id, "polish", `Video #${video.id} kunde inte klippas`);
     throw err;
   } finally {
-    if (voiceFile) fs.rmSync(voiceFile, { force: true });
+    if (voiceFile && voiceTemp) fs.rmSync(voiceFile, { force: true });
     if (productImage) fs.rmSync(productImage, { force: true });
     if (polished) fs.rmSync(polished, { force: true });
   }
@@ -627,5 +632,5 @@ export async function finishAd(video, rawFile, outFile) {
       progress.done(video.product_id, "polish", `Video #${video.id}`);
     }
   }
-  return { file: outFile, voiceError, polishError };
+  return { file: outFile, voiceError, voiceNote, polishError };
 }

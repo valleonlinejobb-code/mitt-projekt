@@ -113,7 +113,8 @@
 
   <h2>Berättarröst</h2>
   <div class="card">
-    <div class="muted">Vilken svensk röst som läser texten i videorna. Gratis. Lyssna och välj; en video som väntar på godkännande får den nya rösten med "Ändra rösten".</div>
+    <div class="muted" id="voiceIntro">Vilken svensk röst som läser texten i videorna. Lyssna och välj.</div>
+    <div id="voiceUsage" style="margin-top:8px"></div>
     <div class="row" id="voiceSpeeds" style="align-items:center"></div>
     <div id="voices" style="margin-top:8px"></div>
   </div>
@@ -343,13 +344,14 @@ function render() {
           <button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button>
           <button class="danger" onclick="reject(${v.id})">Släng</button>
         </div>
-        <details><summary class="muted" style="margin:10px 0 0;font-weight:400">Ändra rösten och texten i bild (gratis, samma video)</summary>
+        <details><summary class="muted" style="margin:10px 0 0;font-weight:400">Ändra rösten och texten i bild (samma video${elevenOn() ? "" : ", gratis"})</summary>
           <p class="muted">Säger rösten ett ord fel? Skriv ordet som det låter i den första rutan, och som det ska stavas i den andra.</p>
           <label>Det rösten säger</label>
           <textarea data-key="voice-${v.id}">${esc(v.edit ? JSON.parse(v.edit).voiceover ?? "" : "")}</textarea>
           <label>Det som står i bild</label>
           <textarea data-key="text-${v.id}">${esc(v.edit ? JSON.parse(v.edit).caption_text || JSON.parse(v.edit).voiceover || "" : "")}</textarea>
-          <div class="row"><button class="ghost" onclick="reeditVoice(${v.id})">Klipp om med ${esc(state.voices.find((x) => x.chosen)?.name.split(" ·")[0] ?? "vald röst")} och de här texterna (gratis)</button></div>
+          ${elevenOn() ? `<p class="muted">Samma rösttext, röst och takt är gratis (ljudet är sparat). Ny rösttext eller annan röst kostar ca ${state.voice.perVideo} krediter hos ElevenLabs.</p>` : ""}
+          <div class="row"><button class="ghost" onclick="reeditVoice(${v.id})">Klipp om med ${esc(state.voices.find((x) => x.chosen)?.name.split(" ·")[0] ?? "vald röst")} och de här texterna (${reeditCost(v)})</button></div>
         </details>
         ${v.prompt ? `<details><summary class="muted" style="margin:10px 0 0;font-weight:400">Prompten till Higgsfield</summary><pre class="muted">${esc(v.prompt)}</pre></details>` : ""}
       </div>
@@ -359,7 +361,7 @@ function render() {
     <div class="card" style="margin-bottom:10px">
       <strong>Video #${v.id}</strong> <span class="badge bad">kunde inte klippas</span>
       <div class="err">${esc(v.error)}</div>
-      <div class="row"><button onclick="reedit(${v.id})">Klipp om (gratis)</button><button class="danger" onclick="deleteVideo(${v.id}, false)">Radera</button></div>
+      <div class="row"><button onclick="reedit(${v.id})">Klipp om (${reeditCost(v)})</button><button class="danger" onclick="deleteVideo(${v.id}, false)">Radera</button></div>
     </div>`).join("");
 
   const manual = state.videos.flatMap((v) => v.posts.filter((p) => p.status === "manual" || p.status === "failed").map((p) => ({ v, p })));
@@ -382,6 +384,7 @@ function render() {
   $("videoModels").innerHTML = state.videoModels.map((m) => `
     <label class="check" style="display:block;margin:6px 0"><input type="radio" name="videoModel" ${m.chosen ? "checked" : ""} onchange="chooseModel('${esc(m.id)}', ${m.sek}, '${esc(m.name)}')">
       <strong>${esc(m.name)}</strong> · ca ${m.sek} kr per video <span class="muted">${esc(m.note)}</span></label>`).join("");
+  renderVoiceUsage();
   $("voiceSpeeds").innerHTML = `<strong style="margin-right:8px">Takt:</strong>` + state.voiceSpeeds.map((s) => `
     <label class="check"><input type="radio" name="voiceSpeed" ${s.chosen ? "checked" : ""} onchange="chooseSpeed('${esc(s.id)}')"> ${esc(s.name)}</label>`).join("");
   $("voices").innerHTML = state.voices.map((v) => `
@@ -407,7 +410,7 @@ function render() {
   $("history").innerHTML = videos.map((v) => `
     <tr><td>#${v.id}</td><td>${time(v.created_at)}</td><td>${statusText[v.status] ?? esc(v.status)}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</td>
     <td>${videoBadges(v, product)}${esc(v.idea)}${v.status === "approved" ? `<div class="row" style="margin-top:6px"><button class="ghost" onclick="orderVariant(${v.id})">Beställ variant · ca ${state.cost.video} kr</button></div>` : ""}</td><td>${v.posts.map((p) => `${CHANNEL_NAMES[p.channel]}: ${p.status}${p.statsText ? `<div class="muted">${esc(p.statsText)}</div>` : ""}`).join("<br>")}</td>
-    <td>${v.status === "failed" && v.raw_file ? `<button class="ghost" onclick="reedit(${v.id})">Klipp om (gratis)</button> ` : ""}${["generating", "editing", "reediting"].includes(v.status) ? "" : `<button class="danger" onclick="deleteVideo(${v.id}, ${v.posts.some((p) => p.status === "posted")})">Radera</button>`}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
+    <td>${v.status === "failed" && v.raw_file ? `<button class="ghost" onclick="reedit(${v.id})">Klipp om (${reeditCost(v)})</button> ` : ""}${["generating", "editing", "reediting"].includes(v.status) ? "" : `<button class="danger" onclick="deleteVideo(${v.id}, ${v.posts.some((p) => p.status === "posted")})">Radera</button>`}</td></tr>`).join("") || `<tr><td class="empty">Inga videor än.</td></tr>`;
 
   $("abtests").innerHTML = product.abTests.map((t) => `
     <div class="card" style="margin-bottom:10px">
@@ -758,6 +761,30 @@ function renderSpend() {
       ${s.recent.map((r) => `<tr><td>${new Date(r.at).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })}</td><td>${esc(TASK_NAMES[r.task] ?? r.task)}</td><td>${r.calls}</td>
         <td>${Math.round(r.input_tokens / 1000)}k / ${Math.round(r.output_tokens / 1000)}k tokens</td><td>${r.searches}</td><td><strong>${r.sek} kr</strong></td></tr>`).join("")}</table>`
       : `<div class="empty">Inga Claude-anrop sparade än. Kostnaderna räknas från och med nu.</div>`}`;
+}
+// ElevenLabs: krediter denna månad, taket och vad de senaste rösterna kostade.
+const elevenOn = () => state.voice?.provider === "elevenlabs";
+const reeditCost = (v) => (!elevenOn() || state.voiceCached?.[v.id] !== false ? "gratis" : `ca ${state.voice.perVideo} krediter`);
+function renderVoiceUsage() {
+  const v = state.voice;
+  $("voiceIntro").textContent = elevenOn()
+    ? `Rösten görs hos ElevenLabs (modell ${v.model}, den billigaste). En video kostar ca ${v.perVideo} krediter. Provlyssning är gratis. Rösten görs bara när en beställd video klipps, och samma text görs aldrig om.`
+    : "Rösten görs gratis med Google. Lägg in ELEVENLABS_API_KEY i Railway för mer mänskliga röster från ElevenLabs.";
+  if (!elevenOn()) { $("voiceUsage").innerHTML = ""; return; }
+  if ($("voiceUsage").contains(document.activeElement)) return; // skriv i taket utan att sidan ritar om rutan
+  const pct = v.cap ? Math.min(100, Math.round((v.usedThisMonth / v.cap) * 100)) : 0;
+  const acc = v.account ? `Kontot hos ElevenLabs: ${v.account.used.toLocaleString("sv-SE")} av ${v.account.limit.toLocaleString("sv-SE")} krediter använda${v.account.resetsAt ? `, fylls på ${new Date(v.account.resetsAt).toLocaleDateString("sv-SE", { day: "numeric", month: "long" })}` : ""}.` : "";
+  $("voiceUsage").innerHTML = `
+    <div><strong>${v.usedThisMonth.toLocaleString("sv-SE")} av ${v.cap.toLocaleString("sv-SE")} krediter</strong> denna månad (taket). Över taket görs rösten gratis med Google i stället.</div>
+    <div style="background:#eee;border-radius:6px;height:8px;margin:6px 0"><div style="background:${pct > 85 ? "#c0392b" : "#1f7a4d"};width:${pct}%;height:8px;border-radius:6px"></div></div>
+    <div class="muted">${acc}</div>
+    <form class="row" onsubmit="saveVoiceCap(event)" style="align-items:center"><label style="margin:0">Månadstak (krediter)</label><input id="voiceCap" type="number" min="0" step="500" value="${v.cap}" style="width:110px"><button class="ghost">Spara tak</button></form>
+    ${v.recent.length ? `<details><summary class="muted" style="font-weight:400">Senaste rösterna</summary>${v.recent.map((r) => `<div class="muted">${new Date(r.at).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" })} · ${esc(r.what || "")} · ${r.provider === "elevenlabs" ? `${esc(r.voice)} · ${r.chars} tecken · ${r.credits} krediter` : "Google (gratis)"}</div>`).join("")}</details>` : ""}`;
+}
+async function saveVoiceCap(e) {
+  e.preventDefault();
+  await api("POST", "/api/settings", { el_cap_credits: Number($("voiceCap").value) });
+  document.activeElement.blur(); refresh();
 }
 $("budgetForm").onsubmit = async (e) => {
   e.preventDefault();
