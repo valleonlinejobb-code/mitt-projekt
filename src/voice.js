@@ -141,6 +141,8 @@ export async function elevenAccount({ fresh = false } = {}) {
 function elevenError(status, body) {
   const detail = body?.detail;
   const message = typeof detail === "string" ? detail : detail?.message || JSON.stringify(body).slice(0, 300);
+  const missing = /missing the permission (\w+)/.exec(message)?.[1];
+  if (missing) return `ElevenLabs-nyckeln saknar behörigheten ${missing === "text_to_speech" ? "Text to Speech" : missing}. Ändra nyckeln på elevenlabs.io under Developers → API keys (sätt den till Access), eller gör en ny och byt ELEVENLABS_API_KEY i Railway`;
   if (status === 401) return `ElevenLabs tog inte emot nyckeln (${message}). Kolla ELEVENLABS_API_KEY i Railway.`;
   return `ElevenLabs svarade ${status}: ${message}`;
 }
@@ -238,7 +240,19 @@ export async function makeVoice(rawText, { what = "" } = {}) {
 export async function checkVoice() {
   if (elevenConfigured()) {
     const acc = await elevenAccount({ fresh: true });
-    return acc?.ok ? { ok: true, provider: "elevenlabs" } : { ok: false, error: acc?.error ?? "okänt fel" };
+    if (!acc?.ok) return { ok: false, error: acc?.error ?? "okänt fel" };
+    // Får nyckeln göra röster? En tom text nekas alltid (gratis), men en nyckel utan behörigheten nekas först med 401.
+    try {
+      const res = await fetch(`${EL_API}/text-to-speech/${encodeURIComponent(chosenVoice())}`, {
+        method: "POST",
+        headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "", model_id: EL_MODEL }),
+      });
+      if (res.status === 401 || res.status === 403) return { ok: false, error: elevenError(res.status, await res.json().catch(() => ({}))) };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+    return { ok: true, provider: "elevenlabs" };
   }
   if (!googleConfigured()) return { ok: false, error: "ELEVENLABS_API_KEY (eller GOOGLE_TTS_API_KEY) saknas i Railway" };
   return googleSpeech("Hej", chosenVoice(), "1").then(() => ({ ok: true, provider: "google" }), (err) => ({ ok: false, error: err.message }));
