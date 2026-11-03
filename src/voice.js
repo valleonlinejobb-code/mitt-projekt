@@ -27,6 +27,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS voice_usage (
   credits REAL NOT NULL,
   what TEXT
 )`);
+// measured = 1: avdraget är ElevenLabs egen siffra, inte en uppskattning.
+if (!db.prepare("PRAGMA table_info(voice_usage)").all().some((c) => c.name === "measured")) db.exec("ALTER TABLE voice_usage ADD COLUMN measured INTEGER NOT NULL DEFAULT 0");
 
 export const elevenConfigured = () => Boolean(process.env.ELEVENLABS_API_KEY);
 export const googleConfigured = () => Boolean(process.env.GOOGLE_TTS_API_KEY);
@@ -163,7 +165,9 @@ async function elevenSpeech(text, voice, speed) {
     err.status = res.status;
     throw err;
   }
-  return Buffer.from(await res.arrayBuffer());
+  // ElevenLabs skriver i svaret hur mycket anropet drog (character-cost / x-character-count).
+  const header = res.headers.get("character-cost") ?? res.headers.get("x-character-count");
+  return { audio: Buffer.from(await res.arrayBuffer()), charged: header != null && header !== "" ? Number(header) : null };
 }
 
 async function googleSpeech(text, voice, speed) {
@@ -205,18 +209,22 @@ export async function makeVoice(rawText, { what = "" } = {}) {
     const file = cacheFile("elevenlabs", voice, speed, text);
     if (fs.existsSync(file)) return { file, provider: "elevenlabs", credits: 0, cached: true, note };
     const credits = Math.ceil(text.length * creditsPerChar());
-    const live = await elevenAccount();
+    const live = await elevenAccount({ fresh: true });
     const liveLeft = live?.limit != null ? live.limit - live.used : Infinity;
     if (text.length > EL_MAX_CHARS) note = `rösttexten är ${text.length} tecken, max ${EL_MAX_CHARS} hos ElevenLabs`;
     else if (elevenUsedThisMonth() + credits > elevenCap()) note = `månadstaket för ElevenLabs (${elevenCap()} krediter) är nått`;
     else if (credits > liveLeft) note = `bara ${liveLeft} krediter kvar hos ElevenLabs`;
     else {
       try {
-        fs.writeFileSync(file, await elevenSpeech(text, voice, speed));
-        db.prepare("INSERT INTO voice_usage (at, provider, voice, chars, credits, what) VALUES (?, 'elevenlabs', ?, ?, ?, ?)")
-          .run(now(), EL_VOICES[voice]?.name.split(" ·")[0] ?? voice, text.length, credits, what);
-        account.at = 0; // nästa titt på kontrollsidan hämtar det nya saldot
-        return { file, provider: "elevenlabs", credits, cached: false, note };
+        const { audio, charged } = await elevenSpeech(text, voice, speed);
+        fs.writeFileSync(file, audio);
+        // Det riktiga avdraget: svaret från ElevenLabs, annars kontots räknare före och efter, annars uppskattningen.
+        const after = await elevenAccount({ fresh: true });
+        const delta = live?.used != null && after?.used != null ? after.used - live.used : null;
+        const real = Number.isFinite(charged) ? charged : delta != null && delta >= 0 ? delta : null;
+        db.prepare("INSERT INTO voice_usage (at, provider, voice, chars, credits, what, measured) VALUES (?, 'elevenlabs', ?, ?, ?, ?, ?)")
+          .run(now(), EL_VOICES[voice]?.name.split(" ·")[0] ?? voice, text.length, real ?? credits, what, real != null ? 1 : 0);
+        return { file, provider: "elevenlabs", credits: real ?? credits, cached: false, note };
       } catch (err) {
         if (!googleConfigured()) throw err;
         note = err.status === 402 || /paid|plan|library/i.test(err.message)
@@ -267,9 +275,10 @@ export async function voiceSummary() {
     model: EL_MODEL,
     usedThisMonth: Math.round(elevenUsedThisMonth()),
     cap: elevenCap(),
-    perVideo: Math.ceil(180 * creditsPerChar()),
+    // Vad en röst brukar kosta: snittet av de senaste uppmätta, annars en uppskattning.
+    perVideo: Math.round(db.prepare("SELECT AVG(credits) AS c FROM (SELECT credits FROM voice_usage WHERE provider = 'elevenlabs' AND measured = 1 ORDER BY id DESC LIMIT 5)").get().c ?? Math.ceil(180 * creditsPerChar())),
     account: live?.limit != null ? { used: live.used, limit: live.limit, resetsAt: live.resetsAt, tier: live.tier } : null,
-    recent: db.prepare("SELECT at, provider, voice, chars, credits, what FROM voice_usage ORDER BY id DESC LIMIT 8").all(),
+    recent: db.prepare("SELECT at, provider, voice, chars, credits, what, measured FROM voice_usage ORDER BY id DESC LIMIT 8").all(),
   };
 }
 

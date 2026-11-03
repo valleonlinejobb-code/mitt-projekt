@@ -832,6 +832,8 @@ test("ElevenLabs: billig modell, svensk röst, sparat ljud (Klipp om gratis), m�
     assert.equal(calls.filter((c) => c.url.startsWith("https://texttospeech")).length, googleBefore, "Google används inte");
     const summary = await voiceSummary();
     assert.equal(summary.usedThisMonth, Math.ceil(speakable(CONCEPT.voiceover).length / 2));
+    assert.equal(summary.recent[0].measured, 1, "avdraget är mätt från kontot, inte gissat");
+    assert.equal(summary.perVideo, Math.ceil(speakable(CONCEPT.voiceover).length / 2));
 
     // Klipp om med samma text: ljudet är sparat, inga nya krediter.
     db.prepare("UPDATE videos SET status = 'reediting' WHERE id = ?").run(id);
