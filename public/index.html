@@ -2,44 +2,330 @@
 <html lang="sv">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Agent UF – Kontroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Agent UF – Företagsöversikt</title>
+<link rel="icon" href="/logo.png">
 <style>
-  :root { --bg:#fff; --fg:#111; --muted:#666; --line:#e5e5e5; --card:#fafafa; --ok:#0a7d32; --bad:#c62828; --warn:#b26a00; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0b0b0b; --fg:#f2f2f2; --muted:#9a9a9a; --line:#262626; --card:#141414; --ok:#35c46a; --bad:#ef5350; } }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid var(--line); }
-  h1 { font-size:20px; margin:0; letter-spacing:-.01em; }
-  h2 { font-size:16px; margin:28px 0 10px; }
-  main { max-width:1100px; margin:0 auto; padding:0 16px 60px; }
-  .chips { display:flex; flex-wrap:wrap; gap:6px; }
-  .chip { font-size:12px; padding:3px 8px; border:1px solid var(--line); border-radius:99px; color:var(--muted); }
-  .chip.on { color:var(--ok); border-color:var(--ok); }
-  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; min-width:0; }
-  .card h3 { margin:0 0 4px; font-size:15px; display:flex; align-items:center; gap:8px; }
-  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); display:inline-block; }
-  .dot.on { background:var(--ok); }
-  .muted { color:var(--muted); font-size:13px; }
-  .err { color:var(--bad); font-size:13px; overflow-wrap:anywhere; }
-  button { font:inherit; font-size:14px; padding:7px 12px; border-radius:8px; border:1px solid var(--fg); background:var(--fg); color:var(--bg); cursor:pointer; }
-  button.ghost { background:transparent; color:var(--fg); border-color:var(--line); }
-  button.danger { background:transparent; color:var(--bad); border-color:var(--bad); }
-  button:disabled { opacity:.5; cursor:default; }
+  @font-face { font-family:"Inter Display"; src:url("/fonts/InterDisplay-ExtraBold.otf") format("opentype"); font-weight:800; font-display:swap; }
+  @font-face { font-family:"Inter UI"; src:url("/fonts/Inter-SemiBold.otf") format("opentype"); font-weight:600; font-display:swap; }
+
+  /* ---------- Färger: Vardagshoppens mörkgröna och benvita, ljust och mörkt läge ---------- */
+  :root {
+    --brand:#073322; --brand-2:#0d4a32; --on-brand:#F7F5F0;
+    --bg:#F4F2EC; --surface:#FFFFFF; --surface-2:#FAF9F5; --fg:#10231A; --muted:#55665C; --line:#E3DFD4; --line-2:#EEEBE3;
+    --accent:#17784A; --accent-soft:#E3F2E9; --ok:#17784A; --bad:#B3261E; --bad-soft:#FBE9E7; --warn:#9A5800; --warn-soft:#FFF3DF; --info:#1F5F8B; --info-soft:#E6F0F7;
+    --chart-1:#17784A; --chart-2:#C2571A; --chart-grid:#ECE9E1;
+    --card:var(--surface); --shadow:0 1px 2px rgba(16,35,26,.06), 0 4px 16px rgba(16,35,26,.05); --shadow-lg:0 12px 32px rgba(7,51,34,.14);
+    --radius:14px; --radius-sm:9px;
+    --ease:cubic-bezier(.2,.8,.2,1); --spring:cubic-bezier(.34,1.56,.64,1);
+    --font:"Inter UI", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; --display:"Inter Display", "Inter UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg:#0B1410; --surface:#111D17; --surface-2:#15231C; --fg:#ECF2EE; --muted:#9BB0A4; --line:#24362C; --line-2:#1B2B22;
+    --accent:#5FD39A; --accent-soft:#16352A; --ok:#5FD39A; --bad:#FF8A80; --bad-soft:#3A1A18; --warn:#F2B35B; --warn-soft:#3A2A12; --info:#82C1EC; --info-soft:#152B3A;
+    --chart-1:#5FD39A; --chart-2:#F29A5B; --chart-grid:#1E2E25; --brand:#06281B; --brand-2:#0c3a28;
+    --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-lg:0 12px 32px rgba(0,0,0,.45);
+  } }
+  :root[data-theme="dark"] {
+    --bg:#0B1410; --surface:#111D17; --surface-2:#15231C; --fg:#ECF2EE; --muted:#9BB0A4; --line:#24362C; --line-2:#1B2B22;
+    --accent:#5FD39A; --accent-soft:#16352A; --ok:#5FD39A; --bad:#FF8A80; --bad-soft:#3A1A18; --warn:#F2B35B; --warn-soft:#3A2A12; --info:#82C1EC; --info-soft:#152B3A;
+    --chart-1:#5FD39A; --chart-2:#F29A5B; --chart-grid:#1E2E25; --brand:#06281B; --brand-2:#0c3a28;
+    --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-lg:0 12px 32px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 var(--font); font-weight:400; -webkit-font-smoothing:antialiased; }
+  .num, .kpi-value, td.n { font-variant-numeric:tabular-nums; }
+  a { color:var(--accent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:6px; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  svg.i { width:18px; height:18px; flex:none; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ---------- Ramverk: meny till vänster, innehåll till höger ---------- */
+  .app { display:grid; grid-template-columns:248px minmax(0,1fr); min-height:100vh; }
+  .sidebar { position:sticky; top:0; height:100vh; background:var(--brand); color:var(--on-brand); display:flex; flex-direction:column; padding:18px 12px; z-index:40;
+    background-image:radial-gradient(120% 60% at 0% 0%, rgba(255,255,255,.07), transparent 60%); }
+  .brand { display:flex; gap:10px; align-items:center; padding:4px 8px 18px; }
+  .brand-mark { width:38px; height:38px; border-radius:11px; background:var(--on-brand); display:grid; place-items:center; box-shadow:0 6px 14px rgba(0,0,0,.25), inset 0 -3px 0 rgba(7,51,34,.15);
+    transform:perspective(200px) rotateX(8deg) rotateY(-10deg); }
+  .brand-mark svg { width:22px; height:22px; }
+  .brand b { font:800 18px/1.1 var(--display); letter-spacing:-.01em; display:block; }
+  .brand span { font-size:12px; opacity:.72; }
+  .nav { display:flex; flex-direction:column; gap:2px; position:relative; }
+  .nav a { position:relative; z-index:1; display:flex; align-items:center; gap:12px; padding:10px 12px; min-height:44px; border-radius:10px; color:inherit; text-decoration:none; font-weight:600; font-size:14.5px; opacity:.82;
+    transition:opacity .2s, background-color .2s, transform .15s var(--ease); }
+  .nav a:hover { opacity:1; background:rgba(255,255,255,.06); }
+  .nav a:active { transform:scale(.98); }
+  .nav a[aria-current="page"] { opacity:1; }
+  .nav-indicator { position:absolute; left:0; right:0; height:44px; border-radius:10px; background:rgba(247,245,240,.12); box-shadow:inset 3px 0 0 #8EE0B5; transition:transform .35s var(--spring), height .25s var(--ease); z-index:0; pointer-events:none; }
+  .nav .count { margin-left:auto; min-width:22px; height:22px; padding:0 7px; border-radius:99px; background:#8EE0B5; color:#073322; font-size:12px; font-weight:700; display:grid; place-items:center; }
+  .nav .count.warn { background:#F2B35B; }
+  .side-foot { margin-top:auto; display:grid; gap:2px; padding-top:14px; border-top:1px solid rgba(255,255,255,.1); }
+  .side-foot a, .side-foot button { display:flex; gap:10px; align-items:center; color:inherit; opacity:.75; text-decoration:none; font-size:13.5px; padding:8px 12px; min-height:40px; border-radius:9px; background:none; border:0; cursor:pointer; font-family:inherit; text-align:left; width:100%; }
+  .side-foot a:hover, .side-foot button:hover { opacity:1; background:rgba(255,255,255,.06); }
+
+  .col { min-width:0; display:flex; flex-direction:column; }
+  .topbar { position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:14px 28px; background:color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--line-2); }
+  .crumbs { font-size:12.5px; color:var(--muted); display:flex; gap:6px; align-items:center; }
+  .crumbs a { color:inherit; text-decoration:none; } .crumbs a:hover { color:var(--fg); }
+  .topbar h1 { margin:0; font:800 24px/1.15 var(--display); letter-spacing:-.02em; }
+  .title-wrap { min-width:0; }
+  .top-actions { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .menu-btn { display:none; }
+  .scrim { display:none; }
+  .count[hidden] { display:none !important; }
+  .side-foot button { justify-content:flex-start; }
+  #pageTitle:focus { outline:none; }
+  .kpi-sub .tag { white-space:normal; }
+  main { padding:24px 28px 80px; max-width:1360px; width:100%; }
+
+  /* Periodväljaren */
+  .seg { display:inline-flex; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:3px; position:relative; box-shadow:var(--shadow); }
+  .seg button { all:unset; position:relative; z-index:1; padding:7px 12px; min-height:30px; display:grid; place-items:center; font-size:13px; font-weight:600; color:var(--muted); border-radius:8px; cursor:pointer; transition:color .2s; white-space:nowrap; }
+  .seg button:hover { color:var(--fg); }
+  .seg button[aria-pressed="true"] { color:var(--on-brand); }
+  .seg button:focus-visible { outline:2px solid var(--accent); }
+  .seg .thumb { position:absolute; top:3px; bottom:3px; border-radius:8px; background:var(--brand); transition:left .3s var(--spring), width .3s var(--spring); }
+  .seg select { display:none; }
+  .updated { font-size:12px; color:var(--muted); white-space:nowrap; }
+
+  /* ---------- Vyer ---------- */
+  .view[hidden] { display:none !important; }
+  .view.enter { animation:viewIn .32s var(--ease) both; }
+  @keyframes viewIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+  .stagger > * { animation:rise .45s var(--ease) both; animation-delay:calc(var(--i, 0) * 45ms); }
+  @keyframes rise { from { opacity:0; transform:translateY(10px) scale(.985); } to { opacity:1; transform:none; } }
+
+  .section-title { display:flex; align-items:baseline; gap:10px; margin:30px 0 12px; }
+  .section-title h2 { margin:0; font:800 18px/1.2 var(--display); letter-spacing:-.01em; }
+  .section-title .muted { margin-left:auto; }
+  h2 { font:800 17px/1.25 var(--display); letter-spacing:-.01em; margin:28px 0 10px; }
+  h3 { font-weight:600; }
+
+  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); }
+  .cols-2 { display:grid; gap:16px; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); }
+  .cols-even { display:grid; gap:16px; grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:18px; min-width:0; box-shadow:var(--shadow); }
+  .card > h3:first-child, .card-head { margin:0 0 10px; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .card-head h3 { margin:0; font-size:15px; }
+  .card-head .muted, .card-head .link { margin-left:auto; }
+
+  /* Nyckeltalskort med diskret 3D-lutning */
+  .kpis { display:grid; gap:14px; grid-template-columns:repeat(5, minmax(0,1fr)); perspective:1000px; }
+  .kpi { position:relative; padding:16px 16px 12px; overflow:hidden; transform-style:preserve-3d; transition:transform .25s var(--ease), box-shadow .25s var(--ease); will-change:transform; }
+  .kpi::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; background:radial-gradient(240px circle at var(--mx,50%) var(--my,0%), rgba(255,255,255,.35), transparent 45%); opacity:0; transition:opacity .25s; }
+  @media (hover:hover) and (prefers-reduced-motion:no-preference) { .kpi:hover { box-shadow:var(--shadow-lg); } .kpi:hover::after { opacity:1; } }
+  .kpi-top { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; font-weight:600; }
+  .kpi-icon { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:var(--accent-soft); color:var(--accent); transform:translateZ(24px); }
+  .kpi-icon svg { width:16px; height:16px; }
+  .kpi-value { font:800 28px/1.1 var(--display); letter-spacing:-.02em; margin:12px 0 4px; transform:translateZ(16px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .kpi-value.na { color:var(--muted); }
+  .kpi-sub { font-size:12.5px; color:var(--muted); min-height:19px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .delta { font-weight:700; font-size:12px; padding:1px 7px; border-radius:99px; }
+  .delta.up { color:var(--ok); background:var(--accent-soft); } .delta.down { color:var(--bad); background:var(--bad-soft); } .delta.flat { color:var(--muted); background:var(--line-2); }
+  .spark { display:block; width:100%; height:34px; margin-top:8px; }
+  .spark path.line { fill:none; stroke:var(--chart-1); stroke-width:2; }
+  .spark path.area { fill:var(--chart-1); opacity:.12; }
+  .info-btn { all:unset; cursor:pointer; color:var(--muted); display:inline-grid; place-items:center; width:26px; height:26px; margin-left:auto; border-radius:7px; }
+  .info-btn:hover { color:var(--fg); background:var(--line-2); }
+  .info-btn:focus-visible { outline:2px solid var(--accent); }
+
+  /* Banner för saknade kopplingar */
+  .notice { display:flex; gap:14px; align-items:flex-start; padding:16px 18px; border-radius:var(--radius); border:1px solid var(--line); background:var(--surface); margin-bottom:18px; box-shadow:var(--shadow); }
+  .notice .ico { width:36px; height:36px; border-radius:10px; display:grid; place-items:center; flex:none; background:var(--info-soft); color:var(--info); }
+  .notice.warn .ico { background:var(--warn-soft); color:var(--warn); }
+  .notice.bad .ico { background:var(--bad-soft); color:var(--bad); }
+  .notice b { display:block; margin-bottom:2px; }
+  .notice p { margin:2px 0; color:var(--muted); font-size:14px; }
+  .notice ol { margin:6px 0 0; padding-left:20px; color:var(--muted); font-size:14px; }
+  .notice code, code { font-size:12.5px; background:var(--line-2); padding:1px 6px; border-radius:5px; user-select:all; }
+
+  /* Diagram */
+  .chart { position:relative; width:100%; }
+  .chart svg { display:block; width:100%; height:auto; overflow:visible; }
+  .chart .grid-line { stroke:var(--chart-grid); stroke-width:1; }
+  .chart .axis { fill:var(--muted); font-size:11px; font-family:var(--font); }
+  .chart .s-line { fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+  .chart .s-area { opacity:.13; }
+  .chart .cross { stroke:var(--muted); stroke-dasharray:3 3; opacity:0; }
+  .chart .dotp { opacity:0; stroke:var(--surface); stroke-width:2; }
+  .chart.active .cross, .chart.active .dotp { opacity:1; }
+  .chart .draw { stroke-dasharray:var(--len); stroke-dashoffset:var(--len); animation:draw .9s var(--ease) forwards; }
+  @keyframes draw { to { stroke-dashoffset:0; } }
+  .chart .fade { animation:fadeIn .9s var(--ease) both; }
+  @keyframes fadeIn { from { opacity:0; } }
+  .tooltip { position:absolute; pointer-events:none; background:var(--fg); color:var(--bg); font-size:12.5px; padding:8px 10px; border-radius:9px; box-shadow:var(--shadow-lg); opacity:0; transform:translate(-50%, calc(-100% - 10px)) scale(.96); transition:opacity .12s, transform .12s; white-space:nowrap; z-index:5; }
+  .tooltip.show { opacity:1; transform:translate(-50%, calc(-100% - 12px)) scale(1); }
+  .tooltip b { display:block; margin-bottom:2px; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .legend i { width:18px; height:0; border-top:2.5px solid; display:inline-block; }
+  .legend i.dash { border-top-style:dashed; }
+  .bars { display:grid; gap:10px; }
+  .bar-row { display:grid; grid-template-columns:minmax(120px, 190px) minmax(0,1fr) 92px; gap:12px; align-items:center; font-size:13.5px; }
+  .bar-track { height:10px; border-radius:99px; background:var(--line-2); overflow:hidden; }
+  .bar-fill { height:100%; border-radius:99px; background:var(--chart-2); transform-origin:left; animation:grow .8s var(--ease) both; }
+  @keyframes grow { from { transform:scaleX(0); } }
+  .bar-row .n { text-align:right; font-weight:600; }
+  .bar-row .lbl small { display:block; color:var(--muted); font-size:11.5px; }
+
+  /* Åtgärdslista */
+  .actions { display:grid; gap:8px; }
+  .action { display:flex; gap:12px; align-items:center; padding:11px 12px; border-radius:11px; background:var(--surface-2); border:1px solid var(--line-2); color:inherit; text-decoration:none; transition:transform .18s var(--ease), border-color .18s, background-color .18s; }
+  a.action:hover, button.action:hover { border-color:var(--line); transform:translateX(2px); }
+  .action .ico { width:32px; height:32px; border-radius:9px; display:grid; place-items:center; flex:none; background:var(--info-soft); color:var(--info); }
+  .action.warn .ico { background:var(--warn-soft); color:var(--warn); }
+  .action.bad .ico { background:var(--bad-soft); color:var(--bad); }
+  .action.ok .ico { background:var(--accent-soft); color:var(--accent); }
+  .action b { display:block; font-size:14px; }
+  .action small { color:var(--muted); font-size:12.5px; }
+  .action .go { margin-left:auto; color:var(--muted); }
+
+  /* Snabbval */
+  .quick { display:grid; gap:10px; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); }
+  .quick a, .quick button { all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; gap:8px; padding:14px; min-height:44px; border-radius:12px; background:var(--surface); border:1px solid var(--line); font-weight:600; font-size:14px; box-shadow:var(--shadow);
+    transition:transform .2s var(--ease), box-shadow .2s var(--ease), border-color .2s; }
+  .quick a:hover, .quick button:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); border-color:color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .quick a:active, .quick button:active { transform:translateY(0) scale(.98); }
+  .quick a:focus-visible, .quick button:focus-visible { outline:2px solid var(--accent); }
+  .quick .ico { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:var(--accent-soft); color:var(--accent); }
+  .quick small { font-weight:400; color:var(--muted); font-size:12.5px; }
+
+  /* Målkortet: en 3D-ring som lutar lätt */
+  .goal-hero { position:relative; overflow:hidden; background:linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%); color:var(--on-brand); border-color:transparent; }
+  .goal-hero .muted { color:rgba(247,245,240,.75); }
+  .goal-stage { perspective:700px; display:grid; place-items:center; margin:6px 0 8px; }
+  .goal-ring { width:150px; height:150px; transform:rotateX(18deg) rotateY(-14deg); transform-style:preserve-3d; transition:transform .6s var(--ease); filter:drop-shadow(0 16px 18px rgba(0,0,0,.35)); }
+  @media (hover:hover) and (prefers-reduced-motion:no-preference) { .goal-hero:hover .goal-ring { transform:rotateX(8deg) rotateY(8deg); } }
+  .goal-ring .track { stroke:rgba(255,255,255,.12); }
+  .goal-ring .prog { stroke:url(#ringGrad); stroke-linecap:round; transition:stroke-dashoffset 1.2s var(--ease); }
+  .goal-ring text { fill:var(--on-brand); font-family:var(--display); font-weight:800; }
+  .goal-list { display:grid; gap:12px; }
+  .goal-row .top { display:flex; justify-content:space-between; gap:8px; font-size:13.5px; }
+  .meter { height:8px; border-radius:99px; background:var(--line-2); overflow:hidden; margin-top:6px; }
+  .meter > div { height:100%; background:linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #8EE0B5)); border-radius:99px; transform-origin:left; animation:grow .9s var(--ease) both; }
+  .goal-hero .meter { background:rgba(255,255,255,.14); }
+  .goal-hero .meter > div { background:linear-gradient(90deg, #8EE0B5, #D8F5E5); }
+
+  /* 3D-illustrationen (isometrisk låda) */
+  .illus { width:120px; height:auto; flex:none; }
+  .floaty { animation:floaty 6s ease-in-out infinite; transform-origin:center; }
+  @keyframes floaty { 50% { transform:translateY(-6px); } }
+  .empty-state { display:flex; gap:20px; align-items:center; padding:22px; }
+  .empty-state h3 { margin:0 0 4px; font-size:16px; }
+  .empty-state p { margin:4px 0; color:var(--muted); font-size:14px; }
+
+  /* Tabeller med sök, filter och sortering */
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  .search { position:relative; flex:1 1 220px; max-width:360px; }
+  .search svg { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--muted); width:16px; height:16px; }
+  .search input { padding-left:34px; }
+  .table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--surface); -webkit-overflow-scrolling:touch; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th { text-align:left; font-weight:600; font-size:12px; color:var(--muted); text-transform:none; padding:10px 12px; border-bottom:1px solid var(--line); background:var(--surface-2); white-space:nowrap; position:sticky; top:0; }
+  th button { all:unset; cursor:pointer; display:inline-flex; gap:4px; align-items:center; }
+  th button:focus-visible { outline:2px solid var(--accent); }
+  th[aria-sort] button::after { content:"↕"; opacity:.35; font-size:11px; }
+  th[aria-sort="ascending"] button::after { content:"↑"; opacity:1; }
+  th[aria-sort="descending"] button::after { content:"↓"; opacity:1; }
+  td { padding:9px 12px; border-bottom:1px solid var(--line-2); vertical-align:top; overflow-wrap:anywhere; }
+  tr:last-child td { border-bottom:0; }
+  .table-wrap tbody tr { transition:background-color .15s; }
+  .table-wrap tbody tr:hover { background:var(--surface-2); }
+  td.n, th.n { text-align:right; white-space:nowrap; }
+  td code { white-space:nowrap; }
+  .table-foot { font-size:12.5px; color:var(--muted); margin-top:8px; }
+  .tag { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:2px 8px; border-radius:99px; background:var(--line-2); color:var(--muted); white-space:nowrap; }
+  .tag::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .tag.ok { background:var(--accent-soft); color:var(--ok); } .tag.bad { background:var(--bad-soft); color:var(--bad); } .tag.warn { background:var(--warn-soft); color:var(--warn); } .tag.info { background:var(--info-soft); color:var(--info); }
+
+  /* Underflikar (Marknadsföring) */
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin:0 0 20px; overflow-x:auto; scrollbar-width:none; position:relative; }
+  .tabs a { padding:10px 14px; min-height:44px; display:flex; align-items:center; gap:8px; color:var(--muted); text-decoration:none; font-weight:600; font-size:14px; white-space:nowrap; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .2s, border-color .25s; }
+  .tabs a:hover { color:var(--fg); }
+  .tabs a[aria-current="page"] { color:var(--fg); border-color:var(--accent); }
+  .tabs .count { font-size:11.5px; background:var(--accent-soft); color:var(--accent); border-radius:99px; padding:0 7px; }
+  .pane[hidden] { display:none; }
+
+  /* Formulär och knappar */
+  button { font:inherit; font-size:14px; font-weight:600; padding:9px 14px; min-height:40px; border-radius:10px; border:1px solid var(--brand); background:var(--brand); color:var(--on-brand); cursor:pointer;
+    transition:transform .12s var(--ease), background-color .2s, border-color .2s, box-shadow .2s, opacity .2s; display:inline-flex; align-items:center; gap:7px; justify-content:center; }
+  :root[data-theme="dark"] button:not(.ghost):not(.danger):not(.icon-btn):not(.info-btn):not([data-period]):not(#themeBtn) { background:var(--accent); border-color:var(--accent); color:#06281B; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button:not(.ghost):not(.danger):not(.icon-btn):not(.info-btn):not([data-period]):not(#themeBtn) { background:var(--accent); border-color:var(--accent); color:#06281B; } }
+  button:hover { box-shadow:0 4px 12px rgba(7,51,34,.18); }
+  button:active { transform:scale(.97); }
+  button.ghost { background:var(--surface); color:var(--fg); border-color:var(--line); }
+  button.ghost:hover { border-color:color-mix(in srgb, var(--fg) 30%, var(--line)); box-shadow:none; }
+  button.danger { background:transparent; color:var(--bad); border-color:color-mix(in srgb, var(--bad) 50%, var(--line)); }
+  button.danger:hover { background:var(--bad-soft); box-shadow:none; }
+  button.icon-btn { padding:0; width:40px; background:var(--surface); color:var(--fg); border-color:var(--line); }
+  button:disabled { opacity:.5; cursor:default; transform:none; box-shadow:none; }
+  button.busy svg { animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
   .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
-  .video { display:grid; grid-template-columns:minmax(0, 270px) 1fr; gap:16px; align-items:start; }
-  @media (max-width:640px) { .video { grid-template-columns:1fr; } }
-  video { width:100%; aspect-ratio:9/16; max-height:80vh; object-fit:contain; border-radius:8px; background:#000; }
-  textarea, input { width:100%; font:inherit; font-size:14px; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); }
-  textarea { min-height:70px; resize:vertical; }
-  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 2px; }
-  select { font:inherit; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  td { padding:6px 4px; border-bottom:1px solid var(--line); vertical-align:top; overflow-wrap:anywhere; }
-  .empty { color:var(--muted); font-size:14px; padding:6px 0; }
-  details summary { cursor:pointer; font-weight:600; margin:28px 0 10px; }
-  /* Researchrapporten: en ruta per rubrik, länkar går att klicka på. */
+  textarea, input, select { font:inherit; font-size:14px; padding:9px 11px; min-height:40px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--fg); transition:border-color .2s, box-shadow .2s; }
+  textarea, input:not([type="checkbox"]):not([type="radio"]) { width:100%; }
+  textarea:focus, input:focus, select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  input[type="checkbox"], input[type="radio"] { width:18px; height:18px; min-height:0; accent-color:var(--accent); margin:0; }
+  textarea { min-height:76px; resize:vertical; }
+  label { display:block; font-size:12.5px; font-weight:600; color:var(--muted); margin:10px 0 4px; }
+  .form-grid { display:grid; gap:0 12px; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); align-items:end; }
+  .form-grid .full { grid-column:1 / -1; }
+  .field-error { color:var(--bad); font-size:12.5px; margin-top:6px; min-height:0; }
+  .muted { color:var(--muted); font-size:13.5px; }
+  .err { color:var(--bad); font-size:13px; overflow-wrap:anywhere; }
+  .empty { color:var(--muted); font-size:14px; padding:8px 0; }
+  .link { font-size:13px; font-weight:600; color:var(--accent); text-decoration:none; display:inline-flex; gap:4px; align-items:center; }
+  .link:hover { text-decoration:underline; }
+  details summary { cursor:pointer; font-weight:600; }
+  .explain { font-size:13.5px; color:var(--muted); }
+  .explain ul { margin:6px 0; padding-left:18px; } .explain li { margin:3px 0; }
+  .explain .est { font-size:11px; font-weight:700; color:var(--warn); background:var(--warn-soft); padding:1px 6px; border-radius:5px; margin-left:4px; }
+
+  /* Dialog (förklaringar) och notiser */
+  dialog { border:0; border-radius:16px; padding:0; max-width:560px; width:calc(100% - 32px); background:var(--surface); color:var(--fg); box-shadow:var(--shadow-lg); }
+  dialog[open] { animation:pop .22s var(--spring); }
+  @keyframes pop { from { opacity:0; transform:translateY(8px) scale(.97); } }
+  dialog::backdrop { background:rgba(7,20,14,.45); backdrop-filter:blur(2px); }
+  .dlg-head { display:flex; align-items:center; gap:8px; padding:16px 18px; border-bottom:1px solid var(--line-2); }
+  .dlg-head h3 { margin:0; font:800 17px/1.2 var(--display); }
+  .dlg-head button { margin-left:auto; }
+  .dlg-body { padding:16px 18px 20px; max-height:70vh; overflow:auto; }
+  .toasts { position:fixed; bottom:20px; right:20px; display:grid; gap:8px; z-index:100; }
+  .toast { background:var(--fg); color:var(--bg); padding:10px 14px; border-radius:11px; font-size:14px; box-shadow:var(--shadow-lg); animation:pop .25s var(--spring); }
+
+  /* Uppgifter och länkar */
+  .task { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--line-2); }
+  .task:last-child { border-bottom:0; }
+  .task label { all:unset; display:flex; gap:10px; align-items:flex-start; flex:1; cursor:pointer; font-size:14px; min-height:24px; }
+  .task input { margin-top:2px; }
+  .task.done span.t { text-decoration:line-through; color:var(--muted); }
+  .task .due { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .task .due.late { color:var(--bad); font-weight:600; }
+  .task button { padding:0; width:32px; min-height:32px; }
+  .links { display:grid; gap:10px; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); }
+  .link-card { display:flex; gap:10px; align-items:flex-start; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--surface); text-decoration:none; color:inherit; transition:transform .2s var(--ease), box-shadow .2s, border-color .2s; position:relative; }
+  .link-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+  .link-card .ico { width:32px; height:32px; border-radius:9px; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; flex:none; }
+  .link-card b { font-size:14px; display:block; } .link-card small { color:var(--muted); font-size:12.5px; display:block; overflow-wrap:anywhere; }
+  .link-card .del { position:absolute; top:6px; right:6px; opacity:0; transition:opacity .2s; padding:0; width:28px; min-height:28px; }
+  .link-card:hover .del, .link-card:focus-within .del { opacity:1; }
+  .facts { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; font-size:14px; margin:0; }
+  .facts dt { color:var(--muted); } .facts dd { margin:0; }
+  .conn-list { display:grid; gap:8px; }
+  .conn { display:flex; gap:10px; align-items:center; font-size:14px; }
+  .conn .tag { margin-left:auto; }
+
+  /* ---------- Marknadsföring: det som fanns på den gamla kontrollsidan ---------- */
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { font-size:12px; font-weight:600; padding:4px 10px; border:1px solid var(--line); border-radius:99px; color:var(--muted); background:var(--surface); }
+  .chip.on { color:var(--ok); border-color:color-mix(in srgb, var(--ok) 45%, var(--line)); background:var(--accent-soft); }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); display:inline-block; flex:none; }
+  .dot.on { background:var(--ok); }
+  .video { display:grid; grid-template-columns:minmax(0, 270px) 1fr; gap:18px; align-items:start; margin-bottom:12px; }
+  video { width:100%; aspect-ratio:9/16; max-height:80vh; object-fit:contain; border-radius:10px; background:#000; }
   .report { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px; }
   .report .card.key { grid-column:1 / -1; border-color:var(--ok); }
   .report .card.struck { grid-column:1 / -1; padding:8px 14px; }
@@ -48,19 +334,19 @@
   .report li { margin:4px 0; overflow-wrap:anywhere; }
   .report p { margin:6px 0; overflow-wrap:anywhere; }
   .report a { color:inherit; font-size:12px; }
-  .report .tag { font-size:11px; padding:1px 6px; border-radius:4px; border:1px solid var(--line); color:var(--muted); margin-right:4px; }
-  pre { white-space:pre-wrap; font:13px/1.5 system-ui, sans-serif; margin:0; }
-  .badge { font-size:11px; padding:1px 6px; border-radius:4px; border:1px solid var(--line); margin-left:6px; }
+  .report .tag { font-size:11px; padding:1px 6px; border-radius:4px; border:1px solid var(--line); color:var(--muted); margin-right:4px; background:none; }
+  .report .tag::before { display:none; }
+  pre { white-space:pre-wrap; font:13px/1.5 var(--font); margin:0; }
+  .badge { font-size:11px; font-weight:600; padding:1px 7px; border-radius:6px; border:1px solid var(--line); margin-left:6px; }
   .product { display:flex; gap:14px; align-items:center; }
-  .product img { width:72px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--line); background:#fff; flex:none; }
+  .product img { width:72px; height:72px; object-fit:cover; border-radius:10px; border:1px solid var(--line); background:#fff; flex:none; }
   .badge.bad { color:var(--bad); border-color:var(--bad); }
   .badge.good { color:var(--ok); border-color:var(--ok); }
   .badges { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0; }
   .badges .badge { margin-left:0; }
-  .check { display:inline-flex; align-items:center; gap:6px; margin:0 12px 0 0; font-size:14px; color:var(--fg); }
-  .check input { width:auto; }
-
-  /* Agentflödet: research → prompt → redigering → kanalerna. Pilarna fylls med grönt medan agenten före jobbar. */
+  .check { display:inline-flex; align-items:center; gap:7px; margin:0 14px 0 0; font-size:14px; color:var(--fg); font-weight:400; }
+  .stack { display:grid; gap:12px; }
+  .stack > .card + .card { margin-top:0; }
   .flow { position:relative; display:grid; gap:40px; }
   .flow .channels { display:grid; gap:12px; padding-left:30px; }
   .wires { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
@@ -69,124 +355,483 @@
   .wires .head { fill:var(--ok); opacity:0; transition:opacity .3s; }
   .wires .working .head { opacity:1; }
   .node { position:relative; z-index:1; transition:border-color .4s, box-shadow .4s; }
+  .node h3 { margin:0 0 4px; font-size:15px; display:flex; align-items:center; gap:8px; }
   .node.working { border-color:var(--ok); }
   .node.receive { animation:receive 1.6s ease-out; }
   @keyframes receive { 0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); border-color:var(--ok); } 100% { box-shadow:0 0 0 14px transparent; } }
   .dot.working { background:var(--ok); animation:pulse 1.2s ease-in-out infinite; }
   .dot.error { background:var(--bad); }
   @keyframes pulse { 50% { opacity:.3; } }
-  .pill { margin-left:auto; font-size:11px; font-weight:500; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
+  .pill { margin-left:auto; font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
   .pill.working, .pill.done { color:var(--ok); border-color:var(--ok); }
   .pill.error { color:var(--bad); border-color:var(--bad); }
   .status { font-size:14px; margin:6px 0 2px; }
-  @media (min-width:900px) {
+  #history td, #log td, #spend td, #abtests td { font-size:13px; }
+  .plain-table th { position:static; }
+  @media (min-width:1000px) {
     .flow { grid-template-columns:1fr 1fr 1fr 1fr; column-gap:48px; align-items:center; }
     .flow .channels { padding-left:0; }
   }
-  @media (prefers-reduced-motion: reduce) { .node.receive, .dot.working { animation:none; } }
+
+  /* ---------- Surfplatta och mobil ---------- */
+  @media (max-width:1200px) { .kpis { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+  @media (max-width:1024px) {
+    .app { grid-template-columns:1fr; }
+    .sidebar { position:fixed; inset:0 auto 0 0; width:min(300px, 86vw); transform:translateX(-102%); transition:transform .32s var(--ease); box-shadow:var(--shadow-lg); padding-top:max(18px, env(safe-area-inset-top)); }
+    .sidebar.open { transform:none; }
+    .scrim { display:block; position:fixed; inset:0; background:rgba(7,20,14,.45); z-index:35; opacity:0; pointer-events:none; transition:opacity .3s; }
+    .scrim.show { opacity:1; pointer-events:auto; }
+    .menu-btn { display:inline-flex; }
+    .topbar { padding:12px 16px; }
+    main { padding:18px 16px 90px; }
+    .cols-2, .cols-even { grid-template-columns:1fr; }
+  }
+  @media (max-width:640px) {
+    .kpis { grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+    .kpis .kpi:first-child { grid-column:1 / -1; }
+    .kpi { padding:14px 14px 10px; }
+    .kpi-value { font-size:23px; }
+    .topbar h1 { font-size:20px; }
+    .top-actions { width:100%; margin-left:0; }
+    .seg { overflow-x:auto; max-width:100%; scrollbar-width:none; }
+    .seg button { padding:7px 10px; }
+    .video { grid-template-columns:1fr; }
+    .bar-row { grid-template-columns:1fr 80px; }
+    .bar-row .bar-track { grid-column:1 / -1; grid-row:2; }
+    .empty-state { flex-direction:column; align-items:flex-start; }
+    .toasts { left:16px; right:16px; bottom:16px; }
+    .facts { grid-template-columns:1fr; gap:0; } .facts dd { margin-bottom:8px; }
+    /* Tabeller blir kort på mobil */
+    .table-wrap.cards { border:0; background:none; overflow:visible; }
+    .table-wrap.cards table, .table-wrap.cards tbody, .table-wrap.cards tr, .table-wrap.cards td { display:block; width:100%; }
+    .table-wrap.cards thead { display:none; }
+    .table-wrap.cards tr { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:8px 12px; margin-bottom:10px; }
+    .table-wrap.cards td { border:0; padding:4px 0; display:flex; justify-content:space-between; gap:12px; text-align:right; }
+    .table-wrap.cards td::before { content:attr(data-label); color:var(--muted); font-size:12.5px; font-weight:600; text-align:left; }
+    .table-wrap.cards td.n { text-align:right; }
+    .table-wrap.cards td > span { min-width:0; }
+    .table-wrap.cards td:empty, .table-wrap.cards td[data-label=""]::before { display:none; }
+  }
+  .mobile-sort { display:none; }
+  @media (max-width:640px) { .mobile-sort { display:block; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto !important; }
+    .chart .draw { stroke-dashoffset:0; }
+    .kpi { transform:none !important; }
+    .goal-ring { transform:rotateX(14deg) rotateY(-10deg); }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>Agent UF – Kontroll</h1>
-  <div class="chips" id="connections"></div>
-</header>
-<main>
-  <h2>Produkt som agenterna gör reklam för</h2>
-  <div class="card" id="activeProduct"></div>
+<!-- Ikoner (Lucide-stil, egna SVG-symboler) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
+  <symbol id="i-package" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.42V7.87a.5.5 0 0 0-.75-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/></symbol>
+  <symbol id="i-truck" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4Z"/></symbol>
+</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D8F5E5"/><stop offset="1" stop-color="#5FD39A"/></linearGradient>
+</defs></svg>
 
-  <h2>Aktuella erbjudanden</h2>
-  <form class="card" id="offersForm">
-    <div class="muted">Agenterna nämner bara de rabatter som står här, i videotexter och svar. Skriv exakt som rabattkoderna i Shopify. Töm rutan om ni inte har några erbjudanden.</div>
-    <textarea id="offers" style="margin-top:8px"></textarea>
-    <div class="row"><button>Spara erbjudanden</button></div>
-  </form>
-
-  <h2>Beställ videor</h2>
-  <div class="card" id="order"></div>
-
-  <h2>Videomodell</h2>
-  <div class="card">
-    <div class="muted">Vilken AI hos Higgsfield som gör videorna. Priset är ungefär för en video på 10 sekunder, utöver Claude.</div>
-    <div id="videoModels" style="margin-top:8px"></div>
-  </div>
-
-  <h2>Berättarröst</h2>
-  <div class="card">
-    <div class="muted" id="voiceIntro">Vilken svensk röst som läser texten i videorna. Lyssna och välj.</div>
-    <div id="voiceUsage" style="margin-top:8px"></div>
-    <div class="row" id="voiceSpeeds" style="align-items:center"></div>
-    <div id="voices" style="margin-top:8px"></div>
-  </div>
-
-  <h2>Vad Claude har kostat</h2>
-  <div class="card">
-    <div class="muted">Riktiga kostnader, räknade från varje svar från Claude (tokens och webbsökningar). Saldot på console.anthropic.com kan skilja några kronor beroende på växelkursen. Higgsfield betalas separat.</div>
-    <div id="spend" style="margin-top:8px"></div>
-    <form id="budgetForm" class="row">
-      <label for="budget" style="margin:0">Månadstak för Claude (kr, 0 = inget tak)</label>
-      <input id="budget" type="number" min="0" step="10" style="width:110px">
-      <button class="ghost">Spara tak</button>
-    </form>
-  </div>
-
-  <h2>Egen mobilfilm</h2>
-  <div class="card">
-    <div class="muted">Äkta film av en riktig hund slår ofta AI-video. Ladda upp en film på 2–90 sekunder, så lägger agenterna på text i bild, berättarröst, logga, pris och slutbild. Filmen gäller produkten som är vald överst.</div>
-    <input type="file" id="clipFile" accept="video/*" style="margin-top:8px">
-    <input id="clipNote" placeholder="Vad visar filmen? (valfritt, t.ex. &quot;Bella efter promenad i leran&quot;)" style="margin-top:6px">
-    <div class="row"><button class="ghost" id="clipButton" onclick="uploadClip()">Ladda upp egen film</button></div>
-  </div>
-
-  <h2>Agenter</h2>
-  <div class="row" style="margin-top:0;margin-bottom:12px">
-    <button id="startAll">Starta kanalerna</button>
-    <button id="stopAll" class="ghost">Stoppa kanalerna</button>
-  </div>
-  <p class="muted">Kanalagenterna lägger bara upp videor du har godkänt. Research och videor körs bara när du beställer.</p>
-  <div class="flow" id="flow">
-    <svg class="wires" id="wires" aria-hidden="true">
-      <defs>
-        <marker id="tip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--line)"/></marker>
-        <marker id="tipDone" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ok)"/></marker>
-      </defs>
-    </svg>
-    <div class="card node" id="node-research"></div>
-    <div class="card node" id="node-prompt"></div>
-    <div class="card node" id="node-polish"></div>
-    <div class="channels">
-      <div class="card node" id="node-tiktok"></div>
-      <div class="card node" id="node-instagram"></div>
-      <div class="card node" id="node-facebook"></div>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Huvudmeny">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 8h14l-1.2 12.2a1.5 1.5 0 0 1-1.5 1.3H7.7a1.5 1.5 0 0 1-1.5-1.3Z" fill="#073322"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8" fill="none" stroke="#073322" stroke-width="1.8"/><path d="m9.3 11.5 2.7 6 2.7-6" fill="none" stroke="#F7F5F0" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div><b>Agent UF</b><span>Vardagshoppen</span></div>
     </div>
+    <nav class="nav" id="nav">
+      <div class="nav-indicator" id="navIndicator" aria-hidden="true"></div>
+      <a href="#oversikt" data-route="oversikt"><svg class="i"><use href="#i-home"/></svg>Översikt</a>
+      <a href="#ekonomi" data-route="ekonomi"><svg class="i"><use href="#i-wallet"/></svg>Ekonomi</a>
+      <a href="#ordrar" data-route="ordrar"><svg class="i"><use href="#i-bag"/></svg>Ordrar<span class="count warn" id="navOrders" hidden></span></a>
+      <a href="#lager" data-route="lager"><svg class="i"><use href="#i-package"/></svg>Produkter och lager<span class="count warn" id="navStock" hidden></span></a>
+      <a href="#marknad" data-route="marknad"><svg class="i"><use href="#i-megaphone"/></svg>Marknadsföring<span class="count" id="navMarketing" hidden></span></a>
+      <a href="#foretaget" data-route="foretaget"><svg class="i"><use href="#i-building"/></svg>Företaget</a>
+    </nav>
+    <div class="side-foot">
+      <a href="https://vardagshoppen.com" target="_blank" rel="noopener"><svg class="i"><use href="#i-ext"/></svg>Öppna butiken</a>
+      <a href="https://admin.shopify.com/store/frostskrapa" target="_blank" rel="noopener"><svg class="i"><use href="#i-ext"/></svg>Shopify admin</a>
+      <button type="button" id="themeBtn"><svg class="i"><use href="#i-moon"/></svg><span>Mörkt läge</span></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="col">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Öppna menyn" aria-controls="sidebar" aria-expanded="false"><svg class="i"><use href="#i-menu"/></svg></button>
+      <div class="title-wrap">
+        <div class="crumbs" id="crumbs"><a href="#oversikt">Agent UF</a></div>
+        <h1 id="pageTitle" tabindex="-1">Översikt</h1>
+      </div>
+      <div class="top-actions">
+        <div class="seg" id="periodSeg" role="group" aria-label="Välj period"><span class="thumb" id="segThumb"></span></div>
+        <span class="updated" id="updated" aria-live="polite"></span>
+        <button class="icon-btn" id="refreshBtn" aria-label="Hämta nya siffror" title="Hämta nya siffror"><svg class="i"><use href="#i-refresh"/></svg></button>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ================= ÖVERSIKT ================= -->
+      <section class="view" id="view-oversikt" data-title="Översikt">
+        <div id="ovNotice"></div>
+        <div class="kpis stagger" id="ovKpis"></div>
+
+        <div class="cols-2" style="margin-top:16px">
+          <div class="card">
+            <div class="card-head"><h3>Omsättning och kostnader</h3><button class="info-btn" data-explain="result" aria-label="Vad ingår i kostnaderna?"><svg class="i"><use href="#i-info"/></svg></button></div>
+            <div id="ovChart"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Att göra nu</h3><span class="muted" id="ovActionCount"></span></div>
+            <div class="actions" id="ovActions"></div>
+          </div>
+        </div>
+
+        <div class="section-title"><h2>Snabbval</h2></div>
+        <div class="quick" id="ovQuick"></div>
+
+        <div class="cols-even" style="margin-top:16px">
+          <div class="card goal-hero" id="ovGoal"></div>
+          <div class="card">
+            <div class="card-head"><h3>Marknadsföring just nu</h3><a class="link" href="#marknad">Öppna <svg class="i" style="width:14px;height:14px"><use href="#i-chevron"/></svg></a></div>
+            <div id="ovMarketing"></div>
+          </div>
+        </div>
+
+        <div class="cols-even" style="margin-top:16px">
+          <div class="card">
+            <div class="card-head"><h3>Närmaste uppgifter</h3><a class="link" href="#foretaget">Alla uppgifter <svg class="i" style="width:14px;height:14px"><use href="#i-chevron"/></svg></a></div>
+            <div id="ovTasks"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Kopplingar</h3><span class="muted">Varifrån siffrorna kommer</span></div>
+            <div class="conn-list" id="ovConnections"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= EKONOMI ================= -->
+      <section class="view" id="view-ekonomi" data-title="Ekonomi" hidden>
+        <div id="ecNotice"></div>
+        <div class="kpis stagger" id="ecKpis"></div>
+        <div class="cols-2" style="margin-top:16px">
+          <div class="card">
+            <div class="card-head"><h3>Utveckling</h3><span class="muted" id="ecChartNote"></span></div>
+            <div id="ecChart"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Kostnader i perioden</h3><button class="info-btn" data-explain="result" aria-label="Vad ingår i kostnaderna?"><svg class="i"><use href="#i-info"/></svg></button></div>
+            <div id="ecBreakdown"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-head"><h3>Så räknas resultatet</h3></div>
+          <div class="explain" id="ecExplain"></div>
+        </div>
+
+        <div class="section-title"><h2>Egna utgifter</h2><span class="muted">Sådant som inte syns i Shopify eller API-kontona, t.ex. annonser, förpackningar och lagerinköp</span></div>
+        <div class="cols-2">
+          <div>
+            <div class="toolbar">
+              <div class="search"><svg class="i"><use href="#i-search"/></svg><input type="search" id="expSearch" placeholder="Sök utgift" aria-label="Sök bland utgifterna"></div>
+              <select id="expFilter" aria-label="Filtrera på kategori"></select>
+            </div>
+            <div class="table-wrap cards" id="expTable"></div>
+            <div class="table-foot" id="expFoot"></div>
+          </div>
+          <form class="card" id="expForm" novalidate>
+            <div class="card-head"><h3>Lägg till utgift</h3></div>
+            <div class="form-grid">
+              <div><label for="expDate">Datum</label><input type="date" id="expDate" name="date" required></div>
+              <div><label for="expAmount">Belopp (kr)</label><input type="number" id="expAmount" name="amount_sek" min="0" step="0.01" inputmode="decimal" required></div>
+              <div class="full"><label for="expDesc">Vad gäller det?</label><input id="expDesc" name="description" maxlength="200" placeholder="T.ex. Facebook-annons vecka 46" required></div>
+              <div class="full"><label for="expCat">Kategori</label><select id="expCat" name="category" style="width:100%"></select></div>
+            </div>
+            <div class="muted" style="margin-top:8px">Lagerinköp räknas inte som kostnad i resultatet direkt. Varukostnaden räknas när en vara säljs, från inköpspriset i Shopify.</div>
+            <div class="field-error" id="expError" role="alert"></div>
+            <div class="row"><button><svg class="i"><use href="#i-plus"/></svg>Spara utgift</button></div>
+          </form>
+        </div>
+
+        <div class="section-title"><h2>Claude per agent</h2><a class="link" href="#marknad/installningar">Detaljer och månadstak <svg class="i" style="width:14px;height:14px"><use href="#i-chevron"/></svg></a></div>
+        <div class="card" id="ecClaude"></div>
+      </section>
+
+      <!-- ================= ORDRAR ================= -->
+      <section class="view" id="view-ordrar" data-title="Ordrar" hidden>
+        <div id="orNotice"></div>
+        <div class="kpis stagger" id="orKpis" style="grid-template-columns:repeat(auto-fit, minmax(170px, 1fr))"></div>
+        <div class="section-title"><h2>Alla ordrar</h2><span class="muted" id="orRange"></span></div>
+        <div class="toolbar">
+          <div class="search"><svg class="i"><use href="#i-search"/></svg><input type="search" id="orSearch" placeholder="Sök ordernummer, produkt eller rabattkod" aria-label="Sök bland ordrarna"></div>
+          <select id="orFilter" aria-label="Filtrera på status">
+            <option value="">Alla ordrar</option><option value="unfulfilled">Ej skickade</option><option value="fulfilled">Skickade</option>
+            <option value="refunded">Återbetalda</option><option value="cancelled">Makulerade</option>
+          </select>
+          <label class="check" style="margin:0"><input type="checkbox" id="orInPeriod" checked> Bara vald period</label>
+        </div>
+        <div class="table-wrap cards" id="orTable"></div>
+        <div class="table-foot" id="orFoot"></div>
+      </section>
+
+      <!-- ================= PRODUKTER OCH LAGER ================= -->
+      <section class="view" id="view-lager" data-title="Produkter och lager" hidden>
+        <div id="stNotice"></div>
+        <div class="kpis stagger" id="stKpis" style="grid-template-columns:repeat(auto-fit, minmax(170px, 1fr))"></div>
+        <div class="section-title"><h2>Varianter och lagersaldo</h2>
+          <form class="row" id="thresholdForm" style="margin:0 0 0 auto;align-items:center">
+            <label for="threshold" style="margin:0">Lågt lager vid högst</label>
+            <input id="threshold" type="number" min="0" step="1" style="width:80px">
+            <button class="ghost">Spara</button>
+          </form>
+        </div>
+        <div class="toolbar">
+          <div class="search"><svg class="i"><use href="#i-search"/></svg><input type="search" id="stSearch" placeholder="Sök produkt, variant eller SKU" aria-label="Sök bland varianterna"></div>
+          <select id="stFilter" aria-label="Filtrera på lagerstatus">
+            <option value="">Alla varianter</option><option value="ok">I lager</option><option value="low">Lågt lager</option><option value="out">Slut</option><option value="preorder">Förbeställning</option><option value="nocost">Saknar inköpspris</option>
+          </select>
+        </div>
+        <div class="table-wrap cards" id="stTable"></div>
+        <div class="table-foot" id="stFoot"></div>
+      </section>
+
+      <!-- ================= MARKNADSFÖRING (agenterna) ================= -->
+      <section class="view" id="view-marknad" data-title="Marknadsföring" hidden>
+        <nav class="tabs" id="mTabs" aria-label="Marknadsföring">
+          <a href="#marknad/videor" data-tab="videor"><svg class="i"><use href="#i-video"/></svg>Videor<span class="count" id="tabPending" hidden></span></a>
+          <a href="#marknad/publicering" data-tab="publicering"><svg class="i"><use href="#i-trend"/></svg>Publicering<span class="count" id="tabManual" hidden></span></a>
+          <a href="#marknad/inkorg" data-tab="inkorg"><svg class="i"><use href="#i-inbox"/></svg>Kommentarer och DM<span class="count" id="tabInbox" hidden></span></a>
+          <a href="#marknad/research" data-tab="research"><svg class="i"><use href="#i-search"/></svg>Research</a>
+          <a href="#marknad/installningar" data-tab="installningar"><svg class="i"><use href="#i-sparkle"/></svg>Inställningar och kostnad</a>
+          <a href="#marknad/logg" data-tab="logg"><svg class="i"><use href="#i-list"/></svg>Logg</a>
+        </nav>
+
+        <div class="pane" id="pane-videor">
+          <h2 style="margin-top:0">Produkt som agenterna gör reklam för</h2>
+          <div class="card" id="activeProduct"></div>
+
+          <h2 id="orderHeading">Beställ videor</h2>
+          <div class="card" id="order"></div>
+
+          <h2>Väntar på ditt godkännande</h2>
+          <div id="pending"></div>
+
+          <h2>Agenter</h2>
+          <div class="row" style="margin-top:0;margin-bottom:12px">
+            <button id="startAll">Starta kanalerna</button>
+            <button id="stopAll" class="ghost">Stoppa kanalerna</button>
+          </div>
+          <p class="muted">Kanalagenterna lägger bara upp videor du har godkänt. Research och videor körs bara när du beställer.</p>
+          <div class="flow" id="flow">
+            <svg class="wires" id="wires" aria-hidden="true">
+              <defs>
+                <marker id="tip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--line)"/></marker>
+                <marker id="tipDone" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ok)"/></marker>
+              </defs>
+            </svg>
+            <div class="card node" id="node-research"></div>
+            <div class="card node" id="node-prompt"></div>
+            <div class="card node" id="node-polish"></div>
+            <div class="channels">
+              <div class="card node" id="node-tiktok"></div>
+              <div class="card node" id="node-instagram"></div>
+              <div class="card node" id="node-facebook"></div>
+            </div>
+          </div>
+
+          <h2>Egen mobilfilm</h2>
+          <div class="card">
+            <div class="muted">Äkta film av en riktig hund slår ofta AI-video. Ladda upp en film på 2–90 sekunder, så lägger agenterna på text i bild, berättarröst, logga, pris och slutbild. Filmen gäller produkten som är vald överst.</div>
+            <label for="clipFile">Film</label>
+            <input type="file" id="clipFile" accept="video/*">
+            <label for="clipNote">Vad visar filmen? (valfritt)</label>
+            <input id="clipNote" placeholder="T.ex. &quot;Bella efter promenad i leran&quot;">
+            <div class="row"><button class="ghost" id="clipButton" onclick="uploadClip()">Ladda upp egen film</button></div>
+          </div>
+        </div>
+
+        <div class="pane" id="pane-publicering" hidden>
+          <h2 style="margin-top:0">Lägg upp själv</h2>
+          <p class="muted">Kanaler som inte är kopplade än hamnar här. Ladda ner videon, kopiera texten och tryck Klar.</p>
+          <div id="manual"></div>
+
+          <h2>A/B-tester och vinnare</h2>
+          <p class="muted">Ett A/B-test är 3 videor med samma budskap men olika start (krok). När de är publicerade och har visats minst 300 gånger var visar siffrorna vilken krok som vinner. Krokgrad = andel som tittade minst 3 sekunder.</p>
+          <div id="abtests"></div>
+
+          <h2>Alla videor</h2>
+          <p class="muted">Radera tar bort videon och filen från kontrollsidan och servern. Inlägg som redan ligger ute på TikTok, Instagram eller Facebook ligger kvar där, dem tar du bort i appen.</p>
+          <div class="table-wrap"><table id="history" class="plain-table"></table></div>
+        </div>
+
+        <div class="pane" id="pane-inkorg" hidden>
+          <div class="card">
+            <div class="row" style="margin-top:0">
+              <label class="check"><input type="checkbox" id="auto_reply_instagram"> Svara automatiskt på Instagram</label>
+              <label class="check"><input type="checkbox" id="auto_reply_facebook"> Svara automatiskt på Facebook</label>
+            </div>
+            <p class="muted" style="margin-bottom:0">Av = agenten skriver utkast som du skickar. Klagomål och oklara frågor lämnas alltid åt dig.</p>
+          </div>
+          <h2>Nya kommentarer och DM</h2>
+          <div id="inbox"></div>
+        </div>
+
+        <div class="pane" id="pane-research" hidden>
+          <div class="muted" id="researchInfo" style="margin:0 0 12px"></div>
+          <div class="report" id="research"></div>
+        </div>
+
+        <div class="pane" id="pane-installningar" hidden>
+          <h2 style="margin-top:0">Kopplingar</h2>
+          <div class="card"><div class="chips" id="connections"></div></div>
+
+          <h2>Aktuella erbjudanden</h2>
+          <form class="card" id="offersForm">
+            <div class="muted">Agenterna nämner bara de rabatter som står här, i videotexter och svar. Skriv exakt som rabattkoderna i Shopify. Töm rutan om ni inte har några erbjudanden.</div>
+            <label for="offers">Erbjudanden</label>
+            <textarea id="offers"></textarea>
+            <div class="row"><button>Spara erbjudanden</button></div>
+          </form>
+
+          <h2>Vad Claude har kostat</h2>
+          <div class="card">
+            <div class="muted">Riktiga kostnader, räknade från varje svar från Claude (tokens och webbsökningar). Saldot på console.anthropic.com kan skilja några kronor beroende på växelkursen. Higgsfield betalas separat.</div>
+            <div id="spend" style="margin-top:8px;overflow-x:auto"></div>
+            <form id="budgetForm" class="row">
+              <label for="budget" style="margin:0">Månadstak för Claude (kr, 0 = inget tak)</label>
+              <input id="budget" type="number" min="0" step="10" style="width:110px">
+              <button class="ghost">Spara tak</button>
+            </form>
+          </div>
+
+          <h2>Videomodell</h2>
+          <div class="card">
+            <div class="muted">Vilken AI hos Higgsfield som gör videorna. Priset är ungefär för en video på 10 sekunder, utöver Claude.</div>
+            <div id="videoModels" style="margin-top:8px"></div>
+          </div>
+
+          <h2>Berättarröst</h2>
+          <div class="card">
+            <div class="muted" id="voiceIntro">Vilken svensk röst som läser texten i videorna. Lyssna och välj.</div>
+            <div id="voiceUsage" style="margin-top:8px"></div>
+            <div class="row" id="voiceSpeeds" style="align-items:center"></div>
+            <div id="voices" style="margin-top:8px"></div>
+          </div>
+
+          <h2>Produktinfo som agenterna använder</h2>
+          <form class="card" id="productForm"></form>
+        </div>
+
+        <div class="pane" id="pane-logg" hidden>
+          <div class="table-wrap"><table id="log" class="plain-table"></table></div>
+        </div>
+      </section>
+
+      <!-- ================= FÖRETAGET ================= -->
+      <section class="view" id="view-foretaget" data-title="Företaget" hidden>
+        <div class="cols-2">
+          <div class="card">
+            <div class="card-head"><h3>Mål</h3><span class="muted">Räknas från ordrarna i Shopify</span></div>
+            <div class="goal-list" id="goals"></div>
+            <details style="margin-top:14px"><summary>Lägg till mål</summary>
+              <form id="goalForm" novalidate>
+                <div class="form-grid">
+                  <div class="full"><label for="goalTitle">Namn</label><input id="goalTitle" name="title" maxlength="80" placeholder="T.ex. 20 sålda kit före jul" required></div>
+                  <div><label for="goalMetric">Mäts i</label><select id="goalMetric" name="metric" style="width:100%"><option value="orders">Antal ordrar</option><option value="revenue">Omsättning (kr)</option></select></div>
+                  <div><label for="goalTarget">Mål</label><input id="goalTarget" name="target" type="number" min="1" required></div>
+                  <div><label for="goalStart">Från (valfritt)</label><input id="goalStart" name="start" type="date"></div>
+                  <div><label for="goalDeadline">Till (valfritt)</label><input id="goalDeadline" name="deadline" type="date"></div>
+                </div>
+                <div class="field-error" id="goalError" role="alert"></div>
+                <div class="row"><button><svg class="i"><use href="#i-plus"/></svg>Spara mål</button></div>
+              </form>
+            </details>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Om företaget</h3></div>
+            <dl class="facts">
+              <dt>Företag</dt><dd>Agent UF (UF-företag, Ung Företagsamhet)</dd>
+              <dt>Butik</dt><dd>Vardagshoppen · <a href="https://vardagshoppen.com" target="_blank" rel="noopener">vardagshoppen.com</a></dd>
+              <dt>Kontakt</dt><dd>vallesjolund@gmail.com</dd>
+              <dt>Moms</dt><dd>UF-företag momsregistreras inte. Moms vid inköp och import är en kostnad.</dd>
+              <dt>Lager</dt><dd>Eget lager (UF-reglerna tillåter inte dropshipping)</dd>
+              <dt>Siffror från</dt><dd><span id="startText"></span> <button class="ghost" style="min-height:30px;padding:2px 10px;font-size:12.5px" id="startBtn">Ändra</button></dd>
+            </dl>
+          </div>
+        </div>
+
+        <div class="section-title"><h2>Uppgifter</h2><span class="muted" id="taskCount"></span></div>
+        <div class="cols-2">
+          <div class="card">
+            <div class="toolbar" style="margin-bottom:4px">
+              <select id="taskFilter" aria-label="Visa uppgifter"><option value="open">Att göra</option><option value="done">Klara</option><option value="">Alla</option></select>
+            </div>
+            <div id="tasks"></div>
+          </div>
+          <form class="card" id="taskForm" novalidate>
+            <div class="card-head"><h3>Ny uppgift</h3></div>
+            <label for="taskTitle">Vad ska göras?</label><input id="taskTitle" name="title" maxlength="200" required>
+            <label for="taskDue">Klart senast (valfritt)</label><input id="taskDue" name="due" type="date">
+            <div class="field-error" id="taskError" role="alert"></div>
+            <div class="row"><button><svg class="i"><use href="#i-plus"/></svg>Lägg till</button></div>
+          </form>
+        </div>
+
+        <div class="section-title"><h2>Dokument och länkar</h2><span class="muted">Allt viktigt på ett ställe</span></div>
+        <div id="links"></div>
+        <details class="card" style="margin-top:14px"><summary>Lägg till länk eller dokument</summary>
+          <form id="linkForm" novalidate>
+            <div class="form-grid">
+              <div><label for="linkTitle">Namn</label><input id="linkTitle" name="title" maxlength="80" required></div>
+              <div><label for="linkUrl">Adress</label><input id="linkUrl" name="url" type="url" placeholder="https://" required></div>
+              <div><label for="linkCat">Grupp</label><input id="linkCat" name="category" maxlength="40" list="linkCats" placeholder="T.ex. Dokument"><datalist id="linkCats"></datalist></div>
+              <div><label for="linkNote">Kort beskrivning (valfritt)</label><input id="linkNote" name="note" maxlength="200"></div>
+            </div>
+            <div class="muted" style="margin-top:8px">Tips: dela ett dokument från Google Drive eller OneDrive och klistra in länken här, så hittar du det från mobilen också.</div>
+            <div class="field-error" id="linkError" role="alert"></div>
+            <div class="row"><button><svg class="i"><use href="#i-plus"/></svg>Spara länk</button></div>
+          </form>
+        </details>
+      </section>
+    </main>
   </div>
+</div>
 
-  <h2>Väntar på ditt godkännande</h2>
-  <div id="pending"></div>
-
-  <h2>A/B-tester och vinnare</h2>
-  <p class="muted">Ett A/B-test är 3 videor med samma budskap men olika start (krok). När de är publicerade och har visats minst 300 gånger var visar siffrorna vilken krok som vinner. Krokgrad = andel som tittade minst 3 sekunder.</p>
-  <div id="abtests"></div>
-
-  <h2>Lägg upp själv</h2>
-  <p class="muted">Kanaler som inte är kopplade än hamnar här. Ladda ner videon, kopiera texten och tryck Klar.</p>
-  <div id="manual"></div>
-
-  <h2>Kommentarer och DM</h2>
-  <div class="row" style="margin-top:0">
-    <label style="margin:0"><input type="checkbox" id="auto_reply_instagram" style="width:auto"> Svara automatiskt på Instagram</label>
-    <label style="margin:0"><input type="checkbox" id="auto_reply_facebook" style="width:auto"> Svara automatiskt på Facebook</label>
-  </div>
-  <p class="muted">Av = agenten skriver utkast som du skickar. Klagomål och oklara frågor lämnas alltid åt dig.</p>
-  <div id="inbox"></div>
-
-  <details><summary>Alla videor</summary>
-    <p class="muted">Radera tar bort videon och filen från kontrollsidan och servern. Inlägg som redan ligger ute på TikTok, Instagram eller Facebook ligger kvar där, dem tar du bort i appen.</p>
-    <table id="history"></table></details>
-  <details open><summary>Senaste research</summary><div class="muted" id="researchInfo" style="margin:8px 0"></div><div class="report" id="research"></div></details>
-  <details><summary>Produktinfo som agenterna använder</summary><form class="card" id="productForm"></form></details>
-  <details open><summary>Logg</summary><table id="log"></table></details>
-</main>
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <div class="dlg-head"><h3 id="dlgTitle"></h3><button class="icon-btn" onclick="$('dlg').close()" aria-label="Stäng"><svg class="i"><use href="#i-x"/></svg></button></div>
+  <div class="dlg-body" id="dlgBody"></div>
+</dialog>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
 <script>
 const AGENTS = {
@@ -238,6 +883,7 @@ async function refresh() {
   state = await api("GET", "/api/state");
   productId = state.activeProductId;
   keepDrafts(render);
+  window.onStateUpdated?.();
 }
 
 let orderCount = 1;
@@ -822,6 +1468,790 @@ async function poll() {
   setTimeout(poll, busy ? 3000 : 15000);
 }
 poll();
+</script>
+<script>
+// ================= Företagsöversikten =================
+// Meny, perioder, nyckeltal, diagram och tabeller. Siffrorna kommer från /api/business (Shopify + databasen)
+// och /api/state (agenterna). Saknas en koppling visas det, aldrig påhittade siffror.
+(() => {
+const RM = matchMedia("(prefers-reduced-motion: reduce)");
+const HOVER = matchMedia("(hover: hover)");
+const ROUTES = { oversikt: "Översikt", ekonomi: "Ekonomi", ordrar: "Ordrar", lager: "Produkter och lager", marknad: "Marknadsföring", foretaget: "Företaget" };
+const TABS = { videor: "Videor", publicering: "Publicering", inkorg: "Kommentarer och DM", research: "Research", installningar: "Inställningar och kostnad", logg: "Logg" };
+const PERIOD_ROUTES = ["oversikt", "ekonomi", "ordrar"];
+const PERIODS = { "7d": "7 dagar", "30d": "30 dagar", "90d": "90 dagar", month: "Denna månad", year: "I år", all: "Sedan start" };
+const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+let biz = null;
+let period = PERIODS[store.get("period")] ? store.get("period") : "30d";
+let route = "oversikt", tab = "videor";
+const shown = {}; // senast visade värden, så att siffrorna bara räknas upp när de ändras
+
+const icon = (name, size) => `<svg class="i"${size ? ` style="width:${size}px;height:${size}px"` : ""} aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const nf0 = new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat("sv-SE", { maximumFractionDigits: 1 });
+const kr = (n) => n == null ? "–" : `${(Math.abs(n) < 100 && !Number.isInteger(n) ? nf1 : nf0).format(n)} kr`;
+const num = (n) => n == null ? "–" : nf0.format(n);
+const day = (ymd) => new Date(`${ymd}T12:00:00`).toLocaleDateString("sv-SE", { day: "numeric", month: "short" });
+const dayLong = (ymd) => new Date(`${ymd}T12:00:00`).toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
+const dateTime = (iso) => new Date(iso).toLocaleString("sv-SE", { dateStyle: "medium", timeStyle: "short" });
+const shopHandle = () => (biz?.shopify.shop || "frostskrapa").split(".")[0];
+const adminUrl = (path = "") => `https://admin.shopify.com/store/${shopHandle()}${path}`;
+
+function toast(text) {
+  const el = document.createElement("div");
+  el.className = "toast"; el.textContent = text;
+  $("toasts").appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+async function bapi(method, url, body) {
+  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Något gick fel");
+  return data;
+}
+
+// ---------- Tema ----------
+function applyTheme(t) {
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  const dark = t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  $("themeBtn").innerHTML = `${icon(dark ? "sun" : "moon")}<span>${dark ? "Ljust läge" : "Mörkt läge"}</span>`;
+  if (biz) renderBusiness(false);
+}
+$("themeBtn").onclick = () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const next = dark ? "light" : "dark";
+  store.set("theme", next); applyTheme(next);
+};
+applyTheme(store.get("theme", "") || null);
+
+// ---------- Meny och sidor ----------
+function moveIndicator() {
+  const a = document.querySelector(`#nav a[data-route="${route}"]`);
+  const ind = $("navIndicator");
+  if (!a) return;
+  ind.style.transform = `translateY(${a.offsetTop}px)`;
+  ind.style.height = `${a.offsetHeight}px`;
+}
+
+function setDrawer(open) {
+  $("sidebar").classList.toggle("open", open);
+  $("scrim").classList.toggle("show", open);
+  $("menuBtn").setAttribute("aria-expanded", String(open));
+  if (open) document.querySelector("#nav a[aria-current]")?.focus();
+}
+$("menuBtn").onclick = () => setDrawer(true);
+$("scrim").onclick = () => setDrawer(false);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("sidebar").classList.contains("open")) { setDrawer(false); $("menuBtn").focus(); } });
+
+function showRoute(fromUser) {
+  const [r, t] = location.hash.slice(1).split("/");
+  const prev = route;
+  route = ROUTES[r] ? r : "oversikt";
+  if (route === "marknad") tab = TABS[t] ? t : (prev === "marknad" ? tab : "videor");
+  for (const id of Object.keys(ROUTES)) {
+    const v = $(`view-${id}`);
+    const on = id === route;
+    if (on && v.hidden) { v.hidden = false; v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter"); }
+    else if (!on) v.hidden = true;
+  }
+  document.querySelectorAll("#nav a").forEach((a) => { if (a.dataset.route === route) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  if (route === "marknad") {
+    for (const id of Object.keys(TABS)) $(`pane-${id}`).hidden = id !== tab;
+    document.querySelectorAll("#mTabs a").forEach((a) => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    if (tab === "videor" && state?.flow) requestAnimationFrame(() => drawWires());
+  }
+  $("pageTitle").textContent = ROUTES[route];
+  $("crumbs").innerHTML = `<a href="#oversikt">Agent UF</a>${route !== "oversikt" ? ` <span aria-hidden="true">/</span> <a href="#${route}">${ROUTES[route]}</a>` : ""}${route === "marknad" ? ` <span aria-hidden="true">/</span> <span>${TABS[tab]}</span>` : ""}`;
+  document.title = `${route === "marknad" ? TABS[tab] : ROUTES[route]} · Agent UF`;
+  $("periodSeg").style.display = PERIOD_ROUTES.includes(route) ? "" : "none";
+  moveIndicator(); placeThumb();
+  setDrawer(false);
+  if (fromUser) { window.scrollTo({ top: 0, behavior: RM.matches ? "auto" : "smooth" }); $("pageTitle").focus({ preventScroll: true }); }
+  if (biz && prev !== route) renderBusiness(true);
+}
+addEventListener("hashchange", () => showRoute(true));
+addEventListener("resize", () => { moveIndicator(); placeThumb(); });
+
+/** Gå till en sida och sätt ett filter där, t.ex. ordrar som inte är skickade. */
+function go(hash, filters = {}) {
+  for (const [id, value] of Object.entries(filters)) { const el = $(id); if (el) { if (el.type === "checkbox") el.checked = Boolean(value); else el.value = value; } }
+  if (location.hash === hash) { showRoute(true); if (biz) renderBusiness(false); } else location.hash = hash;
+}
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-go]");
+  if (!el) return;
+  e.preventDefault();
+  go(el.dataset.go, el.dataset.filter ? JSON.parse(el.dataset.filter) : {});
+});
+
+// ---------- Periodväljaren ----------
+$("periodSeg").insertAdjacentHTML("beforeend", Object.entries(PERIODS).map(([k, v]) => `<button type="button" data-period="${k}" aria-pressed="${k === period}">${v}</button>`).join(""));
+function placeThumb() {
+  const b = document.querySelector(`#periodSeg [data-period="${period}"]`);
+  if (!b || !b.offsetWidth) return;
+  $("segThumb").style.left = `${b.offsetLeft}px`;
+  $("segThumb").style.width = `${b.offsetWidth}px`;
+}
+$("periodSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-period]");
+  if (!b || b.dataset.period === period) return;
+  period = b.dataset.period; store.set("period", period);
+  document.querySelectorAll("#periodSeg [data-period]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  placeThumb(); loadBusiness();
+});
+
+// ---------- Hämta siffrorna ----------
+let loading = null;
+async function loadBusiness(force = false) {
+  const btn = $("refreshBtn");
+  btn.classList.add("busy");
+  const req = (loading = bapi("GET", `/api/business?period=${period}${force ? "&refresh=1" : ""}`));
+  try {
+    const data = await req;
+    if (req !== loading) return;
+    biz = data;
+    renderBusiness(true);
+    $("updated").textContent = `Uppdaterad ${new Date().toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" })}`;
+  } catch (err) {
+    $("updated").textContent = `Kunde inte hämta siffrorna: ${err.message}`;
+  } finally { btn.classList.remove("busy"); }
+}
+$("refreshBtn").onclick = () => { loadBusiness(true); if (typeof refresh === "function") refresh().catch(() => {}); };
+setInterval(() => { if (!document.hidden) loadBusiness(); }, 60_000);
+
+// ---------- Små byggstenar ----------
+function deltaHtml(cur, prev, { invert = false } = {}) {
+  if (prev == null || cur == null) return "";
+  if (!prev && !cur) return "";
+  if (!prev) return `<span class="delta ${invert ? "down" : "up"}">ny</span>`;
+  const p = ((cur - prev) / Math.abs(prev)) * 100;
+  if (Math.abs(p) < 0.5) return `<span class="delta flat">±0 %</span>`;
+  const good = invert ? p < 0 : p > 0;
+  return `<span class="delta ${good ? "up" : "down"}" aria-label="${p > 0 ? "upp" : "ned"} ${Math.abs(Math.round(p))} procent">${p > 0 ? "▲" : "▼"} ${Math.abs(Math.round(p))} %</span>`;
+}
+
+function sparkline(values) {
+  if (!values || values.length < 2 || values.every((v) => !v)) return "";
+  const w = 200, h = 34, max = Math.max(...values), min = Math.min(0, ...values);
+  const x = (i) => (i / (values.length - 1)) * w, y = (v) => h - 3 - ((v - min) / (max - min || 1)) * (h - 6);
+  const d = values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path class="area" d="${d}L${w},${h}L0,${h}Z"/><path class="line" d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function kpi({ id, label, iconName, value, format = kr, sub = "", spark = "", na = null, explain }) {
+  return `<div class="card kpi" data-kpi="${id}" style="--i:${kpi.i++}">
+    <div class="kpi-top"><span class="kpi-icon">${icon(iconName)}</span>${label}${explain ? `<button class="info-btn" data-explain="${explain}" aria-label="Vad ingår i ${label.toLowerCase()}?">${icon("info", 16)}</button>` : ""}</div>
+    <div class="kpi-value ${na ? "na" : ""}" data-count="${na ? "" : value ?? ""}" data-fmt="${format === kr ? "kr" : format === pctFmt ? "pct" : "num"}">${na ? "–" : format(value)}</div>
+    <div class="kpi-sub">${na || sub}</div>${spark}</div>`;
+}
+kpi.i = 0;
+const pctFmt = (n) => n == null ? "–" : `${nf0.format(n)} %`;
+const fmtOf = (f) => (f === "kr" ? kr : f === "pct" ? pctFmt : num);
+
+/** Räknar upp ett nyckeltal till sitt nya värde (bara när värdet har ändrats). */
+function countUp(scope) {
+  scope.querySelectorAll("[data-count]").forEach((el) => {
+    const key = `${scope.id}:${el.closest("[data-kpi]")?.dataset.kpi}`;
+    const target = el.dataset.count === "" ? null : Number(el.dataset.count);
+    const from = shown[key];
+    shown[key] = target;
+    if (target == null || from === target || RM.matches) return;
+    const start = from ?? 0, fmt = fmtOf(el.dataset.fmt), t0 = performance.now(), dur = 700;
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      const v = start + (target - start) * e;
+      el.textContent = fmt(k < 1 ? (Number.isInteger(target) ? Math.round(v) : Math.round(v * 10) / 10) : target);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+// Diskret 3D-lutning på nyckeltalskorten (bara med mus och utan minskad rörelse).
+document.addEventListener("pointermove", (e) => {
+  if (!HOVER.matches || RM.matches || e.pointerType !== "mouse") return;
+  const card = e.target.closest?.(".kpi");
+  document.querySelectorAll(".kpi.tilted").forEach((c) => { if (c !== card) { c.style.transform = ""; c.classList.remove("tilted"); } });
+  if (!card) return;
+  const r = card.getBoundingClientRect();
+  const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+  card.classList.add("tilted");
+  card.style.transform = `rotateX(${(0.5 - py) * 7}deg) rotateY(${(px - 0.5) * 9}deg) translateZ(4px)`;
+  card.style.setProperty("--mx", `${px * 100}%`); card.style.setProperty("--my", `${py * 100}%`);
+});
+
+/** Isometrisk låda med Vardagshoppens tass, för tomma lägen. */
+function boxIllustration(cls = "") {
+  return `<svg class="illus ${cls}" viewBox="0 0 120 110" aria-hidden="true">
+    <ellipse cx="60" cy="100" rx="40" ry="7" fill="currentColor" opacity=".08"/>
+    <g class="${RM.matches ? "" : "floaty"}">
+      <path d="M60 18 100 38 60 58 20 38Z" fill="#D9C7A3"/>
+      <path d="M20 38 60 58v38L20 76Z" fill="#C4AD82"/>
+      <path d="M100 38 60 58v38l40-20Z" fill="#AE9468"/>
+      <path d="M40 28 80 48v8l-6 3V51L34 31Z" fill="#073322" opacity=".85"/>
+      <g transform="translate(78 64) skewY(-26) scale(.9)" fill="#F7F5F0" opacity=".95">
+        <ellipse cx="0" cy="4" rx="5" ry="4"/><circle cx="-5" cy="-3" r="2"/><circle cx="0" cy="-5" r="2"/><circle cx="5" cy="-3" r="2"/>
+      </g>
+    </g>
+  </svg>`;
+}
+
+function emptyState(title, text, extra = "") {
+  return `<div class="empty-state">${boxIllustration()}<div><h3>${title}</h3><p>${text}</p>${extra}</div></div>`;
+}
+
+// ---------- Diagram: omsättning och kostnader över tid ----------
+const charts = new Map();
+function lineChart(el, data, { showRevenue = true } = {}) {
+  charts.set(el, { data, showRevenue });
+  const pts = data.points;
+  const series = [
+    showRevenue && { key: "revenue", label: "Omsättning", color: "var(--chart-1)", dash: "" },
+    { key: "costs", label: "Kostnader", color: "var(--chart-2)", dash: "6 5" },
+  ].filter(Boolean);
+  const all = pts.flatMap((p) => series.map((s) => p[s.key]));
+  const legend = `<div class="legend">${series.map((s) => `<span><i class="${s.dash ? "dash" : ""}" style="border-color:${s.color}"></i>${s.label}</span>`).join("")}<span>${data.step === "week" ? "Per vecka" : "Per dag"}</span></div>`;
+  if (!all.some((v) => v)) {
+    el.innerHTML = legend + emptyState(showRevenue ? "Inga ordrar eller kostnader i perioden än" : "Inga kostnader i perioden än",
+      showRevenue ? "Så fort en order kommer in i Shopify eller en agent kostar pengar syns det här." : "Omsättningen visas här när Shopify är kopplat.");
+    return;
+  }
+  const W = Math.max(280, el.clientWidth || 600), H = W < 500 ? 200 : 250, pad = { l: 52, r: 12, t: 14, b: 26 };
+  const max = Math.max(...all) * 1.12 || 1;
+  const x = (i) => pad.l + (pts.length === 1 ? (W - pad.l - pad.r) / 2 : (i / (pts.length - 1)) * (W - pad.l - pad.r));
+  const y = (v) => pad.t + (1 - v / max) * (H - pad.t - pad.b);
+  const ticks = 4;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Omsättning och kostnader ${PERIODS[period].toLowerCase()}. Använd piltangenterna för att läsa varje punkt." tabindex="0">`;
+  for (let i = 0; i <= ticks; i++) {
+    const v = (max / ticks) * i, yy = y(v);
+    svg += `<line class="grid-line" x1="${pad.l}" x2="${W - pad.r}" y1="${yy}" y2="${yy}"/><text class="axis" x="${pad.l - 8}" y="${yy + 4}" text-anchor="end">${nf0.format(v)}</text>`;
+  }
+  const every = Math.ceil(pts.length / (W < 500 ? 4 : 7));
+  pts.forEach((p, i) => { if (i % every === 0 || i === pts.length - 1) svg += `<text class="axis" x="${x(i)}" y="${H - 6}" text-anchor="middle">${day(p.from)}</text>`; });
+  for (const s of series) {
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[s.key]).toFixed(1)}`).join("");
+    if (!s.dash) svg += `<path class="s-area fade" d="${d}L${x(pts.length - 1)},${y(0)}L${x(0)},${y(0)}Z" style="fill:${s.color}"/>`;
+    svg += `<path class="s-line ${s.dash ? "fade" : "draw"}" d="${d}" style="stroke:${s.color}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""}/>`;
+  }
+  svg += `<line class="cross" y1="${pad.t}" y2="${H - pad.b}"/>${series.map((s) => `<circle class="dotp" r="4.5" data-s="${s.key}" style="fill:${s.color}"/>`).join("")}</svg>`;
+  el.innerHTML = `${legend}<div class="chart" style="margin-top:10px">${svg}<div class="tooltip" role="status"></div></div>
+    <details style="margin-top:8px"><summary class="muted" style="font-weight:400">Visa som tabell</summary>
+      <div class="table-wrap" style="margin-top:8px;max-height:260px;overflow:auto"><table class="plain-table"><thead><tr><th>${data.step === "week" ? "Vecka från" : "Dag"}</th>${series.map((s) => `<th class="n">${s.label}</th>`).join("")}${showRevenue ? `<th class="n">Ordrar</th>` : ""}</tr></thead>
+      <tbody>${pts.slice().reverse().map((p) => `<tr><td>${day(p.from)}</td>${series.map((s) => `<td class="n">${kr(p[s.key])}</td>`).join("")}${showRevenue ? `<td class="n">${p.orders}</td>` : ""}</tr>`).join("")}</tbody></table></div></details>`;
+  const box = el.querySelector(".chart"), svgEl = box.querySelector("svg"), tip = box.querySelector(".tooltip");
+  svgEl.querySelectorAll(".draw").forEach((p) => { const len = p.getTotalLength(); p.style.setProperty("--len", len); });
+  let active = -1;
+  const show = (i) => {
+    active = Math.max(0, Math.min(pts.length - 1, i));
+    const p = pts[active], scale = svgEl.getBoundingClientRect().width / W;
+    box.classList.add("active");
+    svgEl.querySelector(".cross").setAttribute("x1", x(active)); svgEl.querySelector(".cross").setAttribute("x2", x(active));
+    svgEl.querySelectorAll(".dotp").forEach((c) => { c.setAttribute("cx", x(active)); c.setAttribute("cy", y(p[c.dataset.s])); });
+    tip.innerHTML = `<b>${data.step === "week" ? `Veckan från ${day(p.from)}` : dayLong(p.from)}</b>${series.map((s) => `${s.label}: ${kr(p[s.key])}`).join("<br>")}${showRevenue ? `<br>Ordrar: ${p.orders}` : ""}`;
+    tip.style.left = `${Math.min(Math.max(x(active) * scale, 70), box.clientWidth - 70)}px`;
+    tip.style.top = `${Math.min(...series.map((s) => y(p[s.key]))) * scale}px`;
+    tip.classList.add("show");
+  };
+  const hide = () => { box.classList.remove("active"); tip.classList.remove("show"); };
+  svgEl.addEventListener("pointermove", (e) => {
+    const r = svgEl.getBoundingClientRect(), xx = ((e.clientX - r.left) / r.width) * W;
+    show(Math.round(((xx - pad.l) / (W - pad.l - pad.r)) * (pts.length - 1)));
+  });
+  svgEl.addEventListener("pointerleave", hide);
+  svgEl.addEventListener("blur", hide);
+  svgEl.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); show(active < 0 ? pts.length - 1 : active + (e.key === "ArrowRight" ? 1 : -1)); }
+    if (e.key === "Home") show(0); if (e.key === "End") show(pts.length - 1);
+  });
+}
+let resizeTimer;
+new ResizeObserver(() => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => charts.forEach((c, el) => el.isConnected && el.offsetParent && lineChart(el, c.data, c)), 150); }).observe(document.body);
+
+// ---------- Tabeller med sök, filter och sortering ----------
+function table(cfg) {
+  const sortState = cfg.sortState ??= { key: cfg.defaultSort, dir: cfg.defaultDir ?? -1 };
+  const q = ($(cfg.search)?.value || "").trim().toLowerCase();
+  let rows = cfg.rows.filter((r) => (!q || cfg.text(r).toLowerCase().includes(q)) && (!cfg.filter || cfg.filter(r)));
+  const col = cfg.columns.find((c) => c.key === sortState.key);
+  if (col) rows = rows.slice().sort((a, b) => {
+    const va = col.sort ? col.sort(a) : a[col.key], vb = col.sort ? col.sort(b) : b[col.key];
+    return (va > vb ? 1 : va < vb ? -1 : 0) * sortState.dir;
+  });
+  const el = $(cfg.el);
+  if (!cfg.rows.length) { el.innerHTML = `<div class="card">${cfg.empty}</div>`; $(cfg.foot).textContent = ""; return; }
+  el.innerHTML = `<table><thead><tr>${cfg.columns.map((c) => `<th class="${c.num ? "n" : ""}" ${c.sortable === false ? "" : `aria-sort="${sortState.key === c.key ? (sortState.dir > 0 ? "ascending" : "descending") : "none"}"`}>${c.sortable === false ? c.label : `<button type="button" data-sort="${c.key}">${c.label}</button>`}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${cfg.columns.map((c) => `<td class="${c.num ? "n" : ""}" data-label="${c.label}"><span>${c.render ? c.render(r) : esc(r[c.key])}</span></td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cfg.columns.length}" class="empty" data-label="">Inget matchar sökningen eller filtret.</td></tr>`}</tbody></table>`;
+  el.querySelectorAll("[data-sort]").forEach((b) => b.onclick = () => {
+    sortState.dir = sortState.key === b.dataset.sort ? -sortState.dir : (cfg.columns.find((c) => c.key === b.dataset.sort).num ? -1 : 1);
+    sortState.key = b.dataset.sort; table(cfg);
+  });
+  $(cfg.foot).textContent = `Visar ${rows.length} av ${cfg.rows.length}${cfg.footExtra ? ` · ${cfg.footExtra(rows)}` : ""}`;
+}
+const tables = {};
+function bindTable(name, ids) { for (const id of ids) $(id)?.addEventListener("input", () => tables[name] && table(tables[name])); }
+
+// ---------- Förklaringar ----------
+function explainResult() {
+  const f = biz?.fees ?? { pct: 1.6, fixed: 1.85 };
+  return `<p style="margin-top:0"><strong>Resultat = omsättning − kostnader</strong> för vald period. Allt räknas i kronor, svensk tid.</p>
+  <ul>
+    <li><strong>Omsättning:</strong> det kunderna har betalat i Shopify, med frakt, efter rabatter och återbetalningar. Makulerade ordrar och testordrar räknas inte. Ingen moms dras av, eftersom UF-företag inte momsregistreras.</li>
+    <li><strong>Varukostnad:</strong> inköpspriset per vara i Shopify (fältet "Kostnad per artikel") gånger sålda varor. Saknas inköpspriset räknas varan som 0 kr och det syns som en varning.</li>
+    <li><strong>Betalavgifter</strong><span class="est">uppskattat</span>: ${nf1.format(f.pct)} % + ${f.fixed.toLocaleString("sv-SE")} kr per betald order (kortavgiften i Shopify Payments).</li>
+    <li><strong>Claude:</strong> den riktiga kostnaden för varje anrop, räknad från svaren (tokens och webbsökningar).</li>
+    <li><strong>Higgsfield</strong><span class="est">uppskattat</span>: antal AI-videor gånger priset för den valda videomodellen (${kr(biz?.higgsfieldPerVideo ?? null)} per video).</li>
+    <li><strong>Egna utgifter:</strong> det du lägger in under Ekonomi, utom lagerinköp (de blir varukostnad när varan säljs).</li>
+  </ul>
+  <p><strong>Ingår inte automatiskt:</strong> Shopify-abonnemanget, ElevenLabs, domänen och frakten till kunden (PostNord). Lägg in dem som egna utgifter när de dras, så blir resultatet rätt.</p>`;
+}
+function explainShopify() {
+  return `<p style="margin-top:0">Omsättning, ordrar och lagersaldo hämtas från Shopify med en egen app för butiken. Appen får bara <strong>läsa</strong>, den kan inte ändra något.</p>
+  <ol>
+    <li>Gå till <a href="https://dev.shopify.com" target="_blank" rel="noopener">dev.shopify.com</a> (Shopify Dev Dashboard) och skapa en app, t.ex. "Agent UF översikt".</li>
+    <li>Ge appen behörigheterna <code>read_orders</code>, <code>read_products</code> och <code>read_inventory</code> och installera den i butiken ${esc(biz?.shopify.shop || "frostskrapa.myshopify.com")}.</li>
+    <li>Kopiera appens <strong>Client ID</strong> och <strong>Client secret</strong> till Railway (agent-uf-agenter → Variables) som <code>SHOPIFY_CLIENT_ID</code> och <code>SHOPIFY_CLIENT_SECRET</code>. Har du redan en Admin API-token (börjar med shpat_) går det också bra som <code>SHOPIFY_ADMIN_TOKEN</code>.</li>
+    <li>Railway startar om tjänsten. Tryck sedan på uppdatera-knappen uppe till höger.</li>
+  </ol>
+  <p>För rätt resultat: fyll i <strong>Kostnad per artikel</strong> på varje variant i Shopify (t.ex. inköpspriset med frakt till Sverige).</p>`;
+}
+const EXPLAIN = {
+  result: ["Vad ingår i resultatet?", explainResult],
+  shopify: ["Koppla Shopify", explainShopify],
+  stock: ["Så räknas lagret", () => `<p style="margin-top:0">Lagersaldot kommer från Shopify och gäller aktiva produkter med lagerspårning. <strong>Lågt lager</strong> = högst ${biz?.stock.threshold ?? 5} st (ändra under Produkter och lager). En variant som får säljas fast saldot är 0 (förbeställning) räknas inte som slut. <strong>Lagervärde</strong> = antal i lager gånger inköpspriset i Shopify.</p>`],
+};
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-explain]");
+  if (!b) return;
+  const [title, body] = EXPLAIN[b.dataset.explain];
+  $("dlgTitle").textContent = title; $("dlgBody").innerHTML = body();
+  $("dlg").showModal();
+});
+
+// ---------- Rendering ----------
+function shopifyNotice() {
+  const s = biz.shopify;
+  if (s.connected) return "";
+  if (s.mode && s.error) return `<div class="notice bad"><span class="ico">${icon("alert")}</span><div><b>Shopify svarar inte som det ska</b><p>${esc(s.error)}</p>${s.stale ? `<p>Siffrorna nedan är från ${dateTime(s.fetchedAt)}.</p>` : ""}<div class="row"><button class="ghost" data-explain="shopify">Så kopplar du Shopify</button></div></div></div>`;
+  return `<div class="notice"><span class="ico">${icon("plug")}</span><div><b>Koppla Shopify för att se omsättning, ordrar och lager</b>
+    <p>Kostnaderna från agenterna och dina egna utgifter visas redan. Försäljningen hämtas när Shopify är kopplat, inga siffror gissas fram.</p>
+    <div class="row"><button data-explain="shopify">Så kopplar du Shopify</button><a class="link" href="${adminUrl("/orders")}" target="_blank" rel="noopener">Ordrar i Shopify ${icon("ext", 14)}</a></div></div></div>`;
+}
+
+function stockSub(st) {
+  const parts = [];
+  if (st.out) parts.push(`<span class="tag bad">${st.out} slut</span>`);
+  if (st.low) parts.push(`<span class="tag warn">${st.low} lågt</span>`);
+  if (st.preorder) parts.push(`<span class="tag info">${st.preorder} förbeställning</span>`);
+  return parts.join("") || (st.variants ? `<span class="tag ok">Alla i lager</span>` : "Inga aktiva produkter");
+}
+
+function renderKpis(el, items) {
+  kpi.i = 0;
+  $(el).innerHTML = items.map(kpi).join("");
+  countUp($(el));
+}
+
+function overviewKpis(animate) {
+  const c = biz.current, p = biz.previous, conn = biz.shopify.connected || biz.shopify.stale, pts = biz.series.points;
+  const vs = p ? `jämfört med perioden före` : `sedan ${day(biz.range.from)}`;
+  const shopCosts = c.costs.claude + c.costs.higgsfield + c.costs.expenses;
+  renderKpis("ovKpis", [
+    { id: "rev", label: "Omsättning", iconName: "trend", value: c.revenue, na: conn ? null : "Kräver Shopify", sub: `${deltaHtml(c.revenue, p?.revenue)} ${vs}`, spark: conn ? sparkline(pts.map((x) => x.revenue)) : "" },
+    { id: "cost", label: "Kostnader", iconName: "receipt", value: conn ? c.totalCosts : round2(shopCosts), sub: conn ? `${deltaHtml(c.totalCosts, p?.totalCosts, { invert: true })} ${vs}` : "Utan varukostnad och avgifter", spark: sparkline(pts.map((x) => x.costs)), explain: "result" },
+    { id: "res", label: "Resultat", iconName: "wallet", value: c.result, na: conn ? null : "Kräver Shopify", sub: c.missingCost ? `<span class="tag warn">${c.missingCost} varor saknar inköpspris</span>` : `${deltaHtml(c.result, p?.result)} omsättning − kostnader`, explain: "result" },
+    { id: "ord", label: "Ordrar", iconName: "bag", value: c.orders, format: num, na: conn ? null : "Kräver Shopify", sub: c.orders ? `${num(c.units)} varor · snitt ${kr(c.aov)}` : deltaHtml(c.orders, p?.orders) || "Inga ordrar i perioden", spark: conn ? sparkline(pts.map((x) => x.orders)) : "" },
+    { id: "stk", label: "Lager", iconName: "package", value: biz.stock.units, format: num, na: conn ? null : "Kräver Shopify", sub: stockSub(biz.stock), explain: "stock" },
+  ]);
+  if (!animate) $("ovKpis").classList.remove("stagger");
+}
+const round2 = (n) => Math.round(n * 100) / 100;
+
+function actionItems() {
+  const items = [];
+  if (biz) {
+    const s = biz.shopify, st = biz.stock;
+    if (!s.connected) items.push({ cls: s.error ? "bad" : "", ico: "plug", title: s.error ? "Shopify svarar inte" : "Koppla Shopify", text: s.error ? "Omsättning och ordrar kan inte hämtas just nu" : "Behövs för omsättning, ordrar och lager", explain: "shopify" });
+    if (biz.unfulfilled) items.push({ cls: "warn", ico: "truck", title: `${biz.unfulfilled} ${biz.unfulfilled === 1 ? "order" : "ordrar"} att skicka`, text: "Betalda men inte skickade", go: "#ordrar", filter: { orFilter: "unfulfilled", orInPeriod: "" } });
+    if (st.out) items.push({ cls: "bad", ico: "package", title: `${st.out} ${st.out === 1 ? "variant är" : "varianter är"} slut`, text: "Kan inte köpas förrän lagret fylls på", go: "#lager", filter: { stFilter: "out" } });
+    if (st.low) items.push({ cls: "warn", ico: "package", title: `${st.low} ${st.low === 1 ? "variant har" : "varianter har"} lågt lager`, text: `Högst ${st.threshold} st kvar`, go: "#lager", filter: { stFilter: "low" } });
+    if (st.preorder) items.push({ cls: "", ico: "package", title: `${st.preorder} ${st.preorder === 1 ? "variant säljs" : "varianter säljs"} som förbeställning`, text: "0 i lager, men kunder kan beställa", go: "#lager", filter: { stFilter: "preorder" } });
+    if (s.connected && st.missingCost) items.push({ cls: "warn", ico: "receipt", title: `${st.missingCost} ${st.missingCost === 1 ? "variant saknar" : "varianter saknar"} inköpspris`, text: "Fyll i Kostnad per artikel i Shopify, annars blir resultatet för högt", go: "#lager", filter: { stFilter: "nocost" } });
+    const late = biz.tasks.filter((t) => !t.done && t.due && t.due < biz.today).length;
+    if (late) items.push({ cls: "warn", ico: "list", title: `${late} ${late === 1 ? "uppgift" : "uppgifter"} försenade`, text: "Passerat datumet", go: "#foretaget" });
+  }
+  if (state) {
+    const pending = state.videos.filter((v) => v.status === "pending").length;
+    if (pending) items.push({ cls: "", ico: "video", title: `${pending} ${pending === 1 ? "video väntar" : "videor väntar"} på godkännande`, text: "Inget publiceras utan ditt OK", go: "#marknad/videor" });
+    if (state.inbox.length) items.push({ cls: "", ico: "inbox", title: `${state.inbox.length} ${state.inbox.length === 1 ? "kommentar eller DM" : "kommentarer och DM"} att svara på`, text: "Agenten har skrivit utkast", go: "#marknad/inkorg" });
+    const manual = state.videos.flatMap((v) => v.posts).filter((p) => p.status === "manual" || p.status === "failed").length;
+    if (manual) items.push({ cls: "", ico: "trend", title: `${manual} ${manual === 1 ? "inlägg" : "inlägg"} att lägga upp själv`, text: "Kanaler som inte är kopplade än", go: "#marknad/publicering" });
+    const sp = state.spend;
+    if (sp.budgetSek && sp.monthSek >= sp.budgetSek * 0.8) items.push({ cls: sp.monthSek >= sp.budgetSek ? "bad" : "warn", ico: "wallet", title: sp.monthSek >= sp.budgetSek ? "Claude-taket är nått" : "Claude-taket är snart nått", text: `${kr(sp.monthSek)} av ${kr(sp.budgetSek)} den här månaden`, go: "#marknad/installningar" });
+    for (const [k, n] of [["editor", "Klipparen"], ["voice", "Berättarrösten"]]) if (state.connections[k] && !state.connections[k].ok) items.push({ cls: "bad", ico: "alert", title: `${n} fungerar inte`, text: state.connections[k].error || "", go: "#marknad/installningar" });
+  }
+  return items;
+}
+
+function renderActions() {
+  const items = actionItems();
+  $("ovActionCount").textContent = items.length ? `${items.length} st` : "";
+  $("ovActions").innerHTML = items.length ? items.map((a) => `<${a.explain ? `button type="button" data-explain="${a.explain}"` : `a href="${a.go}" data-go="${a.go}" ${a.filter ? `data-filter='${esc(JSON.stringify(a.filter))}'` : ""}`} class="action ${a.cls}" ${a.explain ? 'style="all:unset;display:flex;gap:12px;align-items:center;padding:11px 12px;border-radius:11px;background:var(--surface-2);border:1px solid var(--line-2);cursor:pointer"' : ""}>
+      <span class="ico">${icon(a.ico)}</span><span><b>${esc(a.title)}</b><small>${esc(a.text)}</small></span><span class="go">${icon("chevron")}</span></${a.explain ? "button" : "a"}>`).join("")
+    : `<div class="action ok"><span class="ico">${icon("check")}</span><span><b>Inget behöver åtgärdas just nu</b><small>Allt som går att se härifrån ser bra ut</small></span></div>`;
+}
+
+function renderQuick() {
+  const pending = state ? state.videos.filter((v) => v.status === "pending").length : 0;
+  const q = [
+    { go: "#marknad/videor", ico: "video", t: "Beställ videor", s: "Du godkänner kostnaden först" },
+    { go: "#marknad/videor", ico: "check", t: "Godkänn videor", s: pending ? `${pending} väntar` : "Inget väntar" },
+    { go: "#ekonomi", ico: "receipt", t: "Lägg till utgift", s: "Annonser, material m.m.", focus: "expDesc" },
+    { go: "#foretaget", ico: "list", t: "Ny uppgift", s: "Lägg till att göra", focus: "taskTitle" },
+    { href: adminUrl("/orders"), ico: "bag", t: "Ordrar i Shopify", s: "Öppnas i ny flik" },
+    { href: "https://vardagshoppen.com", ico: "ext", t: "Öppna butiken", s: "vardagshoppen.com" },
+  ];
+  $("ovQuick").innerHTML = q.map((x) => x.href
+    ? `<a href="${x.href}" target="_blank" rel="noopener"><span class="ico">${icon(x.ico)}</span>${x.t}<small>${x.s}</small></a>`
+    : `<a href="${x.go}" data-go="${x.go}" ${x.focus ? `data-focus="${x.focus}"` : ""}><span class="ico">${icon(x.ico)}</span>${x.t}<small>${x.s}</small></a>`).join("");
+}
+document.addEventListener("click", (e) => {
+  const f = e.target.closest("[data-focus]");
+  if (f) setTimeout(() => { const el = $(f.dataset.focus); el?.scrollIntoView({ behavior: RM.matches ? "auto" : "smooth", block: "center" }); el?.focus({ preventScroll: true }); }, 380);
+});
+
+function renderGoalHero() {
+  const g = biz.goals.find((x) => x.metric === "revenue" && !x.deadline) ?? biz.goals[0];
+  if (!g) { $("ovGoal").innerHTML = `<div class="card-head"><h3>Mål</h3></div><p class="muted">Inga mål än. Lägg till ett under Företaget.</p>`; return; }
+  const conn = biz.shopify.connected || biz.shopify.stale;
+  const r = 60, c = 2 * Math.PI * r, pct = conn ? g.pct : 0;
+  const others = biz.goals.filter((x) => x !== g).slice(0, 2);
+  $("ovGoal").innerHTML = `<div class="card-head"><h3>${esc(g.title)}</h3><a class="link" href="#foretaget" style="color:#D8F5E5">Alla mål ${icon("chevron", 14)}</a></div>
+    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+      <div class="goal-stage"><svg class="goal-ring" viewBox="0 0 150 150" role="img" aria-label="${conn ? `${nf1.format(pct)} procent av målet` : "Kräver Shopify"}">
+        <circle cx="75" cy="75" r="${r}" fill="none" class="track" stroke-width="14"/>
+        <circle cx="75" cy="75" r="${r}" fill="none" class="prog" stroke-width="14" stroke-dasharray="${c}" stroke-dashoffset="${c}" data-target="${c * (1 - Math.max(pct, conn && g.value > 0 ? 0.6 : 0) / 100)}" transform="rotate(-90 75 75)"/>
+        <text x="75" y="76" text-anchor="middle" font-size="24">${conn ? `${pct < 10 ? nf1.format(pct) : nf0.format(pct)} %` : "–"}</text>
+        <text x="75" y="96" text-anchor="middle" font-size="10" style="font-family:var(--font);font-weight:600;opacity:.7">av målet</text>
+      </svg></div>
+      <div style="flex:1;min-width:160px">
+        <div style="font:800 26px/1.1 var(--display)">${conn ? (g.metric === "revenue" ? kr(g.value) : `${num(g.value)} ordrar`) : "–"}</div>
+        <div class="muted">av ${g.metric === "revenue" ? kr(g.target) : `${num(g.target)} ordrar`}${conn ? "" : " · kräver Shopify"}</div>
+        ${others.map((o) => `<div style="margin-top:12px"><div class="muted" style="display:flex;justify-content:space-between;gap:8px"><span>${esc(o.title)}</span><span>${conn ? `${num(o.value)} / ${num(o.target)}` : "–"}</span></div><div class="meter"><div style="width:${conn ? o.pct : 0}%"></div></div></div>`).join("")}
+      </div>
+    </div>`;
+  const prog = $("ovGoal").querySelector(".prog");
+  requestAnimationFrame(() => requestAnimationFrame(() => prog.setAttribute("stroke-dashoffset", prog.dataset.target)));
+}
+
+function renderOverviewMarketing() {
+  if (!state) return;
+  const product = state.products.find((p) => p.id === state.activeProductId);
+  const from = biz?.range.from;
+  const inPeriod = (iso) => !from || new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" }) >= from;
+  const vids = state.videos.filter((v) => inPeriod(v.created_at));
+  const posted = state.videos.flatMap((v) => v.posts).filter((p) => p.status === "posted" && inPeriod(p.created_at)).length;
+  const pending = state.videos.filter((v) => v.status === "pending").length;
+  const sp = state.spend, pct = sp.budgetSek ? Math.min(100, (sp.monthSek / sp.budgetSek) * 100) : 0;
+  const running = product ? product.agents.filter((a) => ["instagram", "facebook", "tiktok"].includes(a.kind) && a.running).length : 0;
+  $("ovMarketing").innerHTML = `
+    ${product ? `<div class="product" style="margin-bottom:12px">${product.image_url ? `<img src="${esc(product.image_url)}" alt="" style="width:52px;height:52px">` : ""}<div style="min-width:0"><b>${esc(product.name)}</b><div class="muted">Agenterna gör reklam för den här produkten</div></div></div>` : ""}
+    <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+      <div><div class="muted">Videor gjorda</div><div style="font:800 22px var(--display)">${vids.length}</div></div>
+      <div><div class="muted">Publicerade</div><div style="font:800 22px var(--display)">${posted}</div></div>
+      <div><div class="muted">Väntar på dig</div><div style="font:800 22px var(--display)">${pending}</div></div>
+    </div>
+    <div style="margin-top:14px"><div class="muted" style="display:flex;justify-content:space-between;gap:8px"><span>Claude denna månad</span><span>${kr(sp.monthSek)}${sp.budgetSek ? ` av ${kr(sp.budgetSek)}` : ""}</span></div>
+      ${sp.budgetSek ? `<div class="meter"><div style="width:${pct}%;${pct > 85 ? "background:var(--bad)" : ""}"></div></div>` : ""}</div>
+    <div class="muted" style="margin-top:10px">${running}/3 kanalagenter igång · ${["instagram", "facebook", "tiktok"].filter((c) => state.connections[c]).length}/3 kanaler kopplade</div>`;
+}
+
+function renderConnections() {
+  const s = biz?.shopify, c = state?.connections ?? {};
+  const rows = [
+    ["Shopify (ordrar och lager)", s ? (s.connected ? ["ok", "Kopplat"] : s.error ? ["bad", "Fel"] : ["warn", "Saknas"]) : ["", "…"], s && !s.connected ? "shopify" : null],
+    ["Claude (agenterna)", c.claude ? ["ok", "Kopplat"] : ["warn", "Saknas"]],
+    ["Higgsfield (video)", c.higgsfield ? ["ok", "Kopplat"] : ["warn", "Saknas"]],
+    ["Instagram", c.instagram ? ["ok", "Kopplat"] : ["warn", "Saknas"]],
+    ["Facebook", c.facebook ? ["ok", "Kopplat"] : ["warn", "Saknas"]],
+    ["TikTok", c.tiktok ? ["ok", "Kopplat"] : ["warn", "Saknas"]],
+  ];
+  $("ovConnections").innerHTML = rows.map(([n, [cls, t], ex]) => `<div class="conn"><span class="dot ${cls === "ok" ? "on" : ""}"></span>${n}${ex ? `<button class="info-btn" style="margin-left:4px" data-explain="${ex}" aria-label="Så kopplar du ${n}">${icon("info", 16)}</button>` : ""}<span class="tag ${cls}">${t}</span></div>`).join("")
+    + `<div class="muted" style="margin-top:4px">Kanalerna kopplas under <a href="#marknad/installningar">Marknadsföring</a>. Utan koppling hamnar inläggen under Lägg upp själv.</div>`;
+}
+
+function renderTasksMini() {
+  const open = biz.tasks.filter((t) => !t.done).slice(0, 4);
+  $("ovTasks").innerHTML = open.length ? open.map(taskHtml).join("") : `<p class="muted">Inga öppna uppgifter. Snyggt!</p>`;
+}
+
+function renderEconomy() {
+  const c = biz.current, p = biz.previous, conn = biz.shopify.connected || biz.shopify.stale;
+  $("ecNotice").innerHTML = shopifyNotice();
+  const margin = conn && c.revenue > 0 ? (c.result / c.revenue) * 100 : null;
+  renderKpis("ecKpis", [
+    { id: "rev", label: "Omsättning", iconName: "trend", value: c.revenue, na: conn ? null : "Kräver Shopify", sub: deltaHtml(c.revenue, p?.revenue) },
+    { id: "cost", label: "Kostnader", iconName: "receipt", value: c.totalCosts, sub: deltaHtml(c.totalCosts, p?.totalCosts, { invert: true }), explain: "result" },
+    { id: "res", label: "Resultat", iconName: "wallet", value: c.result, na: conn ? null : "Kräver Shopify", sub: deltaHtml(c.result, p?.result), explain: "result" },
+    { id: "aov", label: "Snittorder", iconName: "bag", value: c.aov, na: conn ? (c.orders ? null : "Inga ordrar i perioden") : "Kräver Shopify", sub: `${num(c.orders)} ordrar` },
+    { id: "mar", label: "Marginal", iconName: "target", value: margin == null ? null : Math.round(margin), format: pctFmt, na: margin == null ? (conn ? "Ingen omsättning än" : "Kräver Shopify") : null, sub: "Resultat delat med omsättning" },
+  ]);
+  $("ecChartNote").textContent = `${dayLong(biz.range.from)} – ${dayLong(biz.range.to)}`;
+  lineChart($("ecChart"), biz.series, { showRevenue: conn });
+  const parts = [
+    ["cogs", "Varukostnad", conn ? (c.missingCost ? `${c.missingCost} varor saknar inköpspris` : "Inköpspris från Shopify") : "Kräver Shopify"],
+    ["fees", "Betalavgifter", "Uppskattat"],
+    ["claude", "Claude", "Riktig kostnad"],
+    ["higgsfield", "Higgsfield", "Uppskattat per video"],
+    ["expenses", "Egna utgifter", "Utom lagerinköp"],
+  ];
+  const max = Math.max(...parts.map(([k]) => c.costs[k]), 1);
+  $("ecBreakdown").innerHTML = `<div class="bars">${parts.map(([k, n, s]) => `<div class="bar-row"><div class="lbl">${n}<small>${s}</small></div><div class="bar-track"><div class="bar-fill" style="width:${(c.costs[k] / max) * 100}%"></div></div><div class="n num">${kr(c.costs[k])}</div></div>`).join("")}</div>
+    <div class="row" style="justify-content:space-between;border-top:1px solid var(--line-2);padding-top:10px;margin-top:14px"><strong>Totalt</strong><strong class="num">${kr(c.totalCosts)}</strong></div>`;
+  $("ecExplain").innerHTML = explainResult();
+  // Egna utgifter
+  const cats = biz.expenseCategories;
+  if (!$("expCat").options.length) {
+    $("expCat").innerHTML = Object.entries(cats).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+    $("expFilter").innerHTML = `<option value="">Alla kategorier</option>` + Object.entries(cats).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+    $("expDate").value = biz.today;
+  }
+  tables.exp = Object.assign(tables.exp ?? {}, {
+    el: "expTable", foot: "expFoot", search: "expSearch", rows: biz.expenses, defaultSort: "date",
+    filter: (r) => !$("expFilter").value || r.category === $("expFilter").value,
+    text: (r) => `${r.description} ${cats[r.category]}`,
+    empty: `<p class="muted" style="margin:0">Inga egna utgifter än. Lägg till t.ex. annonser, förpackningar eller Shopify-abonnemanget när de dras.</p>`,
+    columns: [
+      { key: "date", label: "Datum", render: (r) => day(r.date) },
+      { key: "description", label: "Vad", render: (r) => esc(r.description) },
+      { key: "category", label: "Kategori", render: (r) => `<span class="tag ${r.category === "lager" ? "info" : ""}">${esc(cats[r.category] ?? r.category)}</span>` },
+      { key: "amount_sek", label: "Belopp", num: true, render: (r) => kr(r.amount_sek) },
+      { key: "del", label: "", sortable: false, render: (r) => `<button class="danger" style="min-height:32px;padding:4px 10px" data-del="expenses:${r.id}" aria-label="Ta bort ${esc(r.description)}">${icon("trash", 15)}</button>` },
+    ],
+    footExtra: (rows) => `summa ${kr(rows.reduce((s, r) => s + r.amount_sek, 0))}`,
+  });
+  table(tables.exp);
+  // Claude per agent (från agenternas data)
+  if (state) {
+    const s = state.spend, AG = { research: "Researchagenten", prompt: "Promptagenten", instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
+    $("ecClaude").innerHTML = s.byAgent.length
+      ? `<div class="bars">${s.byAgent.map((a) => `<div class="bar-row"><div class="lbl">${esc(AG[a.agent] ?? a.agent)}<small>${a.calls} anrop${a.searches ? `, ${a.searches} sökningar` : ""}</small></div><div class="bar-track"><div class="bar-fill" style="width:${(a.sek / Math.max(...s.byAgent.map((x) => x.sek), 1)) * 100}%;background:var(--chart-1)"></div></div><div class="n num">${kr(a.sek)}</div></div>`).join("")}</div><p class="muted" style="margin-bottom:0">Den här månaden: ${kr(s.monthSek)}${s.budgetSek ? ` av taket ${kr(s.budgetSek)}` : ""}.</p>`
+      : `<p class="muted" style="margin:0">Inga Claude-anrop den här månaden.</p>`;
+  }
+}
+
+const FIN = { PAID: ["ok", "Betald"], PENDING: ["warn", "Väntar på betalning"], AUTHORIZED: ["info", "Reserverad"], PARTIALLY_PAID: ["warn", "Delbetald"], REFUNDED: ["bad", "Återbetald"], PARTIALLY_REFUNDED: ["warn", "Delvis återbetald"], VOIDED: ["bad", "Annullerad"], EXPIRED: ["bad", "Utgången"] };
+const FUL = { UNFULFILLED: ["warn", "Ej skickad"], FULFILLED: ["ok", "Skickad"], PARTIALLY_FULFILLED: ["warn", "Delvis skickad"], ON_HOLD: ["warn", "Pausad"], IN_PROGRESS: ["info", "Packas"], SCHEDULED: ["info", "Schemalagd"], RESTOCKED: ["", "Återlagd i lager"], PENDING_FULFILLMENT: ["info", "Väntar"], OPEN: ["warn", "Ej skickad"] };
+const tagOf = (map, v) => { const [c, t] = map[v] ?? ["", v ? v.toLowerCase() : "–"]; return `<span class="tag ${c}">${esc(t)}</span>`; };
+const stockholm = (iso) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" });
+
+function renderOrders() {
+  const conn = biz.shopify.connected || biz.shopify.stale, c = biz.current;
+  $("orNotice").innerHTML = shopifyNotice();
+  renderKpis("orKpis", [
+    { id: "ord", label: "Ordrar", iconName: "bag", value: c.orders, format: num, na: conn ? null : "Kräver Shopify", sub: deltaHtml(c.orders, biz.previous?.orders) },
+    { id: "units", label: "Sålda varor", iconName: "package", value: c.units, format: num, na: conn ? null : "Kräver Shopify" },
+    { id: "aov", label: "Snittorder", iconName: "receipt", value: c.aov, na: conn ? (c.orders ? null : "Inga ordrar i perioden") : "Kräver Shopify" },
+    { id: "unf", label: "Att skicka", iconName: "truck", value: biz.unfulfilled, format: num, na: conn ? null : "Kräver Shopify", sub: "Alla perioder" },
+  ]);
+  $("orRange").textContent = `${PERIODS[period]}: ${dayLong(biz.range.from)} – ${dayLong(biz.range.to)}`;
+  tables.orders = Object.assign(tables.orders ?? {}, {
+    el: "orTable", foot: "orFoot", search: "orSearch", rows: conn ? biz.orders : [], defaultSort: "createdAt",
+    filter: (o) => {
+      if ($("orInPeriod").checked && !(stockholm(o.createdAt) >= biz.range.from && stockholm(o.createdAt) <= biz.range.to)) return false;
+      const f = $("orFilter").value;
+      if (f === "unfulfilled") return !o.cancelled && ["UNFULFILLED", "PARTIALLY_FULFILLED", "ON_HOLD", "OPEN"].includes(o.fulfillment);
+      if (f === "fulfilled") return o.fulfillment === "FULFILLED";
+      if (f === "refunded") return o.refunded > 0;
+      if (f === "cancelled") return o.cancelled;
+      return true;
+    },
+    text: (o) => `${o.name} ${o.items.map((i) => `${i.title} ${i.variant} ${i.sku}`).join(" ")} ${o.discountCodes.join(" ")}`,
+    empty: conn ? emptyState("Inga ordrar än", "När den första kunden beställer syns ordern här direkt (siffrorna hämtas från Shopify varje minut).") : emptyState("Ordrarna visas när Shopify är kopplat", "Hittills hämtas inga ordrar, så här visas inget alls hellre än gissningar.", `<div class="row"><button data-explain="shopify">Så kopplar du Shopify</button></div>`),
+    columns: [
+      { key: "name", label: "Order", sort: (o) => o.createdAt, render: (o) => `<a href="${adminUrl(`/orders/${o.id.split("/").pop()}`)}" target="_blank" rel="noopener"><strong>${esc(o.name)}</strong></a>${o.cancelled ? ` <span class="tag bad">Makulerad</span>` : ""}` },
+      { key: "createdAt", label: "Datum", render: (o) => dateTime(o.createdAt) },
+      { key: "financial", label: "Betalning", render: (o) => tagOf(FIN, o.financial) },
+      { key: "fulfillment", label: "Leverans", render: (o) => tagOf(FUL, o.fulfillment) },
+      { key: "items", label: "Varor", sortable: false, render: (o) => o.items.map((i) => `${esc(i.title)}${i.variant ? ` <span class="muted">(${esc(i.variant)})</span>` : ""} × ${i.quantity}`).join("<br>") },
+      { key: "discount", label: "Rabattkod", sort: (o) => o.discountCodes.join(","), render: (o) => o.discountCodes.map((d) => `<span class="tag">${esc(d)}</span>`).join(" ") || `<span class="muted">–</span>` },
+      { key: "total", label: "Summa", num: true, render: (o) => `<strong>${kr(o.total)}</strong>${o.refunded ? `<div class="muted">återbetalt ${kr(o.refunded)}</div>` : ""}` },
+    ],
+    footExtra: (rows) => `summa ${kr(rows.filter((o) => !o.cancelled).reduce((s, o) => s + o.total, 0))}`,
+  });
+  table(tables.orders);
+}
+
+function stockStatus(v, threshold) {
+  if (!v.tracked) return ["", "Spåras inte", "untracked"];
+  if (v.quantity <= 0 && v.preorder) return ["info", "Förbeställning", "preorder"];
+  if (v.quantity <= 0) return ["bad", "Slut", "out"];
+  if (v.quantity <= threshold) return ["warn", "Lågt", "low"];
+  return ["ok", "I lager", "ok"];
+}
+
+function renderStock() {
+  const conn = biz.shopify.connected || biz.shopify.stale, st = biz.stock;
+  $("stNotice").innerHTML = shopifyNotice();
+  if (document.activeElement !== $("threshold")) $("threshold").value = st.threshold;
+  renderKpis("stKpis", [
+    { id: "var", label: "Varianter", iconName: "package", value: st.variants, format: num, na: conn ? null : "Kräver Shopify", sub: `${biz.products.filter((p) => p.status === "ACTIVE").length} aktiva produkter` },
+    { id: "units", label: "I lager", iconName: "package", value: st.units, format: num, na: conn ? null : "Kräver Shopify", sub: "st totalt", explain: "stock" },
+    { id: "val", label: "Lagervärde", iconName: "wallet", value: st.value, na: conn ? null : "Kräver Shopify", sub: st.missingCost ? `${st.missingCost} saknar inköpspris` : "Till inköpspris" },
+    { id: "alert", label: "Slut eller lågt", iconName: "alert", value: st.out + st.low, format: num, na: conn ? null : "Kräver Shopify", sub: stockSub(st) },
+  ]);
+  const rows = biz.products.filter((p) => p.status !== "ARCHIVED").flatMap((p) => p.variants.map((v) => ({ ...v, product: p.title, productStatus: p.status, productId: p.id })));
+  const fallback = !conn && state ? state.products : null;
+  tables.stock = Object.assign(tables.stock ?? {}, {
+    el: "stTable", foot: "stFoot", search: "stSearch", rows: conn ? rows : [], defaultSort: "quantity", defaultDir: 1,
+    filter: (v) => { const f = $("stFilter").value; return !f || (f === "nocost" ? v.unitCost == null : stockStatus(v, st.threshold)[2] === f); },
+    text: (v) => `${v.product} ${v.title} ${v.sku}`,
+    empty: conn ? emptyState("Inga produkter i Shopify", "Lägg till produkter i Shopify så syns de här.")
+      : emptyState("Lagersaldot visas när Shopify är kopplat", "Produkterna som agenterna känner till står nedan, men antal i lager kan bara Shopify svara på.",
+        `<div class="row"><button data-explain="shopify">Så kopplar du Shopify</button></div>${fallback ? `<ul class="muted" style="margin:10px 0 0;padding-left:18px">${fallback.map((p) => `<li>${esc(p.name)} · ${esc(p.price)}${p.shop_url ? ` · <a href="${esc(p.shop_url)}" target="_blank" rel="noopener">Visa i butiken</a>` : ""}</li>`).join("")}</ul>` : ""}`),
+    columns: [
+      { key: "product", label: "Produkt", render: (v) => `<a href="${adminUrl(`/products/${v.productId.split("/").pop()}`)}" target="_blank" rel="noopener">${esc(v.product)}</a>${v.productStatus !== "ACTIVE" ? ` <span class="tag">${v.productStatus === "DRAFT" ? "Utkast" : esc(v.productStatus)}</span>` : ""}` },
+      { key: "title", label: "Variant", render: (v) => esc(v.title) },
+      { key: "sku", label: "SKU", render: (v) => v.sku ? `<code>${esc(v.sku)}</code>` : `<span class="muted">–</span>` },
+      { key: "price", label: "Pris", num: true, render: (v) => kr(v.price) },
+      { key: "unitCost", label: "Inköpspris", num: true, sort: (v) => v.unitCost ?? -1, render: (v) => v.unitCost == null ? `<span class="tag warn">Saknas</span>` : kr(v.unitCost) },
+      { key: "quantity", label: "Lager", num: true, render: (v) => `<strong>${num(v.quantity)}</strong>` },
+      { key: "status", label: "Status", sort: (v) => stockStatus(v, st.threshold)[1], render: (v) => { const [c, t] = stockStatus(v, st.threshold); return `<span class="tag ${c}">${t}</span>`; } },
+    ],
+  });
+  table(tables.stock);
+}
+
+function taskHtml(t) {
+  const late = !t.done && t.due && t.due < biz.today;
+  return `<div class="task ${t.done ? "done" : ""}"><label><input type="checkbox" data-task="${t.id}" ${t.done ? "checked" : ""}><span class="t">${esc(t.title)}</span></label>
+    ${t.due ? `<span class="due ${late ? "late" : ""}">${late ? "Försenad · " : ""}${day(t.due)}</span>` : ""}
+    <button class="ghost" data-del="tasks:${t.id}" aria-label="Ta bort uppgiften ${esc(t.title)}">${icon("x", 15)}</button></div>`;
+}
+
+function renderCompany() {
+  const conn = biz.shopify.connected || biz.shopify.stale;
+  $("goals").innerHTML = biz.goals.map((g) => `<div class="goal-row">
+      <div class="top"><strong>${esc(g.title)}</strong><span class="num">${conn ? (g.metric === "revenue" ? `${kr(g.value)} av ${kr(g.target)}` : `${num(g.value)} av ${num(g.target)} ordrar`) : "Kräver Shopify"}</span></div>
+      <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(conn ? g.pct : 0)}" aria-label="${esc(g.title)}"><div style="width:${conn ? g.pct : 0}%"></div></div>
+      <div class="muted" style="display:flex;justify-content:space-between;gap:8px;margin-top:4px"><span>${g.start ? `Från ${day(g.start)}` : "Sedan start"}${g.deadline ? ` till ${day(g.deadline)}` : ""}</span>
+      <button class="ghost" style="min-height:28px;padding:2px 8px;font-size:12.5px" data-del="goals:${g.id}" aria-label="Ta bort målet ${esc(g.title)}">Ta bort</button></div></div>`).join("") || `<p class="muted">Inga mål än.</p>`;
+  $("startText").textContent = dayLong(biz.businessStart);
+  const f = $("taskFilter").value;
+  const list = biz.tasks.filter((t) => (f === "open" ? !t.done : f === "done" ? t.done : true));
+  $("tasks").innerHTML = list.map(taskHtml).join("") || `<p class="muted">${f === "done" ? "Inga klara uppgifter än." : "Inga öppna uppgifter."}</p>`;
+  const open = biz.tasks.filter((t) => !t.done).length;
+  $("taskCount").textContent = `${open} att göra · ${biz.tasks.length - open} klara`;
+  const groups = {};
+  for (const l of biz.links) (groups[l.category] ??= []).push(l);
+  $("linkCats").innerHTML = Object.keys(groups).map((g) => `<option value="${esc(g)}">`).join("");
+  $("links").innerHTML = Object.entries(groups).map(([g, ls]) => `<h3 style="font-size:13px;color:var(--muted);margin:16px 0 8px">${esc(g)}</h3><div class="links">${ls.map((l) => `
+    <a class="link-card" href="${esc(l.url)}" target="_blank" rel="noopener"><span class="ico">${icon(/dokument|plan|mall/i.test(g) ? "file" : "link")}</span><span style="min-width:0"><b>${esc(l.title)}</b><small>${esc(l.note || l.url.replace(/^https:\/\/(www\.)?/, ""))}</small></span>
+    <button class="ghost del" data-del="links:${l.id}" aria-label="Ta bort länken ${esc(l.title)}" onclick="event.preventDefault()">${icon("x", 14)}</button></a>`).join("")}</div>`).join("") || `<p class="muted">Inga länkar än.</p>`;
+}
+
+function renderNavCounts() {
+  const set = (id, n) => { const el = $(id); el.hidden = !n; el.textContent = n || ""; };
+  if (biz) {
+    set("navOrders", biz.unfulfilled);
+    set("navStock", biz.stock.out + biz.stock.low);
+  }
+  if (state) {
+    const pending = state.videos.filter((v) => v.status === "pending").length;
+    const manual = state.videos.flatMap((v) => v.posts).filter((p) => p.status === "manual" || p.status === "failed").length;
+    set("navMarketing", pending + state.inbox.length + manual);
+    set("tabPending", pending); set("tabInbox", state.inbox.length); set("tabManual", manual);
+  }
+}
+
+function renderBusiness(animate) {
+  if (!biz) return;
+  if (route === "oversikt" || animate === false) {
+    $("ovNotice").innerHTML = shopifyNotice();
+    overviewKpis(animate);
+    lineChart($("ovChart"), biz.series, { showRevenue: biz.shopify.connected || biz.shopify.stale });
+    renderGoalHero(); renderTasksMini(); renderQuick();
+  }
+  renderActions(); renderConnections(); renderNavCounts();
+  if (route === "ekonomi") renderEconomy();
+  if (route === "ordrar") renderOrders();
+  if (route === "lager") renderStock();
+  if (route === "foretaget") renderCompany();
+  renderOverviewMarketing();
+}
+
+// Agenternas data har uppdaterats (var 3–15 s).
+window.onStateUpdated = () => {
+  renderNavCounts(); renderOverviewMarketing(); renderConnections();
+  if (biz) { renderActions(); if (route === "oversikt") renderQuick(); }
+};
+
+// ---------- Formulär och knappar ----------
+bindTable("exp", ["expSearch", "expFilter"]);
+bindTable("orders", ["orSearch", "orFilter", "orInPeriod"]);
+bindTable("stock", ["stSearch", "stFilter"]);
+$("taskFilter").onchange = () => renderCompany();
+
+function formHandler(formId, table, errId, done) {
+  $(formId).addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector("button:not(.ghost)") || e.target.querySelector("button");
+    $(errId).textContent = "";
+    btn.disabled = true;
+    try {
+      await bapi("POST", `/api/business/${table}`, Object.fromEntries(new FormData(e.target)));
+      done(e.target);
+      await loadBusiness();
+    } catch (err) {
+      $(errId).textContent = err.message;
+    } finally { btn.disabled = false; }
+  });
+}
+formHandler("expForm", "expenses", "expError", (f) => { const d = f.date.value, c = f.category.value; f.reset(); f.date.value = d; f.category.value = c; toast("Utgiften är sparad"); });
+formHandler("taskForm", "tasks", "taskError", (f) => { f.reset(); toast("Uppgiften är tillagd"); });
+formHandler("linkForm", "links", "linkError", (f) => { f.reset(); toast("Länken är sparad"); });
+formHandler("goalForm", "goals", "goalError", (f) => { f.reset(); toast("Målet är sparat"); });
+
+document.addEventListener("change", async (e) => {
+  const id = e.target.dataset?.task;
+  if (!id) return;
+  const t = biz.tasks.find((x) => String(x.id) === id);
+  if (t) t.done = e.target.checked ? 1 : 0;
+  e.target.closest(".task")?.classList.toggle("done", e.target.checked);
+  try { await bapi("POST", `/api/business/tasks/${id}/done`, { done: e.target.checked }); if (e.target.checked) toast("Bra jobbat! Uppgiften är klar"); }
+  catch (err) { toast(err.message); }
+  loadBusiness();
+});
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-del]");
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const [tableName, id] = b.dataset.del.split(":");
+  const what = { expenses: "utgiften", tasks: "uppgiften", links: "länken", goals: "målet" }[tableName];
+  if (!confirm(`Ta bort ${what}?`)) return;
+  try { await bapi("DELETE", `/api/business/${tableName}/${id}`); toast(`${what[0].toUpperCase()}${what.slice(1)} är borttagen`); loadBusiness(); }
+  catch (err) { toast(err.message); }
+});
+$("thresholdForm").onsubmit = async (e) => {
+  e.preventDefault();
+  try { await bapi("POST", "/api/business-settings", { low_stock_threshold: Number($("threshold").value) }); toast("Gränsen för lågt lager är sparad"); $("threshold").blur(); loadBusiness(); }
+  catch (err) { toast(err.message); }
+};
+$("startBtn").onclick = async () => {
+  const v = prompt("Från vilket datum ska företagets siffror räknas? (ÅÅÅÅ-MM-DD)", biz?.businessStart ?? "");
+  if (!v) return;
+  try { await bapi("POST", "/api/business-settings", { business_start: v.trim() }); toast("Startdatumet är sparat"); loadBusiness(true); }
+  catch (err) { alert(err.message); }
+};
+
+// ---------- Start ----------
+if (!location.hash) history.replaceState(null, "", "#oversikt");
+showRoute(false);
+renderQuick();
+loadBusiness();
+document.fonts?.ready.then(() => { moveIndicator(); placeThumb(); });
+})();
 </script>
 </body>
 </html>

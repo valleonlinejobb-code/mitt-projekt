@@ -20,6 +20,7 @@ import { estimateSek, spendSummary } from "./costs.js";
 import { selfCheck } from "./editor.js";
 import { voiceConfigured, elevenConfigured, synthesizeGoogle, voiceNames, voiceSettingKey, elevenPreviewUrl, chosenVoice, SPEEDS, SPEED_LIST, chosenSpeed, checkVoice, voiceSummary, voiceCached } from "./voice.js";
 import { editAndOffer } from "./agents/prompt.js";
+import { businessOverview, clearShopifyCache, addExpense, addTask, addLink, addGoal } from "./business.js";
 
 const AB_SIZE = 3;
 const MAX_ORDER = 10;
@@ -53,6 +54,9 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static("public"));
+// Typsnitten (Inter, fri licens) och loggan till kontrollsidan.
+app.use("/fonts", express.static("assets/fonts", { index: false, maxAge: "7d" }));
+app.get("/logo.png", (_req, res) => res.sendFile(path.resolve("assets/logo.png")));
 
 const one = (sql, ...args) => db.prepare(sql).get(...args);
 const all = (sql, ...args) => db.prepare(sql).all(...args);
@@ -435,6 +439,41 @@ app.post("/api/products", (req, res) => {
   ).run(name, description, price, image_url, shop_url, audience);
   ensureAgents(Number(lastInsertRowid));
   res.json({ ok: true, id: Number(lastInsertRowid) });
+});
+
+// ---------- Företagsöversikten ----------
+app.get("/api/business", async (req, res) => {
+  try {
+    res.json(await businessOverview(String(req.query.period || "30d"), { force: req.query.refresh === "1" }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Lägg till och ta bort företagets egna uppgifter: utgifter, att göra, länkar och mål.
+const BUSINESS_TABLES = { expenses: addExpense, tasks: addTask, links: addLink, goals: addGoal };
+app.post("/api/business/:table", (req, res) => {
+  const add = BUSINESS_TABLES[req.params.table];
+  if (!add) return res.status(404).json({ error: "Finns inte" });
+  try { res.json({ ok: true, id: add(req.body || {}) }); } catch (err) { res.status(400).json({ error: err.message }); }
+});
+app.delete("/api/business/:table/:id", (req, res) => {
+  if (!BUSINESS_TABLES[req.params.table]) return res.status(404).json({ error: "Finns inte" });
+  db.prepare(`DELETE FROM ${req.params.table} WHERE id = ?`).run(Number(req.params.id));
+  res.json({ ok: true });
+});
+app.post("/api/business/tasks/:id/done", (req, res) => {
+  db.prepare("UPDATE tasks SET done = ? WHERE id = ?").run(req.body?.done ? 1 : 0, Number(req.params.id));
+  res.json({ ok: true });
+});
+app.post("/api/business-settings", (req, res) => {
+  if ("low_stock_threshold" in req.body) setSetting("low_stock_threshold", Math.max(0, Math.round(Number(req.body.low_stock_threshold) || 0)));
+  if ("business_start" in req.body) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(req.body.business_start))) return res.status(400).json({ error: "Skriv datumet som ÅÅÅÅ-MM-DD" });
+    setSetting("business_start", req.body.business_start);
+    clearShopifyCache();
+  }
+  res.json({ ok: true });
 });
 
 // Om servern startades om mitt i en publicering räknas den som misslyckad.

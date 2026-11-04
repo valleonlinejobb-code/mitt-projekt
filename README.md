@@ -25,6 +25,23 @@ Ingenting publiceras innan du har tryckt **Godkänn** på kontrollsidan. Kanaler
 
 Kanalagenterna (Instagram, Facebook, TikTok) startas och stoppas med **Starta**/**Stoppa**. De publicerar bara videor du har godkänt. När Instagram- eller Facebook-agenten är på läser den kommentarer och DM var tionde minut och skriver svarsutkast med Claude, vilket kostar några öre per meddelande.
 
+## Företagsöversikten (kontrollsidan)
+
+Kontrollsidan är en företagsöversikt med en meny till vänster (på mobil bakom menyknappen):
+
+| Sida | Innehåll |
+|---|---|
+| **Översikt** | Omsättning, kostnader, resultat, ordrar och lager för vald period (7 dagar, 30 dagar, 90 dagar, denna månad, i år eller sedan start), diagram över omsättning och kostnader, **Att göra nu** (ordrar att skicka, slut eller lågt lager, videor att godkänna, meddelanden m.m.), snabbval, målet 1 miljon kr och kopplingarnas status. |
+| **Ekonomi** | Nyckeltal med jämförelse mot perioden före, kostnaderna uppdelade, en förklaring av vad resultatet omfattar och **Egna utgifter** (annonser, abonnemang, material, lagerinköp m.m.) med sök och filter. |
+| **Ordrar** | Ordrarna från Shopify med sök, statusfilter och sortering. Ordernumret öppnar ordern i Shopify. |
+| **Produkter och lager** | Varje variant med pris, inköpspris, lagersaldo och status (i lager, lågt, slut, förbeställning). Gränsen för lågt lager går att ändra. |
+| **Marknadsföring** | Allt från den gamla kontrollsidan, i flikar: Videor, Publicering, Kommentarer och DM, Research, Inställningar och kostnad, Logg. Beställ videor fungerar som förut och frågar alltid innan pengar går åt. |
+| **Företaget** | Mål, uppgifter, viktiga länkar och dokument samt fakta om företaget. |
+
+**Inga siffror hittas på.** Omsättning, ordrar och lager kommer bara från Shopify. Utan koppling visar sidan "Kräver Shopify" och hur man kopplar. **Resultat = omsättning − kostnader**, där kostnaderna är varukostnad (inköpspriset i Shopify, "Kostnad per artikel"), betalavgifter (uppskattat 1,6 % + 1,85 kr per order), Claude (riktig kostnad), Higgsfield (uppskattat per AI-video) och egna utgifter utom lagerinköp. Shopify-abonnemang, ElevenLabs, domän och frakt till kund ingår bara om du lägger in dem som egna utgifter.
+
+**Koppla Shopify (bara läsrätt):** skapa en app i Shopify Dev Dashboard (dev.shopify.com) med behörigheterna `read_orders`, `read_products` och `read_inventory`, installera den i butiken och lägg in `SHOPIFY_CLIENT_ID` och `SHOPIFY_CLIENT_SECRET` i Railway. En befintlig Admin API-token (`shpat_…`) går också bra som `SHOPIFY_ADMIN_TOKEN`. Siffrorna hämtas högst en gång i minuten.
+
 ## Kostnad per månad (uppskattning)
 
 | Vad | Ungefär |
@@ -81,6 +98,11 @@ Kontrollsidan visar under **Vad Claude har kostat** vad varje jobb faktiskt kost
 | `GOOGLE_TTS_API_KEY` | nej, reserv | API-nyckel från Google Cloud med **Cloud Text-to-Speech API** påslaget. Används när ElevenLabs saknas eller månadstaket är nått (gratis). |
 | `TTS_VOICE` | nej | Rösten. Rösten innan du har valt en på kontrollsidan. Standard `sv-SE-Chirp3-HD-Aoede` (svensk kvinnoröst). Rutan **Berättarröst** har tio röster, både kvinno- och mansröster. |
 | `SHOPIFY_STORE_URL` | nej | Butikens adress för att hämta produkter. Standard `https://vardagshoppen.com`. |
+| `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` | för företagsöversikten | Appen från Shopify Dev Dashboard (läsrätt till ordrar, produkter och lager). Se Företagsöversikten ovan. |
+| `SHOPIFY_ADMIN_TOKEN` | nej | Alternativ till klient-id och hemlighet: en Admin API-token (`shpat_…`). |
+| `SHOPIFY_SHOP` | nej | Butikens myshopify-adress. Standard `frostskrapa.myshopify.com`. |
+| `BUSINESS_START` | nej | Från vilket datum företagets siffror räknas, innan du har ändrat det under Företaget. Standard `2026-10-01`. |
+| `PAYMENT_FEE_PCT`, `PAYMENT_FEE_FIXED` | nej | Betalavgiften som räknas per order. Standard `1.6` (%) och `1.85` (kr). |
 | `INBOX_EVERY_MINUTES` | nej | Hur ofta kommentarer och DM hämtas. Standard `10`. |
 
 ### Instagram och Facebook
