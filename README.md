@@ -40,7 +40,7 @@ Kontrollsidan är en företagsöversikt med en meny till vänster (på mobil bak
 
 **Inga siffror hittas på.** Omsättning, ordrar och lager kommer bara från Shopify. Utan koppling visar sidan "Kräver Shopify" och hur man kopplar. **Resultat = omsättning − kostnader**, där kostnaderna är varukostnad (inköpspriset i Shopify, "Kostnad per artikel"), betalavgifter (uppskattat 1,6 % + 1,85 kr per order), Claude (riktig kostnad), Higgsfield (uppskattat per AI-video) och egna utgifter utom lagerinköp. Shopify-abonnemang, ElevenLabs, domän och frakt till kund ingår bara om du lägger in dem som egna utgifter.
 
-**Koppla Shopify (bara läsrätt):** skapa en app i Shopify Dev Dashboard (dev.shopify.com) med behörigheterna `read_orders`, `read_products` och `read_inventory`, installera den i butiken och lägg in `SHOPIFY_CLIENT_ID` och `SHOPIFY_CLIENT_SECRET` i Railway. En befintlig Admin API-token (`shpat_…`) går också bra som `SHOPIFY_ADMIN_TOKEN`. Siffrorna hämtas högst en gång i minuten.
+**Koppla Shopify (bara läsrätt):** skapa en app i Shopify Dev Dashboard (dev.shopify.com) med behörigheterna `read_orders`, `read_products`, `read_inventory` och `read_reports` (besök och köpresa), installera den i butiken och lägg in `SHOPIFY_CLIENT_ID` och `SHOPIFY_CLIENT_SECRET` i Railway. En befintlig Admin API-token (`shpat_…`) går också bra som `SHOPIFY_ADMIN_TOKEN`. Siffrorna hämtas högst en gång i minuten.
 
 ## Kostnad per månad (uppskattning)
 

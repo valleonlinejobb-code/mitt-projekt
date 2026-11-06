@@ -103,3 +103,35 @@ test("Perioderna: 7 dagar inklusive idag, och lika lång period före", () => {
   assert.deepEqual([r.from, r.to, r.days, r.prevFrom, r.prevTo], ["2026-10-29", "2026-11-04", 7, "2026-10-22", "2026-10-28"]);
   assert.equal(periodRange("month", "2026-11-04").from, "2026-11-01");
 });
+
+test("Besökare och köp: riktiga siffror från ShopifyQL, och saknad behörighet visas tydligt", async () => {
+  process.env.SHOPIFY_ADMIN_TOKEN = "shpat_test";
+  clearShopifyCache();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (_url, init) => {
+    const { query, variables } = JSON.parse(init.body);
+    let data;
+    if (query.includes("shopifyqlQuery")) {
+      const q = variables.q;
+      const rows = q.includes("TIMESERIES") ? [{ day: "2026-11-01", sessions: "5" }]
+        : q.includes("referrer_source") ? [{ referrer_source: "direct", sessions: "40" }, { referrer_source: "social", sessions: "10" }]
+        : q.includes("device") ? [{ session_device_type: "mobile", sessions: "30" }]
+        : [{ sessions: "50", sessions_with_cart_additions: "6", sessions_that_reached_checkout: "4", sessions_that_completed_checkout: "1" }];
+      data = { shopifyqlQuery: { parseErrors: [], tableData: { rows } } };
+    } else if (query.includes("abandonedCheckouts")) {
+      return new Response(JSON.stringify({ errors: [{ message: "Access denied for abandonedCheckouts field." }] }), { headers: { "Content-Type": "application/json" } });
+    } else if (query.includes("orders(")) data = { orders: { pageInfo: { hasNextPage: false }, nodes: [] } };
+    else data = { products: { pageInfo: { hasNextPage: false }, nodes: [] } };
+    return new Response(JSON.stringify({ data }), { headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const o = await businessOverview("30d", { force: true });
+    const s = o.traffic.sessions;
+    assert.deepEqual([s.visits, s.cart, s.checkout, s.purchased], [50, 6, 4, 1]);
+    assert.equal(s.conversion, 2);
+    assert.equal(s.sources[0].name, "direct");
+    assert.equal(o.traffic.abandoned, null, "inga påhittade kassor när behörighet saknas");
+    assert.match(o.traffic.abandonedError, /read_orders/);
+    assert.equal(o.current.gross, 0);
+  } finally { globalThis.fetch = realFetch; delete process.env.SHOPIFY_ADMIN_TOKEN; clearShopifyCache(); }
+});

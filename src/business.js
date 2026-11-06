@@ -113,11 +113,11 @@ async function shopifyQuery(query, variables = {}) {
     body: JSON.stringify({ query, variables }),
   });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 || res.status === 403) throw new Error("Shopify nekade åtkomst. Appen behöver behörigheterna read_orders, read_products och read_inventory.");
+  if (res.status === 401 || res.status === 403) throw new Error("Shopify nekade åtkomst. Appen behöver behörigheterna read_orders, read_products, read_inventory och read_reports.");
   if (!res.ok) throw new Error(`Shopify svarade ${res.status}`);
   if (data.errors?.length) {
     const msg = data.errors.map((e) => e.message).join("; ");
-    if (/access denied|ACCESS_DENIED/i.test(msg + JSON.stringify(data.errors))) throw new Error(`Shopify nekade åtkomst (${msg}). Appen behöver read_orders, read_products och read_inventory.`);
+    if (/access denied|ACCESS_DENIED/i.test(msg + JSON.stringify(data.errors))) throw new Error(`Shopify nekade åtkomst (${msg}). Appen behöver read_orders, read_products, read_inventory och read_reports.`);
     throw new Error(`Shopify: ${msg}`);
   }
   return data.data;
@@ -204,7 +204,70 @@ export async function shopifySnapshot({ force = false } = {}) {
     return { connected: false, mode, shop: SHOP, orders: cache.data?.orders ?? [], products: cache.data?.products ?? [], error: err.message, fetchedAt: cache.data?.fetchedAt ?? null, stale: Boolean(cache.data) };
   }
 }
-export const clearShopifyCache = () => { cache = { at: 0, data: null }; appToken = null; };
+export const clearShopifyCache = () => { cache = { at: 0, data: null }; appToken = null; trafficCache = new Map(); };
+
+// ---------- Besökare och köpresa (Shopify Analytics via ShopifyQL) ----------
+// Kräver behörigheten read_reports (besök) och read_orders (övergivna kassor). Saknas en behörighet
+// visas just den delen som saknad, resten fungerar ändå.
+let trafficCache = new Map();
+const rowsOf = (r) => (Array.isArray(r?.tableData?.rows) ? r.tableData.rows : null);
+const int = (v) => (v == null || v === "" ? 0 : Math.round(Number(v)) || 0);
+
+async function shopifyql(query) {
+  const data = await shopifyQuery(`query Q($q: String!) { shopifyqlQuery(query: $q) { parseErrors tableData { rows } } }`, { q: query });
+  const r = data?.shopifyqlQuery;
+  if (r?.parseErrors?.length) throw new Error(`ShopifyQL: ${r.parseErrors.join("; ")}`);
+  const rows = rowsOf(r);
+  if (!rows) throw new Error("Shopify skickade ingen besöksdata.");
+  return rows;
+}
+
+const scopeHint = (err, scope) => (/nekade|access|denied|scope/i.test(err.message) ? `Appen saknar behörigheten ${scope}. Lägg till den i Dev Dashboard och installera om appen.` : err.message);
+
+/** Besök, köpresa (besök → varukorg → kassa → köp), trafikkällor, enheter och övergivna kassor för en period. */
+export async function shopifyTraffic(range, { force = false } = {}) {
+  if (!shopifyMode()) return { connected: false, sessions: null, abandoned: null };
+  const key = `${range.from}|${range.to}`;
+  const hit = trafficCache.get(key);
+  if (!force && hit && Date.now() - hit.at < CACHE_MS) return hit.data;
+  const span = `SINCE ${range.from} UNTIL ${range.to}`;
+  const out = { connected: true, sessions: null, sessionsError: null, abandoned: null, abandonedError: null };
+  try {
+    const [funnel] = await shopifyql(`FROM sessions SHOW sessions, sessions_with_cart_additions, sessions_that_reached_checkout, sessions_that_completed_checkout ${span}`);
+    const daily = await shopifyql(`FROM sessions SHOW sessions TIMESERIES day ${span}`);
+    const sources = await shopifyql(`FROM sessions SHOW sessions GROUP BY referrer_source ${span} ORDER BY sessions DESC LIMIT 8`);
+    const devices = await shopifyql(`FROM sessions SHOW sessions GROUP BY session_device_type ${span} ORDER BY sessions DESC LIMIT 5`);
+    const f = funnel ?? {};
+    const visits = int(f.sessions);
+    out.sessions = {
+      visits,
+      cart: int(f.sessions_with_cart_additions),
+      checkout: int(f.sessions_that_reached_checkout),
+      purchased: int(f.sessions_that_completed_checkout),
+      conversion: visits ? round((int(f.sessions_that_completed_checkout) / visits) * 100) : null,
+      daily: daily.map((d) => ({ day: String(d.day ?? "").slice(0, 10), visits: int(d.sessions) })).filter((d) => d.day),
+      sources: sources.map((r) => ({ name: r.referrer_source ?? "okänd", visits: int(r.sessions) })).filter((r) => r.visits > 0),
+      devices: devices.map((r) => ({ name: r.session_device_type ?? "okänd", visits: int(r.sessions) })).filter((r) => r.visits > 0),
+    };
+  } catch (err) {
+    out.sessionsError = scopeHint(err, "read_reports");
+  }
+  try {
+    const data = await shopifyQuery(`query A($q: String) { abandonedCheckouts(first: 100, query: $q, sortKey: CREATED_AT, reverse: true) {
+      nodes { createdAt completedAt totalPriceSet { shopMoney { amount } } lineItems(first: 10) { nodes { title variantTitle quantity } } } } }`,
+      { q: `created_at:>=${range.from}` });
+    const nodes = data?.abandonedCheckouts?.nodes;
+    if (!Array.isArray(nodes)) throw new Error("Shopify skickade inga kassor.");
+    const list = nodes
+      .filter((c) => !c.completedAt && inRange(stockholmDate(c.createdAt), range.from, range.to))
+      .map((c) => ({ createdAt: c.createdAt, value: money(c.totalPriceSet), items: (c.lineItems?.nodes ?? []).map((i) => `${i.quantity} × ${i.variantTitle || i.title}`) }));
+    out.abandoned = { count: list.length, value: round(list.reduce((s, c) => s + c.value, 0)), list: list.slice(0, 20) };
+  } catch (err) {
+    out.abandonedError = scopeHint(err, "read_orders");
+  }
+  trafficCache.set(key, { at: Date.now(), data: out });
+  return out;
+}
 
 // ---------- Perioder ----------
 /** Från detta datum räknas företagets siffror (standard: när butiken startade). */
@@ -269,6 +332,8 @@ function summarize(orders, costDays, from, to) {
     aov: list.length ? round(revenue / list.length) : null,
     costs: Object.fromEntries(Object.entries(costs).map(([k, v]) => [k, round(v)])),
     totalCosts: round(totalCosts), result: round(revenue - totalCosts), missingCost,
+    // Bruttovinst = omsättning − varukostnad − betalavgifter (det varje såld vara lämnar innan marknadsföring och övrigt).
+    gross: round(revenue - cogs - fees),
   };
 }
 
@@ -323,11 +388,12 @@ export async function businessOverview(period = "30d", { force = false } = {}) {
     preorder: tracked.filter((v) => v.quantity <= 0 && v.preorder).length,
   };
   const realOrders = shop.orders.filter((o) => !o.test);
+  const traffic = await shopifyTraffic(range, { force });
   return {
     range,
     periods: PERIODS,
     shopify: { connected: shop.connected, mode: shop.mode, shop: shop.shop, error: shop.error, fetchedAt: shop.fetchedAt, stale: Boolean(shop.stale) },
-    current, previous,
+    current, previous, traffic,
     series: series(shop.orders, costDays, range.from, range.to),
     stock,
     products: shop.products,
