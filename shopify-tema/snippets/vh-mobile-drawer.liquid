@@ -1,0 +1,50 @@
+{%- comment -%}
+  Vardagshoppen – extra snabblänkar i mobilmenyn (2026-11-02).
+  Läggs in i menyn (hamburgermenyn) när sidan laddas. Syns bara i mobilmenyn.
+  2026-11-04: "Vår storsäljare" → "Nyhet i butiken" (inget sålt än), leveransraden kommer från vh-leverans.
+{%- endcomment -%}
+<template id="vh-drawer-extra">
+  <div class="vh-drawer">
+    <a class="vh-drawer__cta" href="/products/tasstvattkit-sma-och-mellanstora-hundar">
+      <span class="vh-drawer__cta-small">Vår produkt</span>
+      <span class="vh-drawer__cta-big">Tasstvättkit – från 199 kr</span>
+      <span class="vh-drawer__cta-arrow" aria-hidden="true">→</span>
+    </a>
+    <ul class="vh-drawer__links" role="list">
+      <li><a href="/#kop">Välj storlek och färg</a></li>
+      <li><a href="/products/tasstvattkit-sma-och-mellanstora-hundar">Storleksguide</a></li>
+      <li><a href="/pages/frakt-och-retur">Frakt och retur</a></li>
+      <li><a href="{{ routes.account_url }}">Mitt konto</a></li>
+    </ul>
+    <p class="vh-drawer__usp">✓ Frakt 29 kr – fri frakt från 349 kr<br>✓ {% render 'vh-leverans', style: 'kort' %}<br>✓ 14 dagars ångerrätt</p>
+  </div>
+</template>
+<style>
+  .vh-drawer{display:flex;flex-direction:column;gap:18px;padding-top:8px}
+  .vh-drawer__cta{position:relative;display:block;background:#073322;color:#fff!important;text-decoration:none;border-radius:14px;padding:16px 48px 16px 18px}
+  .vh-drawer__cta-small{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.8;font-weight:600}
+  .vh-drawer__cta-big{display:block;font-size:18px;font-weight:800;margin-top:2px}
+  .vh-drawer__cta-arrow{position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:22px}
+  .vh-drawer__links{list-style:none;margin:0;padding:0}
+  .vh-drawer__links a{display:flex;align-items:center;min-height:46px;font-size:16px;color:inherit;text-decoration:none;border-bottom:1px solid #ececea}
+  .vh-drawer__usp{margin:0;font-size:14px;line-height:1.7;color:#333}
+</style>
+<script>
+  (function () {
+    // Menyn laddas om av temat efter sidladdning, så vi lägger tillbaka länkarna varje gång det händer.
+    function add() {
+      var tpl = document.getElementById('vh-drawer-extra');
+      if (!tpl) return;
+      document.querySelectorAll('.menu-drawer__utility-links').forEach(function (box) {
+        if (box.querySelector('.vh-drawer')) return;
+        box.prepend(tpl.content.cloneNode(true));
+      });
+    }
+    function start() {
+      add();
+      var obs = new MutationObserver(add);
+      obs.observe(document.getElementById('header-group') || document.body, { childList: true, subtree: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  })();
+</script>

@@ -1,0 +1,11 @@
+{
+  "sections": {
+    "landing": {
+      "type": "vh-landing",
+      "settings": {}
+    }
+  },
+  "order": [
+    "landing"
+  ]
+}

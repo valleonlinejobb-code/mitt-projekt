@@ -170,6 +170,13 @@
   @keyframes grow { from { transform:scaleX(0); } }
   .bar-row .n { text-align:right; font-weight:600; }
   .bar-row .lbl small { display:block; color:var(--muted); font-size:11.5px; }
+  .vbars { display:flex; align-items:flex-end; gap:3px; height:140px; padding-top:6px; }
+  .vbar { flex:1 1 0; height:100%; display:flex; align-items:flex-end; min-width:2px; }
+  .vbar i { display:block; width:100%; min-height:2px; border-radius:4px 4px 1px 1px; background:var(--chart-2); transform-origin:bottom; animation:growY .7s var(--ease) both; }
+  .vbar:hover i { background:var(--chart-1, var(--accent)); }
+  @keyframes growY { from { transform:scaleY(0); } }
+  .vbars-axis { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:8px; }
+  @media (prefers-reduced-motion: reduce) { .vbar i { animation:none; } }
 
   /* Åtgärdslista */
   .actions { display:grid; gap:8px; }
@@ -474,6 +481,7 @@
       <a href="#oversikt" data-route="oversikt"><svg class="i"><use href="#i-home"/></svg>Översikt</a>
       <a href="#ekonomi" data-route="ekonomi"><svg class="i"><use href="#i-wallet"/></svg>Ekonomi</a>
       <a href="#ordrar" data-route="ordrar"><svg class="i"><use href="#i-bag"/></svg>Ordrar<span class="count warn" id="navOrders" hidden></span></a>
+      <a href="#kunder" data-route="kunder"><svg class="i"><use href="#i-target"/></svg>Besökare och köp<span class="count warn" id="navCustomers" hidden></span></a>
       <a href="#lager" data-route="lager"><svg class="i"><use href="#i-package"/></svg>Produkter och lager<span class="count warn" id="navStock" hidden></span></a>
       <a href="#marknad" data-route="marknad"><svg class="i"><use href="#i-megaphone"/></svg>Marknadsföring<span class="count" id="navMarketing" hidden></span></a>
       <a href="#foretaget" data-route="foretaget"><svg class="i"><use href="#i-building"/></svg>Företaget</a>
@@ -602,6 +610,30 @@
         </div>
         <div class="table-wrap cards" id="orTable"></div>
         <div class="table-foot" id="orFoot"></div>
+      </section>
+
+      <!-- ================= BESÖKARE OCH KÖP ================= -->
+      <section class="view" id="view-kunder" data-title="Besökare och köp" hidden>
+        <div id="cuNotice"></div>
+        <div class="kpis stagger" id="cuKpis" style="grid-template-columns:repeat(auto-fit, minmax(170px, 1fr))"></div>
+        <div class="cols-2" style="margin-top:16px">
+          <div class="card">
+            <div class="card-head"><h3>Köpresan</h3><button class="info-btn" data-explain="funnel" aria-label="Hur räknas köpresan?"><svg class="i"><use href="#i-info"/></svg></button></div>
+            <div id="cuFunnel"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Varifrån besökarna kommer</h3></div>
+            <div id="cuSources"></div>
+            <div class="card-head" style="margin-top:18px"><h3>Enhet</h3></div>
+            <div id="cuDevices"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-head"><h3>Besök per dag</h3><span class="muted" id="cuDailyNote"></span></div>
+          <div id="cuDaily"></div>
+        </div>
+        <div class="section-title"><h2>Påbörjade kassor utan köp</h2><span class="muted">Kunden fyllde i kontaktuppgifter men betalade inte</span></div>
+        <div class="table-wrap cards" id="cuAbandoned"></div>
       </section>
 
       <!-- ================= PRODUKTER OCH LAGER ================= -->
@@ -1476,9 +1508,9 @@ poll();
 (() => {
 const RM = matchMedia("(prefers-reduced-motion: reduce)");
 const HOVER = matchMedia("(hover: hover)");
-const ROUTES = { oversikt: "Översikt", ekonomi: "Ekonomi", ordrar: "Ordrar", lager: "Produkter och lager", marknad: "Marknadsföring", foretaget: "Företaget" };
+const ROUTES = { oversikt: "Översikt", ekonomi: "Ekonomi", ordrar: "Ordrar", kunder: "Besökare och köp", lager: "Produkter och lager", marknad: "Marknadsföring", foretaget: "Företaget" };
 const TABS = { videor: "Videor", publicering: "Publicering", inkorg: "Kommentarer och DM", research: "Research", installningar: "Inställningar och kostnad", logg: "Logg" };
-const PERIOD_ROUTES = ["oversikt", "ekonomi", "ordrar"];
+const PERIOD_ROUTES = ["oversikt", "ekonomi", "ordrar", "kunder"];
 const PERIODS = { "7d": "7 dagar", "30d": "30 dagar", "90d": "90 dagar", month: "Denna månad", year: "I år", all: "Sedan start" };
 const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 
@@ -1810,7 +1842,7 @@ function explainShopify() {
   return `<p style="margin-top:0">Omsättning, ordrar och lagersaldo hämtas från Shopify med en egen app för butiken. Appen får bara <strong>läsa</strong>, den kan inte ändra något.</p>
   <ol>
     <li>Gå till <a href="https://dev.shopify.com" target="_blank" rel="noopener">dev.shopify.com</a> (Shopify Dev Dashboard) och skapa en app, t.ex. "Agent UF översikt".</li>
-    <li>Ge appen behörigheterna <code>read_orders</code>, <code>read_products</code> och <code>read_inventory</code> och installera den i butiken ${esc(biz?.shopify.shop || "frostskrapa.myshopify.com")}.</li>
+    <li>Ge appen behörigheterna <code>read_orders</code>, <code>read_products</code>, <code>read_inventory</code> och <code>read_reports</code> (besök och köpresa) och installera den i butiken ${esc(biz?.shopify.shop || "frostskrapa.myshopify.com")}.</li>
     <li>Kopiera appens <strong>Client ID</strong> och <strong>Client secret</strong> till Railway (agent-uf-agenter → Variables) som <code>SHOPIFY_CLIENT_ID</code> och <code>SHOPIFY_CLIENT_SECRET</code>. Har du redan en Admin API-token (börjar med shpat_) går det också bra som <code>SHOPIFY_ADMIN_TOKEN</code>.</li>
     <li>Railway startar om tjänsten. Tryck sedan på uppdatera-knappen uppe till höger.</li>
   </ol>
@@ -1819,6 +1851,7 @@ function explainShopify() {
 const EXPLAIN = {
   result: ["Vad ingår i resultatet?", explainResult],
   shopify: ["Koppla Shopify", explainShopify],
+  funnel: ["Hur räknas köpresan?", () => `<p style="margin-top:0">Siffrorna kommer från Shopifys egen besöksstatistik. Ett <strong>besök</strong> är en session i butiken. Sedan räknas hur många av besöken som la något i varukorgen, kom till kassan och slutförde köpet. <strong>Konvertering</strong> = besök med köp delat med alla besök.</p><p>Egna besök, testköp och förhandsvisningar räknas också, så med få kunder blir siffrorna osäkra. Inget här är uppskattat eller påhittat.</p>`],
   stock: ["Så räknas lagret", () => `<p style="margin-top:0">Lagersaldot kommer från Shopify och gäller aktiva produkter med lagerspårning. <strong>Lågt lager</strong> = högst ${biz?.stock.threshold ?? 5} st (ändra under Produkter och lager). En variant som får säljas fast saldot är 0 (förbeställning) räknas inte som slut. <strong>Lagervärde</strong> = antal i lager gånger inköpspriset i Shopify.</p>`],
 };
 document.addEventListener("click", (e) => {
@@ -1878,6 +1911,10 @@ function actionItems() {
     if (st.low) items.push({ cls: "warn", ico: "package", title: `${st.low} ${st.low === 1 ? "variant har" : "varianter har"} lågt lager`, text: `Högst ${st.threshold} st kvar`, go: "#lager", filter: { stFilter: "low" } });
     if (st.preorder) items.push({ cls: "", ico: "package", title: `${st.preorder} ${st.preorder === 1 ? "variant säljs" : "varianter säljs"} som förbeställning`, text: "0 i lager, men kunder kan beställa", go: "#lager", filter: { stFilter: "preorder" } });
     if (s.connected && st.missingCost) items.push({ cls: "warn", ico: "receipt", title: `${st.missingCost} ${st.missingCost === 1 ? "variant saknar" : "varianter saknar"} inköpspris`, text: "Fyll i Kostnad per artikel i Shopify, annars blir resultatet för högt", go: "#lager", filter: { stFilter: "nocost" } });
+    const tr = biz.traffic?.sessions;
+    if (tr && tr.checkout > 0 && tr.purchased === 0) items.push({ cls: "warn", ico: "receipt", title: `${tr.checkout} ${tr.checkout === 1 ? "besök" : "besök"} nådde kassan, inget köp`, text: "Testa kassan själv och kolla frakt och betalsätt", go: "#kunder" });
+    const ab = biz.traffic?.abandoned;
+    if (ab?.count) items.push({ cls: "", ico: "bag", title: `${ab.count} ${ab.count === 1 ? "påbörjad kassa" : "påbörjade kassor"} utan köp`, text: `Sammanlagt ${kr(ab.value)} i perioden`, go: "#kunder" });
     const late = biz.tasks.filter((t) => !t.done && t.due && t.due < biz.today).length;
     if (late) items.push({ cls: "warn", ico: "list", title: `${late} ${late === 1 ? "uppgift" : "uppgifter"} försenade`, text: "Passerat datumet", go: "#foretaget" });
   }
@@ -1993,7 +2030,8 @@ function renderEconomy() {
   renderKpis("ecKpis", [
     { id: "rev", label: "Omsättning", iconName: "trend", value: c.revenue, na: conn ? null : "Kräver Shopify", sub: deltaHtml(c.revenue, p?.revenue) },
     { id: "cost", label: "Kostnader", iconName: "receipt", value: c.totalCosts, sub: deltaHtml(c.totalCosts, p?.totalCosts, { invert: true }), explain: "result" },
-    { id: "res", label: "Resultat", iconName: "wallet", value: c.result, na: conn ? null : "Kräver Shopify", sub: deltaHtml(c.result, p?.result), explain: "result" },
+    { id: "gross", label: "Bruttovinst", iconName: "trend", value: c.gross, na: conn ? null : "Kräver Shopify", sub: c.missingCost ? `<span class="tag warn">${c.missingCost} varor saknar inköpspris</span>` : "Omsättning − varukostnad − avgifter" },
+    { id: "res", label: "Nettoresultat", iconName: "wallet", value: c.result, na: conn ? null : "Kräver Shopify", sub: `${deltaHtml(c.result, p?.result)} efter alla kostnader`, explain: "result" },
     { id: "aov", label: "Snittorder", iconName: "bag", value: c.aov, na: conn ? (c.orders ? null : "Inga ordrar i perioden") : "Kräver Shopify", sub: `${num(c.orders)} ordrar` },
     { id: "mar", label: "Marginal", iconName: "target", value: margin == null ? null : Math.round(margin), format: pctFmt, na: margin == null ? (conn ? "Ingen omsättning än" : "Kräver Shopify") : null, sub: "Resultat delat med omsättning" },
   ]);
@@ -2045,6 +2083,51 @@ const FIN = { PAID: ["ok", "Betald"], PENDING: ["warn", "Väntar på betalning"]
 const FUL = { UNFULFILLED: ["warn", "Ej skickad"], FULFILLED: ["ok", "Skickad"], PARTIALLY_FULFILLED: ["warn", "Delvis skickad"], ON_HOLD: ["warn", "Pausad"], IN_PROGRESS: ["info", "Packas"], SCHEDULED: ["info", "Schemalagd"], RESTOCKED: ["", "Återlagd i lager"], PENDING_FULFILLMENT: ["info", "Väntar"], OPEN: ["warn", "Ej skickad"] };
 const tagOf = (map, v) => { const [c, t] = map[v] ?? ["", v ? v.toLowerCase() : "–"]; return `<span class="tag ${c}">${esc(t)}</span>`; };
 const stockholm = (iso) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" });
+
+const SOURCE_NAMES = { direct: "Direkt (skrev in adressen, bokmärke, egna besök)", search: "Sökmotorer", social: "Sociala medier", email: "E-post", unknown: "Okänd", "okänd": "Okänd" };
+const DEVICE_NAMES = { desktop: "Dator", mobile: "Mobil", tablet: "Surfplatta", other: "Annat", "okänd": "Okänd" };
+function shareBars(list, names) {
+  const total = list.reduce((a, r) => a + r.visits, 0) || 1, max = Math.max(...list.map((r) => r.visits), 1);
+  return `<div class="bars">${list.map((r) => `<div class="bar-row"><div class="lbl">${esc(names[r.name] ?? r.name)}<small>${Math.round((r.visits / total) * 100)} %</small></div><div class="bar-track"><div class="bar-fill" style="width:${(r.visits / max) * 100}%"></div></div><div class="n num">${num(r.visits)}</div></div>`).join("")}</div>`;
+}
+function renderCustomers() {
+  const t = biz.traffic ?? {}, se = t.sessions, ab = t.abandoned, c = biz.current;
+  const missing = !biz.shopify.mode ? "Kräver Shopify" : null;
+  const sErr = missing || (t.sessionsError ? "Saknar behörighet" : null);
+  const notes = [];
+  if (!biz.shopify.mode) notes.push(shopifyNotice());
+  else {
+    if (t.sessionsError) notes.push(`<div class="notice warn"><span class="ico">${icon("alert")}</span><div><b>Besöken kan inte hämtas</b><p>${esc(t.sessionsError)}</p><div class="row"><button class="ghost" data-explain="shopify">Så kopplar du Shopify</button></div></div></div>`);
+    if (t.abandonedError) notes.push(`<div class="notice warn"><span class="ico">${icon("alert")}</span><div><b>Påbörjade kassor kan inte hämtas</b><p>${esc(t.abandonedError)}</p></div></div>`);
+    if (se && se.visits) notes.push(`<div class="notice"><span class="ico">${icon("info")}</span><div><b>Räkna med att egna besök ingår</b><p>Shopify räknar alla besök, även dina egna, dina testköp och förhandsvisningar av temat. Så länge butiken har få kunder är siffrorna mest en fingervisning.</p></div></div>`);
+  }
+  $("cuNotice").innerHTML = notes.join("");
+  const step = (a, b) => (a ? `${Math.round((b / a) * 100)} % gick vidare` : "");
+  renderKpis("cuKpis", [
+    { id: "vis", label: "Besök", iconName: "trend", value: se?.visits, format: num, na: sErr, sub: se ? `${PERIODS[period].toLowerCase()}` : "" },
+    { id: "cart", label: "La i varukorgen", iconName: "bag", value: se?.cart, format: num, na: sErr, sub: se ? step(se.visits, se.cart) : "" },
+    { id: "chk", label: "Nådde kassan", iconName: "receipt", value: se?.checkout, format: num, na: sErr, sub: se ? step(se.cart, se.checkout) : "" },
+    { id: "buy", label: "Köpte", iconName: "check", value: se?.purchased, format: num, na: sErr, sub: se ? step(se.checkout, se.purchased) : "" },
+    { id: "cr", label: "Konvertering", iconName: "target", value: se?.conversion, format: (n) => (n == null ? "–" : `${String(n).replace(".", ",")} %`), na: sErr || (se && !se.visits ? "Inga besök än" : null), sub: "Besök som slutade med köp" },
+  ]);
+  if (se) {
+    const steps = [["Besök", se.visits], ["La i varukorgen", se.cart], ["Nådde kassan", se.checkout], ["Köpte", se.purchased]];
+    const max = Math.max(se.visits, 1);
+    $("cuFunnel").innerHTML = `<div class="bars">${steps.map(([n, v], i) => `<div class="bar-row"><div class="lbl">${n}<small>${i ? (steps[i - 1][1] ? `${Math.round((v / steps[i - 1][1]) * 100)} % av steget innan` : "–") : "Alla besök"}</small></div><div class="bar-track"><div class="bar-fill" style="width:${Math.max((v / max) * 100, v ? 1.5 : 0)}%"></div></div><div class="n num">${num(v)}</div></div>`).join("")}</div>
+      ${se.checkout && !se.purchased ? `<p class="muted" style="margin:14px 0 0">${num(se.checkout)} besök kom till kassan men ingen betalade. Gör ett eget testköp och kolla att kassan, frakten och betalsätten ser rätt ut.</p>` : ""}`;
+    $("cuSources").innerHTML = se.sources.length ? shareBars(se.sources, SOURCE_NAMES) : `<p class="muted">Inga besök i perioden.</p>`;
+    $("cuDevices").innerHTML = se.devices.length ? shareBars(se.devices, DEVICE_NAMES) : `<p class="muted">Inga besök i perioden.</p>`;
+    const d = se.daily, dmax = Math.max(...d.map((x) => x.visits), 1);
+    $("cuDailyNote").textContent = `${dayLong(biz.range.from)} – ${dayLong(biz.range.to)}`;
+    $("cuDaily").innerHTML = d.length ? `<div class="vbars" role="img" aria-label="Besök per dag, högst ${num(dmax)} på en dag">${d.map((x) => `<div class="vbar" title="${day(x.day)}: ${num(x.visits)} besök"><i style="height:${(x.visits / dmax) * 100}%"></i></div>`).join("")}</div><div class="vbars-axis"><span>${day(d[0].day)}</span><span>högst ${num(dmax)} besök/dag</span><span>${day(d[d.length - 1].day)}</span></div>` : `<p class="muted">Inga besök i perioden.</p>`;
+  } else {
+    const msg = emptyState(missing ? "Besöken visas när Shopify är kopplat" : "Besöken kan inte hämtas än", missing ? "Hittills hämtas inga besök, så här visas inget alls hellre än gissningar." : "Lägg till behörigheten read_reports i Shopify-appen.");
+    $("cuFunnel").innerHTML = msg; $("cuSources").innerHTML = ""; $("cuDevices").innerHTML = ""; $("cuDaily").innerHTML = ""; $("cuDailyNote").textContent = "";
+  }
+  if (ab) {
+    $("cuAbandoned").innerHTML = ab.list.length ? `<table><thead><tr><th>Datum</th><th>Varor</th><th class="num">Värde</th></tr></thead><tbody>${ab.list.map((x) => `<tr><td data-label="Datum">${dateTime(x.createdAt)}</td><td data-label="Varor">${x.items.map(esc).join("<br>")}</td><td data-label="Värde" class="num"><strong>${kr(x.value)}</strong></td></tr>`).join("")}</tbody></table><div class="table-foot">${ab.count} st · sammanlagt ${kr(ab.value)} · <a class="link" href="${adminUrl("/checkouts")}" target="_blank" rel="noopener">Öppna i Shopify ${icon("ext", 14)}</a></div>` : emptyState("Inga påbörjade kassor utan köp", "Bra. Här syns kassor där kunden fyllt i kontaktuppgifter men inte betalat.");
+  } else $("cuAbandoned").innerHTML = emptyState(missing ? "Visas när Shopify är kopplat" : "Kan inte hämtas än", t.abandonedError ? esc(t.abandonedError) : "");
+}
 
 function renderOrders() {
   const conn = biz.shopify.connected || biz.shopify.stale, c = biz.current;
@@ -2156,6 +2239,7 @@ function renderNavCounts() {
   if (biz) {
     set("navOrders", biz.unfulfilled);
     set("navStock", biz.stock.out + biz.stock.low);
+    set("navCustomers", biz.traffic?.abandoned?.count || 0);
   }
   if (state) {
     const pending = state.videos.filter((v) => v.status === "pending").length;
@@ -2176,6 +2260,7 @@ function renderBusiness(animate) {
   renderActions(); renderConnections(); renderNavCounts();
   if (route === "ekonomi") renderEconomy();
   if (route === "ordrar") renderOrders();
+  if (route === "kunder") renderCustomers();
   if (route === "lager") renderStock();
   if (route === "foretaget") renderCompany();
   renderOverviewMarketing();

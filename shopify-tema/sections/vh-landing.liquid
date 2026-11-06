@@ -1,0 +1,633 @@
+{%- comment -%}
+  Vardagshoppen – enproduktsbutik (2026-11-07).
+  Startsidan är en säljsida för EN produkt: tasstvättkitet.
+  All fakta kommer från produkten i Shopify (pris, varianter, bilder, beskrivning). Inga påhittade omdömen eller siffror.
+  Ingen 3D-modell finns av produkten, så rörelsen görs med riktiga produktbilder och lätta animationer.
+  Animationerna stängs av för den som valt "minska rörelse" i sin telefon/dator.
+{%- endcomment -%}
+{%- liquid
+  assign kit = all_products[section.settings.product_handle]
+  if kit == blank
+    assign kit = collections.all.products.first
+  endif
+  assign img_colors = blank
+  assign img_brush = blank
+  assign img_insert = blank
+  assign img_towel = blank
+  assign img_bla = blank
+  assign img_gron = blank
+  assign img_orange = blank
+  for im in kit.images
+    assign a = im.alt | downcase
+    if a contains 'grönt, orange och blått' and img_colors == blank
+      assign img_colors = im
+    elsif a contains 'tpr-borst' and img_brush == blank
+      assign img_brush = im
+    elsif a contains 'avtagbar' and img_insert == blank
+      assign img_insert = im
+    elsif a contains 'broderad tass' and img_towel == blank
+      assign img_towel = im
+    elsif a contains 'kopp – blå' and img_bla == blank
+      assign img_bla = im
+    elsif a contains 'kopp – grön' and img_gron == blank
+      assign img_gron = im
+    elsif a contains 'kopp – orange' and img_orange == blank
+      assign img_orange = im
+    endif
+  endfor
+  assign v_first = kit.selected_or_first_available_variant
+  assign price_hall = kit.price_min
+  assign price_two = kit.price_max
+-%}
+
+{%- if kit -%}
+<div class="vl" id="vl">
+
+  {%- comment -%} 1. HERO {%- endcomment -%}
+  <section class="vl-hero" aria-labelledby="vl-hero-h">
+    <div class="vl-w vl-hero__in">
+      <div class="vl-hero__text">
+        <p class="vl-eyebrow">Tasstvättkit · S, M och L</p>
+        <h1 id="vl-hero-h" class="vl-hero__title">{{ section.settings.heading | escape }}</h1>
+        <p class="vl-hero__lead">{{ section.settings.lead | escape }}</p>
+        <div class="vl-hero__ctas">
+          <a class="vl-btn vl-btn--primary" href="#kop">Välj storlek och färg <span class="vl-btn__sub">från {{ price_hall | money_without_trailing_zeros }}</span></a>
+          <a class="vl-btn vl-btn--ghost" href="#sa-funkar">Se hur det funkar</a>
+        </div>
+        <ul class="vl-facts">
+          <li>{% render 'vh-leverans', style: 'kort' %}</li>
+          <li>Handduk ingår</li>
+          <li>Fri frakt från 349 kr</li>
+          <li>14 dagars ångerrätt</li>
+        </ul>
+      </div>
+
+      <figure class="vl-stage" data-vl-stage>
+        <div class="vl-stage__disc" aria-hidden="true"></div>
+        <div class="vl-stage__imgs">
+          <div class="vl-stage__img is-on" data-color="kit">
+            {{ kit.featured_image | image_url: width: 1100 | image_tag: loading: 'eager', fetchpriority: 'high', sizes: '(min-width: 990px) 46vw, 92vw', alt: kit.featured_image.alt | default: kit.title }}
+          </div>
+          {%- assign color_keys = 'bla,gron,orange' | split: ',' -%}
+          {%- for pair in color_keys -%}
+            {%- case pair -%}
+              {%- when 'bla' -%}{%- assign im = img_bla -%}
+              {%- when 'gron' -%}{%- assign im = img_gron -%}
+              {%- when 'orange' -%}{%- assign im = img_orange -%}
+            {%- endcase -%}
+            {%- if im -%}
+            <div class="vl-stage__img" data-color="{{ pair }}">
+              {{ im | image_url: width: 1100 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 46vw, 92vw', alt: im.alt }}
+            </div>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+        <figcaption class="vl-swatches" role="group" aria-label="Visa färg">
+          <button type="button" class="vl-sw vl-sw--kit is-on" data-show="kit" aria-pressed="true"><span class="vl-sr">Kitet med handduk</span></button>
+          {%- if img_bla -%}<button type="button" class="vl-sw vl-sw--bla" data-show="bla" aria-pressed="false"><span class="vl-sr">Blå</span></button>{%- endif -%}
+          {%- if img_gron -%}<button type="button" class="vl-sw vl-sw--gron" data-show="gron" aria-pressed="false"><span class="vl-sr">Grön</span></button>{%- endif -%}
+          {%- if img_orange -%}<button type="button" class="vl-sw vl-sw--orange" data-show="orange" aria-pressed="false"><span class="vl-sr">Orange</span></button>{%- endif -%}
+          <span class="vl-swatches__label" aria-hidden="true">Tre färger</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  {%- comment -%} 2. PROBLEMET {%- endcomment -%}
+  <section class="vl-sec vl-problem" aria-labelledby="vl-prob-h">
+    <div class="vl-w">
+      <p class="vl-kicker vl-reveal">Problemet</p>
+      <h2 id="vl-prob-h" class="vl-h2 vl-reveal">Oktober till april följer halva promenaden med in.</h2>
+      <ul class="vl-cards3">
+        <li class="vl-card vl-reveal">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 24c3-3 6-3 8 0s5 3 8 0 6-3 8 0" /><path d="M4 18c3-3 6-3 8 0s5 3 8 0 6-3 8 0" opacity=".45"/></svg>
+          <h3>Lera och snömodd i hallen</h3>
+          <p>Fyra blöta tassar räcker för att hallgolvet, mattan och soffan blir smutsiga.</p>
+        </li>
+        <li class="vl-card vl-reveal">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="9" cy="11" r="1.6"/><circle cx="16" cy="8" r="1.6"/><circle cx="23" cy="11" r="1.6"/><circle cx="12" cy="17" r="1.2"/><circle cx="20" cy="17" r="1.2"/><path d="M8 26c2-4 5-6 8-6s6 2 8 6"/></svg>
+          <h3>Grus och vägsalt mellan trampdynorna</h3>
+          <p>Det som fastnar mellan dynorna går inte bort med en snabb torkning.</p>
+        </li>
+        <li class="vl-card vl-reveal">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="6" width="20" height="20" rx="3"/><path d="M6 12h20M11 6v20" opacity=".45"/></svg>
+          <h3>En handduk räcker inte</h3>
+          <p>Man torkar och torkar, men smutsen sitter kvar och handduken blir lerig efter första tassen.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  {%- comment -%} 3. LÖSNINGEN {%- endcomment -%}
+  <section class="vl-sec vl-solution" aria-labelledby="vl-sol-h">
+    <div class="vl-w vl-split">
+      <div class="vl-split__media vl-reveal">
+        {%- if img_colors -%}
+          {{ img_colors | image_url: width: 1000 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 45vw, 92vw', alt: img_colors.alt }}
+        {%- else -%}
+          {{ kit.featured_image | image_url: width: 1000 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 45vw, 92vw', alt: kit.featured_image.alt }}
+        {%- endif -%}
+      </div>
+      <div class="vl-split__text">
+        <p class="vl-kicker vl-reveal">Lösningen</p>
+        <h2 id="vl-sol-h" class="vl-h2 vl-reveal">Skölj tassen. Torka. Klart.</h2>
+        <p class="vl-body vl-reveal">Tasstvättkitet är en kopp med mjuka borst inuti och en mikrofiberhandduk. Du häller i lite ljummet vatten, sätter i tassen och vrider koppen. Borsten lossar lera, sand och smuts, och handduken torkar direkt.</p>
+        <dl class="vl-packs vl-reveal">
+          <div><dt>Hallkit · {{ price_hall | money_without_trailing_zeros }}</dt><dd>1 tasstvättkopp och 1 grå mikrofiberhandduk</dd></div>
+          <div><dt>Tvåpack · {{ price_two | money_without_trailing_zeros }}</dt><dd>2 tasstvättkoppar och 1 handduk. 49 kr billigare än två hallkit, och fri frakt.</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  {%- comment -%} 4. PRODUKTDEMONSTRATION {%- endcomment -%}
+  <section class="vl-sec vl-demo" id="sa-funkar" aria-labelledby="vl-demo-h">
+    <div class="vl-w">
+      <p class="vl-kicker vl-reveal">Så gör du</p>
+      <h2 id="vl-demo-h" class="vl-h2 vl-reveal">Tre steg, direkt i hallen.</h2>
+      <ol class="vl-steps">
+        <li class="vl-step vl-reveal">
+          <div class="vl-step__media vl-step__media--water" aria-hidden="true">
+            {{ kit.featured_image | image_url: width: 700 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 30vw, 92vw', alt: '' }}
+            <span class="vl-water"></span>
+          </div>
+          <span class="vl-step__n">1</span>
+          <h3>Häll i ljummet vatten</h3>
+          <p>Lite vatten räcker. Ställ koppen vid ytterdörren så finns den där när ni kommer hem.</p>
+        </li>
+        <li class="vl-step vl-reveal">
+          <div class="vl-step__media vl-step__media--twist" aria-hidden="true">
+            {%- if img_brush -%}{{ img_brush | image_url: width: 700 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 30vw, 92vw', alt: '' }}{%- endif -%}
+            <span class="vl-twist"></span>
+          </div>
+          <span class="vl-step__n">2</span>
+          <h3>Sätt i tassen och vrid</h3>
+          <p>Vrid koppen fram och tillbaka. De mjuka TPR-borsten lossar lera, sand och smuts.</p>
+        </li>
+        <li class="vl-step vl-reveal">
+          <div class="vl-step__media" aria-hidden="true">
+            {%- if img_towel -%}{{ img_towel | image_url: width: 700 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 30vw, 92vw', alt: '' }}{%- endif -%}
+          </div>
+          <span class="vl-step__n">3</span>
+          <h3>Torka med handduken</h3>
+          <p>Mikrofiberhandduken ingår. Torka tassen och ta nästa. Upprepa med alla fyra.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  {%- comment -%} 5. FÖRDELAR (från produktbeskrivningen) {%- endcomment -%}
+  <section class="vl-sec vl-benefits" aria-labelledby="vl-ben-h">
+    <div class="vl-w vl-split vl-split--rev">
+      <div class="vl-split__media vl-reveal">
+        {%- if img_insert -%}
+          {{ img_insert | image_url: width: 1000 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 45vw, 92vw', alt: img_insert.alt }}
+        {%- endif -%}
+      </div>
+      <div class="vl-split__text">
+        <p class="vl-kicker vl-reveal">Därför funkar den</p>
+        <h2 id="vl-ben-h" class="vl-h2 vl-reveal">Enkel att använda. Enkel att hålla ren.</h2>
+        <ul class="vl-checks">
+          <li class="vl-reveal"><strong>Mjuka TPR-borst</strong> som är skonsamma mot trampdynorna.</li>
+          <li class="vl-reveal"><strong>Avtagbar insats.</strong> Lyft ur borstinsatsen och skölj allt rent på några sekunder.</li>
+          <li class="vl-reveal"><strong>Handduken ingår.</strong> Grå mikrofiber med broderad tass, tål maskintvätt.</li>
+          <li class="vl-reveal"><strong>Liten och lätt,</strong> ca 150–230 g. Ställ den vid dörren eller ta med på utflykten.</li>
+          <li class="vl-reveal"><strong>Funkar även för katt.</strong></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="vl-w">
+      <div class="vl-sizes vl-reveal" aria-labelledby="vl-size-h">
+        <div class="vl-sizes__head">
+          <h3 id="vl-size-h">Tre storlekar, samma öppning</h3>
+          <p>Alla storlekar har 7 cm innerdiameter. Skillnaden är djupet. Mät tassens bredaste del när hunden står på den.</p>
+        </div>
+        <div class="vl-sizes__bars" role="list">
+          <div class="vl-bar" role="listitem" style="--s:80"><span class="vl-bar__cup"></span><strong>S</strong><span>11 cm hög</span></div>
+          <div class="vl-bar" role="listitem" style="--s:98"><span class="vl-bar__cup"></span><strong>M</strong><span>13,5 cm hög</span></div>
+          <div class="vl-bar" role="listitem" style="--s:110"><span class="vl-bar__cup"></span><strong>L</strong><span>15 cm hög</span></div>
+        </div>
+        <p class="vl-sizes__note"><strong>Storleksgaranti:</strong> passar inte koppen byter vi till en annan storlek, så länge den finns i lager. <a href="{{ kit.url }}">Läs hela storleksguiden</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  {%- comment -%} 6. OMDÖMEN – bara riktiga. Inga finns än, så vi säger det rakt ut. {%- endcomment -%}
+  <section class="vl-sec vl-proof" aria-labelledby="vl-proof-h">
+    <div class="vl-w vl-proof__in">
+      <div class="vl-reveal">
+        <p class="vl-kicker">Omdömen</p>
+        <h2 id="vl-proof-h" class="vl-h2">Vi är nya, och visar bara riktiga omdömen.</h2>
+        <p class="vl-body">Tasstvättkitet är vår första produkt. När de första kunderna har fått sina kit och berättat vad de tycker, visar vi det här. Fram till dess får du det här av oss:</p>
+      </div>
+      <ul class="vl-promises">
+        <li class="vl-reveal"><strong>Storleksgaranti</strong><span>Fel storlek? Vi byter.</span></li>
+        <li class="vl-reveal"><strong>14 dagars ångerrätt</strong><span>Enkelt att ångra köpet.</span></li>
+        <li class="vl-reveal"><strong>Avbeställ när du vill</strong><span>Fram till att paketet har skickats.</span></li>
+        <li class="vl-reveal"><strong>Svenskt UF-företag</strong><span>Vi packar och svarar själva.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  {%- comment -%} 8. KÖP (före FAQ så att den som är redo slipper scrolla förbi frågorna) {%- endcomment -%}
+  <section class="vl-sec vl-buy" id="kop" aria-labelledby="vl-buy-h">
+    <div class="vl-w vl-buy__in">
+      <div class="vl-buy__media">
+        <div class="vl-buy__img">
+          {{ kit.featured_image | image_url: width: 1000 | image_tag: loading: 'lazy', sizes: '(min-width: 990px) 44vw, 92vw', alt: kit.featured_image.alt | default: kit.title, class: 'vl-buyimg' }}
+        </div>
+      </div>
+      <div class="vl-buy__panel">
+        <p class="vl-kicker">Beställ</p>
+        <h2 id="vl-buy-h" class="vl-h2">{{ kit.title | split: ' –' | first }}</h2>
+        <p class="vl-price"><span data-vl-price>{{ v_first.price | money_without_trailing_zeros }}</span> <span class="vl-price__note" data-vl-pricenote></span></p>
+
+        {%- form 'product', kit, id: 'vl-form', class: 'vl-form' -%}
+          <input type="hidden" name="id" value="{{ v_first.id }}" data-vl-id>
+          <input type="hidden" name="quantity" value="1">
+          {%- for option in kit.options_with_values -%}
+            <fieldset class="vl-opt">
+              <legend>{{ option.name }}: <span data-vl-chosen="{{ forloop.index }}">{{ option.selected_value }}</span></legend>
+              <div class="vl-opt__row">
+                {%- for value in option.values -%}
+                  {%- assign oid = 'vl-o' | append: forloop.parentloop.index | append: '-' | append: forloop.index -%}
+                  <input class="vl-sr" type="radio" id="{{ oid }}" name="vl-option{{ forloop.parentloop.index }}" value="{{ value | escape }}" data-vl-opt="{{ forloop.parentloop.index }}" {% if option.selected_value == value %}checked{% endif %}>
+                  <label class="vl-pill{% if option.name == 'Färg' %} vl-pill--color{% endif %}" for="{{ oid }}">
+                    {%- if option.name == 'Färg' -%}<span class="vl-dot vl-dot--{{ value | handleize }}" aria-hidden="true"></span>{%- endif -%}
+                    {{ value }}
+                    {%- if option.name == 'Paket' -%}
+                      <small>{% if value == 'Tvåpack' %}2 koppar + 1 handduk · fri frakt{% else %}1 kopp + 1 handduk{% endif %}</small>
+                    {%- endif -%}
+                  </label>
+                {%- endfor -%}
+              </div>
+              {%- if option.name == 'Storlek' -%}<a class="vl-opt__help" href="{{ kit.url }}">Osäker på storleken? Se storleksguiden</a>{%- endif -%}
+            </fieldset>
+          {%- endfor -%}
+
+          {% render 'vh-leverans', style: 'ruta' %}
+
+          <button type="submit" class="vl-btn vl-btn--primary vl-btn--block" data-vl-submit {% unless v_first.available %}disabled{% endunless %}>
+            <span data-vl-submit-text>{% if v_first.available %}Lägg i varukorgen{% else %}Slut just nu{% endif %}</span>
+          </button>
+          <p class="vl-form__msg" role="status" aria-live="polite" data-vl-msg></p>
+          <p class="vl-pay">Du betalar tryggt i Shopifys kassa med kort eller annat betalsätt som visas där. Du behöver inget konto.</p>
+        {%- endform -%}
+        <p class="vl-buy__more"><a href="{{ kit.url }}">Se alla bilder, mått och hela beskrivningen</a></p>
+      </div>
+    </div>
+  </section>
+
+  {%- comment -%} 7. FAQ {%- endcomment -%}
+  <section class="vl-sec vl-faq" id="fragor" aria-labelledby="vl-faq-h">
+    <div class="vl-w vl-faq__in">
+      <div>
+        <p class="vl-kicker">Frågor</p>
+        <h2 id="vl-faq-h" class="vl-h2">Vanliga frågor</h2>
+        <p class="vl-body">Hittar du inte svaret? <a href="/pages/contact">Skriv till oss</a>, vi svarar oftast inom en vardag.</p>
+      </div>
+      <div class="vl-faq__list">
+        <details><summary>Vilken storlek ska jag välja?</summary><p>Mät tassens bredaste del när hunden står på den. Alla tre storlekar har samma innerdiameter, 7 cm. S är 11 cm hög, M 13,5 cm och L 15 cm. Större storlek ger mer djup, inte större bredd. Borstinsatsen tar plats, så 7 cm är ingen garanterad gräns. Är du osäker, <a href="/pages/contact">kontakta oss</a> före köpet. Passar den inte byter vi storlek så länge den finns i lager.</p></details>
+        <details><summary>Hur rengör jag koppen och handduken?</summary><p>Häll ut vattnet, lyft ur borstinsatsen och skölj. Låt lufttorka. Handduken är av mikrofiber och tål maskintvätt.</p></details>
+        <details><summary>När kommer mitt paket?</summary><p>{% render 'vh-leverans', style: 'mening' %} Vi skickar med PostNord inom Sverige, och leveransen tar 1–4 vardagar från att paketet har skickats.</p></details>
+        <details><summary>Vad kostar frakten?</summary><p>29 kr per beställning. Handlar du för 349 kr eller mer är frakten gratis, så tvåpacket får alltid fri frakt.</p></details>
+        <details><summary>Kan jag ångra köpet?</summary><p>Ja, du har 14 dagars ångerrätt från att du tagit emot varan. Du kan också avbeställa när som helst innan paketet har skickats. Läs mer under <a href="/pages/frakt-och-retur">Frakt och retur</a>.</p></details>
+        <details><summary>Hur betalar jag?</summary><p>I Shopifys kassa, där du ser alla betalsätt som finns. Du behöver inget konto, det går alltid att handla som gäst.</p></details>
+        <details><summary>Funkar den för katt?</summary><p>Ja, koppen kan även användas för katt.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="vl-sec vl-about">
+    <div class="vl-w vl-about__in">
+      <p class="vl-body"><strong>Vardagshoppen drivs av Agent UF</strong> inom Ung Företagsamhet. Vi har valt ut en enda produkt som vi tror på, och packar och skickar varje kit själva.</p>
+      <a class="vl-btn vl-btn--ghost" href="/pages/om-oss">Om oss</a>
+    </div>
+  </section>
+
+  {%- comment -%} Köpknapp som följer med på mobilen (döljs när köpdelen syns) {%- endcomment -%}
+  <div class="vl-sticky" data-vl-sticky aria-hidden="true">
+    <div class="vl-sticky__txt"><strong>Tasstvättkit</strong><span>från {{ price_hall | money_without_trailing_zeros }} · handduk ingår</span></div>
+    <a class="vl-btn vl-btn--primary" href="#kop" tabindex="-1">Välj och köp</a>
+  </div>
+</div>
+
+<script type="application/json" data-vl-variants>
+  [{%- for v in kit.variants -%}{"id":{{ v.id }},"options":{{ v.options | json }},"price":{{ v.price | money_without_trailing_zeros | json }},"available":{{ v.available | json }},"image":{% if v.featured_image %}{{ v.featured_image | image_url: width: 1000 | json }}{% else %}null{% endif %}}{% unless forloop.last %},{% endunless %}{%- endfor -%}]
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": {{ kit.title | json }},
+  "image": [{{ kit.featured_image | image_url: width: 1200 | prepend: 'https:' | json }}],
+  "description": {{ section.settings.lead | json }},
+  "brand": { "@type": "Brand", "name": "Vardagshoppen" },
+  "offers": {
+    "@type": "AggregateOffer",
+    "priceCurrency": {{ cart.currency.iso_code | json }},
+    "lowPrice": {{ kit.price_min | divided_by: 100.0 | json }},
+    "highPrice": {{ kit.price_max | divided_by: 100.0 | json }},
+    "offerCount": {{ kit.variants.size }},
+    "url": {{ request.origin | append: kit.url | json }}
+  }
+}
+</script>
+
+<script>
+(function () {
+  var root = document.getElementById('vl');
+  if (!root) return;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Visa sektionerna mjukt när de kommer in i bild. Utan stöd (eller med minskad rörelse) syns allt direkt.
+  var items = root.querySelectorAll('.vl-reveal');
+  if (!reduce && 'IntersectionObserver' in window) {
+    root.classList.add('vl-anim');
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+    items.forEach(function (el) { io.observe(el); });
+  }
+
+  // Färgväljaren i toppen byter mellan riktiga produktbilder.
+  var stage = root.querySelector('[data-vl-stage]');
+  if (stage) {
+    stage.querySelectorAll('[data-show]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var c = b.getAttribute('data-show');
+        stage.querySelectorAll('.vl-stage__img').forEach(function (i) { i.classList.toggle('is-on', i.getAttribute('data-color') === c); });
+        stage.querySelectorAll('[data-show]').forEach(function (x) { var on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-pressed', on); });
+      });
+    });
+  }
+
+  // Köpdelen: välj färg/storlek/paket → rätt variant, pris och bild.
+  var data = [];
+  try { data = JSON.parse(document.querySelector('[data-vl-variants]').textContent); } catch (e) {}
+  var form = document.getElementById('vl-form');
+  if (form && data.length) {
+    var idInput = form.querySelector('[data-vl-id]');
+    var priceEl = root.querySelector('[data-vl-price]');
+    var noteEl = root.querySelector('[data-vl-pricenote]');
+    var btn = form.querySelector('[data-vl-submit]');
+    var btnText = form.querySelector('[data-vl-submit-text]');
+    var img = root.querySelector('.vl-buyimg');
+    function chosen() {
+      var out = [];
+      form.querySelectorAll('[data-vl-opt]:checked').forEach(function (r) { out[Number(r.getAttribute('data-vl-opt')) - 1] = r.value; });
+      return out;
+    }
+    function update() {
+      var ch = chosen();
+      ch.forEach(function (v, i) { var s = form.querySelector('[data-vl-chosen="' + (i + 1) + '"]'); if (s) s.textContent = v; });
+      var v = data.filter(function (d) { return d.options.every(function (o, i) { return o === ch[i]; }); })[0];
+      if (!v) { btn.disabled = true; btnText.textContent = 'Finns inte i den kombinationen'; return; }
+      idInput.value = v.id;
+      priceEl.textContent = v.price;
+      noteEl.textContent = ch.indexOf('Tvåpack') > -1 ? 'Fri frakt ingår' : '+ frakt 29 kr';
+      btn.disabled = !v.available;
+      btnText.textContent = v.available ? 'Lägg i varukorgen · ' + v.price : 'Slut just nu';
+      if (v.image && img) { img.removeAttribute('srcset'); img.src = v.image; }
+    }
+    form.addEventListener('change', update);
+    update();
+
+    // Lägg i varukorgen utan att lämna sidan om det går, annars vanlig formulärpost (går alltid).
+    form.addEventListener('submit', function (ev) {
+      if (!window.fetch || !window.FormData) return;
+      ev.preventDefault();
+      var msg = form.querySelector('[data-vl-msg]');
+      btn.disabled = true; msg.textContent = 'Lägger i varukorgen…';
+      fetch((window.Shopify && Shopify.routes ? Shopify.routes.root : '/') + 'cart/add.js', {
+        method: 'POST', headers: { 'Accept': 'application/json' }, body: new FormData(form)
+      }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function () { window.location.href = (window.Shopify && Shopify.routes ? Shopify.routes.root : '/') + 'cart'; })
+        .catch(function () { form.submit(); });
+    });
+  }
+
+  // Mobilens följeknapp: visas efter toppen, döljs när köpdelen syns.
+  var sticky = root.querySelector('[data-vl-sticky]');
+  var hero = root.querySelector('.vl-hero');
+  var buy = root.querySelector('#kop');
+  if (sticky && hero && buy && 'IntersectionObserver' in window) {
+    var heroOut = false, buyIn = false;
+    function set() { var show = heroOut && !buyIn; sticky.classList.toggle('is-on', show); sticky.setAttribute('aria-hidden', !show); sticky.querySelector('a').tabIndex = show ? 0 : -1; }
+    new IntersectionObserver(function (e) { heroOut = !e[0].isIntersecting; set(); }).observe(hero);
+    new IntersectionObserver(function (e) { buyIn = e[0].isIntersecting; set(); }, { threshold: 0.05 }).observe(buy);
+  }
+})();
+</script>
+{%- endif -%}
+
+{% stylesheet %}
+  .vl { --g:#073322; --g2:#0f4a32; --ink:#14201a; --muted:#56665c; --cream:#f7f5f0; --sand:#efeae0; --line:#e3ddd0; --sun:#f2a93b; --white:#fff;
+    --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    --r:18px; background:var(--cream); color:var(--ink); overflow-x:clip; font-size:1rem; line-height:1.55; }
+  .vl *, .vl *::before, .vl *::after { box-sizing:border-box; }
+  .vl-w { max-width:1180px; margin:0 auto; padding:0 16px; }
+  .vl a { color:inherit; }
+  .vl p { margin:0; }
+  .vl-sr { position:absolute !important; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .vl-kicker { font-size:.78rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--g2); margin-bottom:10px !important; }
+  .vl .vl-h2 { font-family:var(--serif); font-weight:700; font-size:clamp(1.65rem,1.2rem + 2vw,2.7rem); line-height:1.12; letter-spacing:-.015em; margin:0 0 14px; color:var(--ink); max-width:22ch; }
+  .vl h3 { font-size:1.08rem; line-height:1.3; margin:0 0 6px; color:var(--ink); }
+  .vl-body { color:var(--muted); font-size:1.03rem; max-width:56ch; }
+  .vl-sec { padding:56px 0; }
+  .vl a:focus-visible, .vl button:focus-visible, .vl summary:focus-visible, .vl input:focus-visible + label { outline:3px solid var(--sun); outline-offset:3px; border-radius:10px; }
+
+  .vl-btn { display:inline-flex; align-items:center; justify-content:center; gap:10px; min-height:54px; padding:0 26px; border-radius:999px; font-weight:700; font-size:1rem; text-decoration:none; border:0; cursor:pointer; transition:transform .2s ease, background-color .2s ease, box-shadow .2s ease; }
+  .vl-btn--primary { background:var(--g); color:#fff !important; box-shadow:0 8px 22px -10px rgba(7,51,34,.55); }
+  .vl-btn--primary:hover { background:var(--g2); transform:translateY(-1px); }
+  .vl-btn--primary:active { transform:translateY(0) scale(.99); }
+  .vl-btn--primary[disabled] { background:#9aa79f; box-shadow:none; cursor:not-allowed; transform:none; }
+  .vl-btn--ghost { border:1.5px solid var(--ink); background:transparent; color:var(--ink) !important; }
+  .vl-btn--ghost:hover { background:var(--ink); color:#fff !important; }
+  .vl-btn__sub { font-weight:500; opacity:.8; font-size:.92rem; }
+  .vl-btn--block { width:100%; }
+
+  /* HERO */
+  .vl-hero { padding:28px 0 48px; background:linear-gradient(180deg,#fff 0%, var(--cream) 100%); }
+  .vl-hero__in { display:grid; gap:28px; }
+  .vl-eyebrow { display:inline-flex; align-items:center; gap:8px; font-size:.82rem; font-weight:700; letter-spacing:.06em; color:var(--g2); background:#e8efe9; padding:6px 12px; border-radius:999px; margin-bottom:16px !important; }
+  .vl .vl-hero__title { font-family:var(--serif); font-weight:700; font-size:clamp(2.2rem,1.4rem + 4vw,4.3rem); line-height:1.02; letter-spacing:-.025em; margin:0 0 16px; color:var(--ink); max-width:14ch; }
+  .vl-hero__lead { font-size:1.1rem; color:var(--muted); max-width:42ch; }
+  .vl-hero__ctas { display:flex; flex-direction:column; gap:10px; margin-top:24px; }
+  .vl-facts { list-style:none; padding:0; margin:22px 0 0; display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; font-size:.9rem; color:var(--muted); }
+  .vl-facts li { display:flex; align-items:flex-start; gap:8px; }
+  .vl-facts li::before { content:""; flex:0 0 auto; width:16px; height:16px; margin-top:3px; border-radius:50%; background:var(--g) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; }
+
+  .vl-stage { position:relative; margin:0 auto; width:min(100%,440px); }
+  .vl-stage__disc { position:absolute; inset:6% 6% 12%; border-radius:50%; background:radial-gradient(circle at 50% 40%, #fff 0, #fbe3b8 55%, rgba(242,169,59,.0) 72%); }
+  .vl-stage__imgs { position:relative; aspect-ratio:1/1; }
+  .vl-stage__img { position:absolute; inset:0; opacity:0; transition:opacity .45s ease, transform .6s cubic-bezier(.2,.7,.2,1); transform:scale(.97); }
+  .vl-stage__img.is-on { opacity:1; transform:none; }
+  .vl-stage__img img { width:100%; height:100%; object-fit:contain; border-radius:var(--r); mix-blend-mode:multiply; }
+  .vl-swatches { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:10px; }
+  .vl-swatches__label { font-size:.85rem; color:var(--muted); margin-left:4px; }
+  .vl-sw { width:34px; height:34px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1.5px var(--line); cursor:pointer; padding:0; transition:box-shadow .2s ease, transform .2s ease; }
+  .vl-sw.is-on { box-shadow:0 0 0 2px var(--ink); }
+  .vl-sw:hover { transform:scale(1.08); }
+  .vl-sw--kit { background:conic-gradient(#3d78c9 0 33%, #4f9a5a 0 66%, #ef8a2c 0); }
+  .vl-sw--bla, .vl-dot--bla { background:#3d78c9; }
+  .vl-sw--gron, .vl-dot--gron { background:#4f9a5a; }
+  .vl-sw--orange, .vl-dot--orange { background:#ef8a2c; }
+
+  /* KORT */
+  .vl-cards3 { list-style:none; margin:26px 0 0; padding:0; display:grid; gap:12px; }
+  .vl-card { background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:22px; }
+  .vl-card svg { width:34px; height:34px; fill:none; stroke:var(--g); stroke-width:1.8; stroke-linecap:round; margin-bottom:12px; }
+  .vl-card svg circle { fill:var(--g); stroke:none; }
+  .vl-card p { color:var(--muted); }
+
+  .vl-split { display:grid; gap:28px; align-items:center; }
+  .vl-split__media img { width:100%; height:auto; border-radius:var(--r); background:#fff; display:block; }
+  .vl-solution { background:#fff; }
+  .vl-packs { margin:22px 0 0; display:grid; gap:10px; }
+  .vl-packs div { border:1px solid var(--line); border-radius:14px; padding:14px 16px; background:var(--cream); }
+  .vl-packs dt { font-weight:800; }
+  .vl-packs dd { margin:2px 0 0; color:var(--muted); font-size:.95rem; }
+
+  /* DEMO */
+  .vl-demo { background:var(--g); color:#fff; }
+  .vl-demo .vl-h2, .vl-demo h3 { color:#fff; }
+  .vl-demo .vl-kicker { color:var(--sun); }
+  .vl-steps { list-style:none; margin:28px 0 0; padding:0; display:grid; gap:14px; counter-reset:s; }
+  .vl-step { position:relative; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:var(--r); padding:14px 14px 20px; }
+  .vl-step p { color:#cfe0d6; }
+  .vl-step__media { position:relative; aspect-ratio:4/3; border-radius:12px; overflow:hidden; background:#fff; margin-bottom:16px; }
+  .vl-step__media img { width:100%; height:100%; object-fit:contain; }
+  .vl-step__n { display:inline-grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--sun); color:var(--ink); font-weight:800; font-size:.95rem; margin-bottom:10px; }
+  .vl-water { position:absolute; left:0; right:0; bottom:0; height:0; background:linear-gradient(180deg, rgba(90,160,220,.0), rgba(90,160,220,.28)); }
+  .vl-twist { position:absolute; inset:auto 12px 12px auto; width:44px; height:44px; border-radius:50%; border:3px solid rgba(7,51,34,.5); border-top-color:transparent; border-left-color:transparent; }
+
+  /* FÖRDELAR + STORLEKAR */
+  .vl-checks { list-style:none; margin:18px 0 0; padding:0; display:grid; gap:12px; }
+  .vl-checks li { position:relative; padding-left:32px; color:var(--muted); }
+  .vl-checks li strong { color:var(--ink); }
+  .vl-checks li::before { content:""; position:absolute; left:0; top:3px; width:20px; height:20px; border-radius:50%; background:#e8efe9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='%23073322' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; }
+  .vl-sizes { margin-top:40px; background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:22px; display:grid; gap:20px; }
+  .vl-sizes__head h3 { font-family:var(--serif); font-size:1.4rem; }
+  .vl-sizes__head p { color:var(--muted); }
+  .vl-sizes__bars { display:flex; align-items:flex-end; justify-content:center; gap:22px; height:170px; }
+  .vl-bar { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; font-size:.85rem; color:var(--muted); }
+  .vl-bar strong { color:var(--ink); font-size:1rem; }
+  .vl-bar__cup { width:62px; height:calc(var(--s) * 1px); border-radius:10px 10px 16px 16px; background:linear-gradient(180deg,#5aa065,#3f8150); transform-origin:bottom; }
+  .vl-sizes__note { font-size:.93rem; color:var(--muted); }
+
+  /* OMDÖMEN */
+  .vl-proof { background:var(--sand); }
+  .vl-proof__in { display:grid; gap:24px; }
+  .vl-promises { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .vl-promises li { background:#fff; border-radius:14px; padding:16px; border:1px solid var(--line); }
+  .vl-promises strong { display:block; }
+  .vl-promises span { color:var(--muted); font-size:.92rem; }
+
+  /* KÖP */
+  .vl-buy { background:#fff; scroll-margin-top:70px; }
+  .vl-buy__in { display:grid; gap:24px; }
+  .vl-buy__img { background:var(--cream); border-radius:var(--r); overflow:hidden; aspect-ratio:1/1; }
+  .vl-buy__img img { width:100%; height:100%; object-fit:contain; mix-blend-mode:multiply; }
+  .vl-price { font-size:1.6rem; font-weight:800; margin:-4px 0 18px !important; }
+  .vl-price__note { font-size:.9rem; font-weight:500; color:var(--muted); }
+  .vl-opt { border:0; padding:0; margin:0 0 18px; min-width:0; }
+  .vl-opt legend { font-weight:700; margin-bottom:8px; padding:0; }
+  .vl-opt legend span { font-weight:500; color:var(--muted); }
+  .vl-opt__row { display:flex; flex-wrap:wrap; gap:8px; }
+  .vl-pill { display:inline-flex; flex-direction:column; justify-content:center; gap:2px; min-height:48px; min-width:64px; padding:8px 16px; border:1.5px solid var(--line); border-radius:12px; background:#fff; cursor:pointer; font-weight:600; transition:border-color .15s ease, background-color .15s ease; text-align:center; }
+  .vl-pill small { font-weight:500; font-size:.78rem; color:var(--muted); }
+  .vl-pill--color { flex-direction:row; align-items:center; gap:8px; }
+  .vl-dot { width:16px; height:16px; border-radius:50%; display:inline-block; }
+  .vl-opt input:checked + .vl-pill { border-color:var(--g); background:#eef4ef; box-shadow:inset 0 0 0 1px var(--g); }
+  .vl-opt__help { display:inline-block; margin-top:8px; font-size:.9rem; color:var(--g2) !important; }
+  .vl-form .vh-ship { margin:6px 0 16px; }
+  .vl-form__msg { min-height:1.2em; font-size:.9rem; color:var(--muted); margin-top:8px !important; }
+  .vl-pay { font-size:.88rem; color:var(--muted); margin-top:4px !important; }
+  .vl-buy__more { margin-top:14px !important; font-size:.95rem; }
+
+  /* FAQ */
+  .vl-faq__in { display:grid; gap:24px; }
+  .vl-faq__list details { border-bottom:1px solid var(--line); }
+  .vl-faq__list summary { list-style:none; cursor:pointer; padding:18px 36px 18px 0; font-weight:700; position:relative; min-height:44px; }
+  .vl-faq__list summary::-webkit-details-marker { display:none; }
+  .vl-faq__list summary::after { content:""; position:absolute; right:6px; top:50%; width:10px; height:10px; border-right:2px solid var(--ink); border-bottom:2px solid var(--ink); transform:translateY(-70%) rotate(45deg); transition:transform .2s ease; }
+  .vl-faq__list details[open] summary::after { transform:translateY(-30%) rotate(225deg); }
+  .vl-faq__list p { padding:0 0 18px; color:var(--muted); }
+
+  .vl-about { padding:40px 0 56px; }
+  .vl-about__in { display:flex; flex-direction:column; gap:16px; align-items:flex-start; border-top:1px solid var(--line); padding-top:32px; }
+
+  /* Följeknapp på mobilen */
+  .vl-sticky { position:fixed; left:10px; right:10px; bottom:calc(10px + env(safe-area-inset-bottom,0px)); z-index:30; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 10px 10px 16px; background:rgba(255,255,255,.96); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:999px; box-shadow:0 12px 30px -12px rgba(0,0,0,.3); transform:translateY(140%); transition:transform .3s ease; }
+  .vl-sticky.is-on { transform:none; }
+  .vl-sticky__txt { display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+  .vl-sticky__txt span { font-size:.8rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .vl-sticky .vl-btn { min-height:46px; padding:0 18px; white-space:nowrap; }
+
+  /* Rörelse (bara om man inte valt minskad rörelse) */
+  .vl-anim .vl-reveal { opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+  .vl-anim .vl-reveal.is-in { opacity:1; transform:none; }
+  .vl-anim .vl-cards3 .vl-reveal:nth-child(2), .vl-anim .vl-steps .vl-reveal:nth-child(2), .vl-anim .vl-promises .vl-reveal:nth-child(2) { transition-delay:.08s; }
+  .vl-anim .vl-cards3 .vl-reveal:nth-child(3), .vl-anim .vl-steps .vl-reveal:nth-child(3), .vl-anim .vl-promises .vl-reveal:nth-child(3) { transition-delay:.16s; }
+  .vl-anim .vl-promises .vl-reveal:nth-child(4) { transition-delay:.24s; }
+  .vl-anim .vl-step.is-in .vl-water { animation:vl-fill 1.6s .3s ease-out forwards; }
+  .vl-anim .vl-step.is-in .vl-twist { animation:vl-twist 1.4s .3s ease-in-out 2; }
+  .vl-anim .vl-sizes.is-in .vl-bar__cup { animation:vl-grow .9s cubic-bezier(.2,.7,.2,1) both; }
+  .vl-anim .vl-sizes.is-in .vl-bar:nth-child(2) .vl-bar__cup { animation-delay:.1s; }
+  .vl-anim .vl-sizes.is-in .vl-bar:nth-child(3) .vl-bar__cup { animation-delay:.2s; }
+  @keyframes vl-fill { to { height:45%; } }
+  @keyframes vl-twist { 0%,100% { transform:rotate(-35deg); } 50% { transform:rotate(35deg); } }
+  @keyframes vl-grow { from { transform:scaleY(.2); opacity:.3; } to { transform:none; opacity:1; } }
+  .vl-anim .vl-stage__imgs { animation:vl-float 7s ease-in-out infinite; }
+  @keyframes vl-float { 0%,100% { transform:translateY(0) rotate(0); } 50% { transform:translateY(-8px) rotate(-1deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .vl *, .vl *::before, .vl *::after { animation:none !important; transition:none !important; }
+    .vl-sticky { transition:none; }
+  }
+
+  @media (min-width:750px) {
+    .vl-w { padding:0 32px; }
+    .vl-sec { padding:88px 0; }
+    .vl-hero { padding:48px 0 80px; }
+    .vl-hero__ctas { flex-direction:row; flex-wrap:wrap; }
+    .vl-facts { display:flex; flex-wrap:wrap; gap:8px 22px; }
+    .vl-cards3 { grid-template-columns:repeat(3,1fr); gap:16px; }
+    .vl-steps { grid-template-columns:repeat(3,1fr); gap:16px; }
+    .vl-promises { grid-template-columns:repeat(4,1fr); }
+    .vl-sizes { grid-template-columns:1fr 1fr; align-items:center; padding:32px; }
+    .vl-sizes__note { grid-column:1 / -1; }
+    .vl-about__in { flex-direction:row; justify-content:space-between; align-items:center; }
+    .vl-sticky { display:none; }
+  }
+  @media (min-width:990px) {
+    .vl-hero__in { grid-template-columns:1.05fr 1fr; align-items:center; gap:48px; }
+    .vl-stage { width:100%; }
+    .vl-split { grid-template-columns:1fr 1fr; gap:64px; }
+    .vl-split--rev .vl-split__media { order:2; }
+    .vl-buy__in { grid-template-columns:1fr 1fr; gap:56px; align-items:start; }
+    .vl-buy__media { position:sticky; top:96px; }
+    .vl-faq__in { grid-template-columns:1fr 1.6fr; gap:56px; }
+    .vl-proof__in { grid-template-columns:1.2fr 1fr; align-items:center; gap:48px; }
+    .vl-promises { grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width:374px) {
+    .vl-facts { grid-template-columns:1fr; }
+    .vl-promises { grid-template-columns:1fr; }
+    .vl-sticky__txt span { display:none; }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Enproduktssida",
+  "settings": [
+    { "type": "text", "id": "product_handle", "label": "Produktens handle", "default": "tasstvattkit-sma-och-mellanstora-hundar" },
+    { "type": "text", "id": "heading", "label": "Rubrik", "default": "Rena tassar innan hunden kliver in." },
+    { "type": "textarea", "id": "lead", "label": "Ingress", "default": "Skölj bort lera, grus och vägsalt direkt i hallen. En kopp med mjuka borst och en mikrofiberhandduk i samma kit." }
+  ],
+  "presets": [{ "name": "Enproduktssida" }]
+}
+{% endschema %}
