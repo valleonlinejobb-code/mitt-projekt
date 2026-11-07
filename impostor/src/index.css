@@ -1,0 +1,81 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/bricolage-grotesque';
+
+/* Ett medvetet mörkt tema: bläckviolett natt, elfenbensvit text,
+   signalröd för impostorn och mässing för de vanliga spelarna. */
+@theme {
+  --color-ink: #0f0d13;
+  --color-panel: #18151e;
+  --color-panel-2: #221e2a;
+  --color-line: #2e2838;
+  --color-ivory: #f3eee6;
+  --color-mute: #9d94aa;
+  --color-signal: #ff4f45;
+  --color-brass: #e9c46a;
+  --color-ok: #7ed6a8;
+
+  --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-ivory);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Diskret korn och ljuskägla i bakgrunden */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 50% -10%, rgb(255 79 69 / 0.09), transparent 60%),
+    radial-gradient(40rem 30rem at 100% 110%, rgb(233 196 106 / 0.05), transparent 60%);
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
+}
+
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
