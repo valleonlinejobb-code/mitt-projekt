@@ -2,3 +2,6 @@ node_modules/
 data/
 .env
 .DS_Store
+
+# Impostors ordbibliotek ska versionshanteras
+!impostor/src/data/
