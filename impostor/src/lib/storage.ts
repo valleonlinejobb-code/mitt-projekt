@@ -1,3 +1,4 @@
+import { LEGACY_IDS } from '../data/words'
 import { DEFAULT_SETTINGS, MAX_PLAYERS, newId, type Category, type ExtraWords, type Player, type Settings, type Stats } from './game'
 
 const KEY = 'impostor.v1'
@@ -60,12 +61,20 @@ export function load(): Saved {
 
   const extraWords: ExtraWords = {}
   if (r.extraWords && typeof r.extraWords === 'object') {
-    for (const [id, list] of Object.entries(r.extraWords)) {
+    for (const [oldId, list] of Object.entries(r.extraWords)) {
       if (!Array.isArray(list)) continue
+      const id = LEGACY_IDS[oldId] ?? oldId
       const ok = list.filter((w) => w && typeof w.word === 'string' && Array.isArray(w.hints))
-      if (ok.length) extraWords[id] = ok.map((w) => ({ word: w.word, hints: w.hints.filter((h) => typeof h === 'string'), difficulty: 'medium', own: true }))
+      if (ok.length)
+        extraWords[id] = [
+          ...(extraWords[id] ?? []),
+          ...ok.map((w) => ({ word: w.word, hints: w.hints.filter((h) => typeof h === 'string'), difficulty: 'medium' as const, own: true })),
+        ]
     }
   }
+
+  // Kategorierna slogs ihop till bredare: översätt gamla val.
+  settings.categoryIds = Array.from(new Set(settings.categoryIds.map((id) => LEGACY_IDS[id] ?? id)))
 
   return {
     extraWords,

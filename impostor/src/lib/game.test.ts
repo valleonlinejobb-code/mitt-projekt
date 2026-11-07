@@ -314,3 +314,25 @@ describe('sparning av egna ord', () => {
     expect(d.extraWords).toEqual({ djur: [{ word: 'Mullvad', hints: ['Jord'], difficulty: 'medium', own: true }] })
   })
 })
+
+describe('breda kategorier', () => {
+  it('varje kategori har minst 45 ord', () => {
+    expect(BUILTIN_CATEGORIES.length).toBeLessThanOrEqual(15)
+    for (const c of BUILTIN_CATEGORIES) expect(c.words.length, c.name).toBeGreaterThanOrEqual(45)
+  })
+
+  it('gamla sparade kategorival och egna ord flyttas till de nya kategorierna', async () => {
+    const { load } = await import('./storage')
+    localStorage.clear()
+    localStorage.setItem(
+      'impostor.v1',
+      JSON.stringify({
+        settings: { categoryIds: ['svenska-kandisar', 'youtubers', 'mat', 'drycker'] },
+        extraWords: { youtubers: [{ word: 'Jockiboi', hints: [] }], 'svenska-kandisar': [{ word: 'Ernst', hints: [] }] },
+      }),
+    )
+    const d = load()
+    expect(d.settings.categoryIds).toEqual(['kandisar', 'mat'])
+    expect(d.extraWords.kandisar.map((w) => w.word)).toEqual(['Jockiboi', 'Ernst'])
+  })
+})
