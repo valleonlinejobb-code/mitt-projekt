@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button, Label, Row, Segmented, Sheet, Toggle, cx } from '../components/ui'
 import { GROUPS } from '../data/words'
-import { newId, normalize, type Category, type Player, type Settings, type Stats } from '../lib/game'
+import { newId, normalize, parseWordLines, type Category, type ExtraWords, type Player, type Settings, type Stats } from '../lib/game'
 
 // ---------------- Kategorier ----------------
 
@@ -12,6 +12,8 @@ export function CategoriesPanel({
   settings,
   onSettings,
   onCustom,
+  extraWords,
+  onExtraWords,
 }: {
   open: boolean
   onClose: () => void
@@ -19,8 +21,11 @@ export function CategoriesPanel({
   settings: Settings
   onSettings: (s: Settings) => void
   onCustom: (cats: Category[]) => void
+  extraWords: ExtraWords
+  onExtraWords: (e: ExtraWords) => void
 }) {
   const [creating, setCreating] = useState(false)
+  const [adding, setAdding] = useState(false)
   const allIds = categories.map((c) => c.id)
   const selected = new Set(settings.categoryIds.length ? settings.categoryIds : allIds)
   const setSelected = (ids: Set<string>) =>
@@ -57,6 +62,18 @@ export function CategoriesPanel({
       <p className="text-sm text-mute">
         {selected.size} av {allIds.length} valda. Ordet slumpas från alla valda kategorier.
       </p>
+      <button
+        onClick={() => setAdding(true)}
+        className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-mute"
+      >
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-signal/15 text-xl text-signal">+</span>
+        <span className="min-w-0">
+          <span className="block font-semibold">Lägg till ord i en kategori</span>
+          <span className="block text-sm text-mute">
+            {Object.values(extraWords).reduce((n, l) => n + l.length, 0) || 'Inga'} egna ord hittills
+          </span>
+        </span>
+      </button>
       {groups
         .filter((x) => x.cats.length)
         .map(({ g, cats }) => {
@@ -115,6 +132,14 @@ export function CategoriesPanel({
         </div>
       )}
 
+      <AddWordsForm
+        open={adding}
+        categories={categories}
+        extraWords={extraWords}
+        onChange={onExtraWords}
+        onClose={() => setAdding(false)}
+      />
+
       <CustomCategoryForm
         open={creating}
         existing={categories}
@@ -141,14 +166,7 @@ function CustomCategoryForm({
 }) {
   const [name, setName] = useState('')
   const [text, setText] = useState('')
-  const parsed = useMemo(() => {
-    const seen = new Set<string>()
-    return text
-      .split('\n')
-      .map((l) => l.split('|').map((x) => x.trim()))
-      .filter(([w]) => w && !seen.has(normalize(w)) && seen.add(normalize(w)))
-      .map(([word, ...hints]) => ({ word, hints: hints.filter(Boolean).slice(0, 2), difficulty: 'medium' as const }))
-  }, [text])
+  const parsed = useMemo(() => parseWordLines(text), [text])
   const nameTaken = existing.some((c) => normalize(c.name) === normalize(name))
   const valid = name.trim().length > 0 && !nameTaken && parsed.length >= 3
 
@@ -190,6 +208,119 @@ function CustomCategoryForm({
       >
         Spara kategori
       </Button>
+    </Sheet>
+  )
+}
+
+function AddWordsForm({
+  open,
+  categories,
+  extraWords,
+  onChange,
+  onClose,
+}: {
+  open: boolean
+  categories: Category[]
+  extraWords: ExtraWords
+  onChange: (e: ExtraWords) => void
+  onClose: () => void
+}) {
+  const [catId, setCatId] = useState(categories[0]?.id ?? '')
+  const [text, setText] = useState('')
+  const [saved, setSaved] = useState<number | null>(null)
+  const cat = categories.find((c) => c.id === catId) ?? categories[0]
+  const mine = extraWords[cat?.id ?? ''] ?? []
+  const parsed = useMemo(() => parseWordLines(text), [text])
+  const existing = new Set(cat?.words.map((w) => normalize(w.word)) ?? [])
+  const fresh = parsed.filter((w) => !existing.has(normalize(w.word)))
+  const dupCount = parsed.length - fresh.length
+  if (!cat) return null
+
+  const save = () => {
+    onChange({ ...extraWords, [cat.id]: [...mine, ...fresh.map((w) => ({ ...w, own: true }))] })
+    setSaved(fresh.length)
+    setText('')
+  }
+  const remove = (word: string) => {
+    const next = mine.filter((w) => w.word !== word)
+    const copy = { ...extraWords }
+    if (next.length) copy[cat.id] = next
+    else delete copy[cat.id]
+    onChange(copy)
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Lägg till ord">
+      <label className="block text-sm text-mute" htmlFor="aw-cat">
+        Kategori
+      </label>
+      <select
+        id="aw-cat"
+        value={cat.id}
+        onChange={(e) => {
+          setCatId(e.target.value)
+          setSaved(null)
+        }}
+        className="mt-1 h-12 w-full rounded-2xl border border-line bg-panel-2 px-3 outline-none focus:border-mute"
+      >
+        {[...GROUPS, 'Egna'].map((g) => {
+          const list = categories.filter((c) => (c.custom ? 'Egna' : c.group) === g)
+          return list.length ? (
+            <optgroup key={g} label={g}>
+              {list.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.words.length})
+                </option>
+              ))}
+            </optgroup>
+          ) : null
+        })}
+      </select>
+
+      <label className="mt-4 block text-sm text-mute" htmlFor="aw-words">
+        Nya ord, ett per rad. Ledtrådar är valfria: <span className="text-ivory">Ord | ledtråd | ledtråd</span>
+      </label>
+      <textarea
+        id="aw-words"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value)
+          setSaved(null)
+        }}
+        rows={5}
+        placeholder={'Ett ord per rad\nTill exempel: Hampus | Kompis | Skolan'}
+        className="mt-1 w-full rounded-2xl border border-line bg-panel-2 p-4 outline-none focus:border-mute"
+      />
+      <p className="mt-1 text-sm text-mute" aria-live="polite">
+        {saved !== null
+          ? `${saved} ord tillagda i ${cat.name}.`
+          : `${fresh.length} nya ord${dupCount ? `, ${dupCount} finns redan i kategorin` : ''}.`}
+      </p>
+      <p className="mt-1 text-xs text-mute">Egna ord används på alla svårighetsnivåer. Utan ledtråd ser impostorn bara kategorin.</p>
+      <Button variant="primary" disabled={fresh.length === 0} className="mt-4 w-full" onClick={save}>
+        Lägg till i {cat.name}
+      </Button>
+
+      {mine.length > 0 && (
+        <>
+          <Label>Dina ord i {cat.name}</Label>
+          <ul className="flex flex-wrap gap-2">
+            {mine.map((w) => (
+              <li key={w.word} className="flex items-center gap-1 rounded-full bg-panel-2 py-1 pr-1 pl-3.5 text-sm">
+                <span>{w.word}</span>
+                {w.hints.length > 0 && <span className="text-mute">· {w.hints.join(', ')}</span>}
+                <button
+                  onClick={() => remove(w.word)}
+                  aria-label={`Ta bort ${w.word}`}
+                  className="grid size-8 place-items-center rounded-full text-mute hover:bg-line hover:text-signal"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </Sheet>
   )
 }

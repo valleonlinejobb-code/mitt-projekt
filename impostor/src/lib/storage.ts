@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, MAX_PLAYERS, newId, type Category, type Player, type Settings, type Stats } from './game'
+import { DEFAULT_SETTINGS, MAX_PLAYERS, newId, type Category, type ExtraWords, type Player, type Settings, type Stats } from './game'
 
 const KEY = 'impostor.v1'
 
@@ -6,6 +6,7 @@ export type Saved = {
   players: Player[]
   settings: Settings
   customCategories: Category[]
+  extraWords: ExtraWords
   stats: Stats
   recentWords: string[]
   roundsPlayed: number
@@ -16,6 +17,7 @@ export function defaultSaved(): Saved {
     players: ['Spelare 1', 'Spelare 2', 'Spelare 3', 'Spelare 4'].map((name) => ({ id: newId(), name })),
     settings: { ...DEFAULT_SETTINGS },
     customCategories: [],
+    extraWords: {},
     stats: {},
     recentWords: [],
     roundsPlayed: 0,
@@ -56,10 +58,20 @@ export function load(): Saved {
       )
     : []
 
+  const extraWords: ExtraWords = {}
+  if (r.extraWords && typeof r.extraWords === 'object') {
+    for (const [id, list] of Object.entries(r.extraWords)) {
+      if (!Array.isArray(list)) continue
+      const ok = list.filter((w) => w && typeof w.word === 'string' && Array.isArray(w.hints))
+      if (ok.length) extraWords[id] = ok.map((w) => ({ word: w.word, hints: w.hints.filter((h) => typeof h === 'string'), difficulty: 'medium', own: true }))
+    }
+  }
+
   return {
+    extraWords,
     players: players.length >= 3 ? players : base.players,
     settings,
-    customCategories: customCategories.map((c) => ({ ...c, custom: true })),
+    customCategories: customCategories.map((c) => ({ ...c, custom: true, words: c.words.filter((w) => !w.own) })),
     stats: r.stats && typeof r.stats === 'object' ? (r.stats as Stats) : {},
     recentWords: Array.isArray(r.recentWords) ? r.recentWords.filter((w) => typeof w === 'string') : [],
     roundsPlayed: typeof r.roundsPlayed === 'number' ? r.roundsPlayed : 0,

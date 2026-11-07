@@ -9,6 +9,8 @@ import {
   DEFAULT_SETTINGS,
   eliminate,
   maxImpostors,
+  mergeExtraWords,
+  parseWordLines,
   normalize,
   rememberWord,
   roleFor,
@@ -258,5 +260,57 @@ describe('poäng och statistik', () => {
     s = applyResult(s, ps, r, 'crew')
     expect(s[crew.name]).toMatchObject({ rounds: 2, wins: 1, points: 1 })
     expect(s[imp.name]).toMatchObject({ rounds: 2, impostor: 2, wins: 1 })
+  })
+})
+
+describe('egna ord i befintliga kategorier', () => {
+  it('tolkar rader, ledtrådar och tar bort dubbletter', () => {
+    const w = parseWordLines('Hampus | Kompis | Skolan\n\nhampus\n  Bamseklubben  \nX|a|b|c')
+    expect(w.map((x) => x.word)).toEqual(['Hampus', 'Bamseklubben', 'X'])
+    expect(w[0].hints).toEqual(['Kompis', 'Skolan'])
+    expect(w[2].hints).toEqual(['a', 'b'])
+  })
+
+  it('lägger in ord i rätt kategori, hoppar över ord som redan finns', () => {
+    const merged = mergeExtraWords(BUILTIN_CATEGORIES, {
+      djur: [
+        { word: 'Mullvad', hints: ['Jord'], difficulty: 'medium' },
+        { word: 'hund', hints: [], difficulty: 'medium' },
+      ],
+    })
+    const djur = merged.find((c) => c.id === 'djur')!
+    const orig = BUILTIN_CATEGORIES.find((c) => c.id === 'djur')!
+    expect(djur.words).toHaveLength(orig.words.length + 1)
+    expect(djur.words.at(-1)).toMatchObject({ word: 'Mullvad', own: true })
+    expect(merged.find((c) => c.id === 'mat')).toBe(BUILTIN_CATEGORIES.find((c) => c.id === 'mat'))
+  })
+
+  it('egna ord kan väljas på alla svårighetsnivåer och får rätt kategori', () => {
+    const merged = mergeExtraWords(BUILTIN_CATEGORIES, { djur: [{ word: 'Mullvad', hints: [], difficulty: 'medium' }] })
+    for (const difficulty of ['easy', 'medium', 'hard'] as const) {
+      const pool = wordPool(merged, { categoryIds: ['djur'], difficulty })
+      expect(pool[0].words.map((w) => w.word)).toContain('Mullvad')
+    }
+    let found = false
+    for (let seed = 1; seed < 400 && !found; seed++) {
+      const r = createRound({ players: players(4), settings: { ...DEFAULT_SETTINGS, categoryIds: ['djur'], mode: 'hint' }, categories: merged, recentWords: [], number: 1, rng: seeded(seed) })
+      if ('error' in r) throw new Error()
+      if (r.word === 'Mullvad') {
+        found = true
+        expect(r.categoryName).toBe('Djur')
+        expect(r.hints[r.impostorIds[0]]).toBeNull() // inga ledtrådar angivna
+      }
+    }
+    expect(found).toBe(true)
+  })
+})
+
+describe('sparning av egna ord', () => {
+  it('sparas och läses tillbaka, trasig data ignoreras', async () => {
+    const { load, save, defaultSaved } = await import('./storage')
+    localStorage.clear()
+    save({ ...defaultSaved(), extraWords: { djur: [{ word: 'Mullvad', hints: ['Jord'], difficulty: 'medium' }], mat: 'trasigt' as never } })
+    const d = load()
+    expect(d.extraWords).toEqual({ djur: [{ word: 'Mullvad', hints: ['Jord'], difficulty: 'medium', own: true }] })
   })
 })

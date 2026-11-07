@@ -4,7 +4,9 @@ import { CATEGORIES, type Difficulty } from '../data/words'
 
 export type Player = { id: string; name: string }
 
-export type WordEntry = { word: string; hints: string[]; difficulty: Difficulty }
+export type WordEntry = { word: string; hints: string[]; difficulty: Difficulty; /** Tillagt av spelarna själva. */ own?: boolean }
+/** Egna ord per kategori-id, även för inbyggda kategorier. */
+export type ExtraWords = Record<string, WordEntry[]>
 export type Category = { id: string; name: string; group: string; custom?: boolean; words: WordEntry[] }
 
 export type Mode = 'classic' | 'hint' | 'random'
@@ -142,9 +144,39 @@ export function wordPool(categories: Category[], settings: Pick<Settings, 'categ
     .map((c) => ({
       category: c,
       // Egna ord saknar svårighetsgrad i praktiken och används alltid.
-      words: c.words.filter((w) => c.custom || diffs.includes(w.difficulty)),
+      words: c.words.filter((w) => c.custom || w.own || diffs.includes(w.difficulty)),
     }))
     .filter((x) => x.words.length > 0)
+}
+
+/** Lägger in egna ord i sina kategorier. Ord som redan finns i kategorin hoppas över. */
+export function mergeExtraWords(categories: Category[], extras: ExtraWords): Category[] {
+  return categories.map((c) => {
+    const add = extras[c.id]
+    if (!add?.length) return c
+    const seen = new Set(c.words.map((w) => normalize(w.word)))
+    const fresh = add.filter((w) => {
+      const k = normalize(w.word)
+      if (!k || seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+    return { ...c, words: [...c.words, ...fresh.map((w) => ({ ...w, own: true }))] }
+  })
+}
+
+/** Tolkar rader i formatet "Ord | ledtråd | ledtråd". Tomma rader och dubbletter tas bort. */
+export function parseWordLines(text: string): WordEntry[] {
+  const seen = new Set<string>()
+  const out: WordEntry[] = []
+  for (const line of text.split('\n')) {
+    const [word, ...hints] = line.split('|').map((x) => x.trim())
+    const k = normalize(word ?? '')
+    if (!word || !k || seen.has(k)) continue
+    seen.add(k)
+    out.push({ word: word.slice(0, 60), hints: hints.filter(Boolean).slice(0, 2).map((h) => h.slice(0, 40)), difficulty: 'medium' })
+  }
+  return out
 }
 
 // ---------- Runda ----------

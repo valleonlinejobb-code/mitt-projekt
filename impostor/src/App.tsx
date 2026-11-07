@@ -8,6 +8,7 @@ import {
   createRound,
   decideVote,
   eliminate,
+  mergeExtraWords,
   rememberWord,
   type Player,
   type Round,
@@ -48,7 +49,10 @@ export default function App() {
   useEffect(() => save(data), [data])
   useEffect(() => configureFeedback(data.settings), [data.settings])
 
-  const categories = useMemo(() => [...BUILTIN_CATEGORIES, ...data.customCategories], [data.customCategories])
+  const categories = useMemo(
+    () => mergeExtraWords([...BUILTIN_CATEGORIES, ...data.customCategories], data.extraWords),
+    [data.customCategories, data.extraWords],
+  )
   const settings = clampSettings(data.settings, data.players.length)
   const update = (patch: Partial<Saved>) => setData((d) => ({ ...d, ...patch }))
 
@@ -207,14 +211,22 @@ export default function App() {
         categories={categories}
         settings={settings}
         onSettings={(s2) => update({ settings: s2 })}
-        onCustom={(customCategories) =>
+        extraWords={data.extraWords}
+        onExtraWords={(extraWords) => update({ extraWords })}
+        onCustom={(merged) =>
           setData((d) => ({
             ...d,
-            customCategories,
+            // Egna ord sparas separat, så de tas bort ur kategorin här.
+            customCategories: merged.map((c) => ({ ...c, words: c.words.filter((w) => !w.own) })),
+            extraWords: Object.fromEntries(
+              Object.entries(d.extraWords).filter(
+                ([id]) => BUILTIN_CATEGORIES.some((c) => c.id === id) || merged.some((c) => c.id === id),
+              ),
+            ),
             settings: {
               ...d.settings,
               categoryIds: d.settings.categoryIds.filter(
-                (id) => BUILTIN_CATEGORIES.some((c) => c.id === id) || customCategories.some((c) => c.id === id),
+                (id) => BUILTIN_CATEGORIES.some((c) => c.id === id) || merged.some((c) => c.id === id),
               ),
             },
           }))
