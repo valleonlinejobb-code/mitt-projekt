@@ -42,6 +42,7 @@ body,
 }
 
 body {
+  color-scheme: dark;
   background: var(--color-bg);
   color: #e8ebf2;
   -webkit-tap-highlight-color: transparent;
