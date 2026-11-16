@@ -5,3 +5,6 @@ data/
 
 # Impostors ordbibliotek ska versionshanteras
 !impostor/src/data/
+
+# Nedladdade skill-paket (zip), byggs om vid behov
+claude-skills/
